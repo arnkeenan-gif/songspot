@@ -28,12 +28,14 @@ class Wire {
   open(key, me, on) {
     return new Promise((resolve, reject) => {
       const ch = supabase.channel('party:' + this.code, { config: { broadcast: { self: false }, presence: { key } } });
+      let live = false;
       ch.on('broadcast', { event: 'state' }, ({ payload }) => on.state(payload))
         .on('broadcast', { event: 'answer' }, ({ payload }) => on.answer(payload))
         .on('presence', { event: 'sync' }, () => on.presence(ch.presenceState()))
         .subscribe(async status => {
-          if (status === 'SUBSCRIBED') { await ch.track(me); resolve(); }
-          else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') { const e = new Error("Couldn't reach the party server."); reject(e); on.error(e.message); }
+          if (status === 'SUBSCRIBED') { live = true; await ch.track(me); resolve(); }
+          // A hiccup after the first join re-joins on its own; only a room that never opened is an error.
+          else if ((status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') && !live) { const e = new Error("Couldn't reach the party server."); reject(e); on.error(e.message); }
         });
       this.channel = ch;
     });
@@ -95,7 +97,8 @@ export class PartyGame {
     this.reset(); this.code = code; this.phase = 'connecting';
     this.me = { name, avatar, hue: 1 + Math.floor(Math.random() * 6), host: false }; this.emit();
     try { await this.open(); } catch (e) { return; }
-    this.watch = setTimeout(() => { if (this.phase === 'connecting') this.fail('No party with that code.'); }, 8000);
+    // Still nothing from a host after the subscribe: the code is not a room. (A state that already landed has its own watch.)
+    if (this.phase === 'connecting') { clearTimeout(this.watch); this.watch = setTimeout(() => { if (this.phase === 'connecting') this.fail('No party with that code.'); }, 8000); }
   }
   open() {
     this.wire = new Wire(this.code);

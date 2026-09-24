@@ -192,6 +192,10 @@ export function mountStage(root, ctx) {
   });
   document.addEventListener('keydown', e => { if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || document.querySelector('#views > *') || document.querySelector('.drawer-wrap')) return; if (e.code === 'Space') { e.preventDefault(); if (showReveal) newRound(); else play(); } });
 
-  newRound();
+  if (game.song && new URLSearchParams(location.search).get('song')) render(); else newRound();
+  // ?preview=win|lost|drawer — the marketing shots are taken from the real game.
+  const demo = new URLSearchParams(location.search).get('preview');
+  if (demo === 'win' || demo === 'lost') setTimeout(() => finish(demo === 'win'), 300);
+  if (demo === 'drawer') setTimeout(() => col.querySelector('.menu-btn').click(), 300);
   return { newRound, render };
 }

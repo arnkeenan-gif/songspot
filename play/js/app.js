@@ -34,5 +34,15 @@ gate(root, async () => {
 
   // Sign in first, as the apps do — the profile, the picture and the stats live on the account.
   // Until Google sign-in is switched on for the domain, the door below the button lets you in without one.
-  if (account.signedIn || settings.get('skipLogin', false)) start(); else ctx.signIn();
+  const q = new URLSearchParams(location.search);
+  if (q.get('guest') === '1') settings.set('skipLogin', true);
+  // Preview knobs, harmless in play: a premium look, a name, a fixed song.
+  if (q.get('premium') === '1') settings.set('debugPremium', true);
+  if (q.get('name')) { account.name = q.get('name'); account.persist(); }
+  if (q.get('song') && pool.byId.get(q.get('song'))) game.newRound(pool.byId.get(q.get('song')));
+  const demo = q.get('preview');
+  if (demo === 'ranked') { start(); setTimeout(() => ctx.openRanked(), 400); }
+  else if (demo === 'party') { start(); setTimeout(() => ctx.openParty(), 400); }
+  else if (demo === 'profile') { start(); setTimeout(() => ctx.openProfile(), 400); }
+  else if (account.signedIn || settings.get('skipLogin', false)) start(); else ctx.signIn();
 });

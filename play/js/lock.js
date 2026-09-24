@@ -3,7 +3,11 @@
 const KEY = 'songspot.gate';
 const CODE = 'songspot';
 
-export function unlocked() { try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; } }
+export function unlocked() {
+  // ?code=… in the URL opens the door too (for previews and links); it is remembered like a typed code.
+  try { const q = new URLSearchParams(location.search).get('code'); if (q && q.toLowerCase() === CODE) localStorage.setItem(KEY, '1'); } catch (e) {}
+  try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; }
+}
 
 export function gate(root, onOpen) {
   if (unlocked()) { onOpen(); return; }
