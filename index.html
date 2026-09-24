@@ -4,135 +4,168 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Songspot — name the song from 0.1 seconds</title>
-<meta name="description" content="Hear a tenth of a second of a song and name it. Solo, party with friends, ranked. 13,000 songs from the 60s to today. Free on iPhone, coming to Android and the web.">
+<meta name="description" content="Hear a tenth of a second of a song and name it. Solo, party with friends, ranked. 13,000 real recordings from the 60s to today. Free on the App Store.">
 <meta property="og:title" content="Songspot — name the song from 0.1 seconds">
-<meta property="og:description" content="Hear a tenth of a second. Say the song. Need more? Skip to 0.5s, 2s, 8s, 15s — fewer is better.">
+<meta property="og:description" content="Hear a tenth of a second. Say the song. Solo, party, ranked. Free on the App Store.">
 <meta property="og:url" content="https://songspotapp.com/">
 <meta property="og:type" content="website">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%2319df70'/%3E%3Cpath d='M26 20l18 12-18 12z' fill='%2304120a'/%3E%3C/svg%3E">
+<meta name="theme-color" content="#0a0a0d">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ff5c35'/%3E%3Cstop offset='1' stop-color='%238b6cff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23g)'/%3E%3Cpath d='M25 19l20 13-20 13z' fill='white'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,600;0,700;0,800;1,800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/site.css">
 </head>
 <body>
-<header class="menu">
-  <div class="wrap">
-    <a class="wordmark" href="/">songspot</a>
-    <button class="burger" aria-label="Menu" aria-expanded="false">☰</button>
-    <nav>
+<div class="ground" aria-hidden="true"><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div><div class="grid"></div><div class="noise"></div></div>
+
+<div class="island-wrap">
+  <header class="island" role="banner">
+    <a class="brand" href="/">songspot</a>
+    <nav aria-label="Site">
       <a class="play" href="/play">Play in web</a>
+      <a href="#how">How it plays</a>
+      <a href="#modes">Modes</a>
       <a href="#premium">Premium</a>
       <a href="/support">Support</a>
-      <a href="/privacy">Privacy</a>
-      <a class="cta" href="https://apps.apple.com/app/id6808657554">Get it on iPhone</a>
     </nav>
-  </div>
-</header>
+    <button class="burger" aria-label="Menu" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <a class="store" href="https://apps.apple.com/app/id6808657554">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.5 2-3.7 2.1-3.8-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.8-1.7 0-3.3 1-4.1 2.5-1.8 3.1-.5 7.6 1.3 10.1.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.2-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.7-4zM14 5.3c.7-.9 1.2-2 1-3.2-1 0-2.2.7-3 1.5-.6.7-1.2 1.9-1.1 3 1.2.1 2.3-.5 3.1-1.3z"/></svg>
+      App Store
+    </a>
+  </header>
+</div>
+<div class="sheet" aria-label="Menu">
+  <a href="/play">Play in web</a><a href="#how">How it plays</a><a href="#modes">Modes</a><a href="#premium">Premium</a><a href="/support">Support</a><a href="/privacy">Privacy</a>
+</div>
 
-<main class="wrap">
-  <div class="hero">
-    <div>
-      <h1>Name the song<br>from <em>0.1 seconds</em>.</h1>
-      <p class="lead">Hear a tenth of a second. Say the song. Need more? Skip to 0.5s, 2s, 8s and 15s — the fewer you use, the better you did. 13,000 songs from the 60s to today.</p>
-      <div class="buttons">
-        <a class="btn primary" href="https://apps.apple.com/app/id6808657554">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.5 2-3.7 2.1-3.8-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.8-1.7 0-3.3 1-4.1 2.5-1.8 3.1-.5 7.6 1.3 10.1.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.2-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.7-4zM14 5.3c.7-.9 1.2-2 1-3.2-1 0-2.2.7-3 1.5-.6.7-1.2 1.9-1.1 3 1.2.1 2.3-.5 3.1-1.3z"/></svg>
-          App Store
-        </a>
-        <a class="btn ghost" href="/play">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-          Play in web
-        </a>
-        <span class="btn soon" title="Coming soon on Google Play">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 20.5v-17c0-.6.6-1 1.1-.7l14.8 8.5c.5.3.5 1.1 0 1.4L4.1 21.2c-.5.3-1.1-.1-1.1-.7z"/></svg>
-          Google Play · soon
-        </span>
-      </div>
-      <p class="note">Free to play. Premium is a one-time $9.99, never a subscription.</p>
+<main>
+  <section class="hero wrap">
+    <span class="eyebrow"><b>NEW</b> Ranked seasons, weekly leaderboards</span>
+    <h1>Name the song from <span class="g">0.1 seconds.</span></h1>
+    <p class="lead">Hear a tenth of a second of a real recording. Say the song. Need more? Skip to 0.5s, 2s, 8s, 15s — the fewer you use, the better you did.</p>
+    <div class="cta">
+      <a class="btn primary store" href="https://apps.apple.com/app/id6808657554">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.5 2-3.7 2.1-3.8-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.8-1.7 0-3.3 1-4.1 2.5-1.8 3.1-.5 7.6 1.3 10.1.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.2-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.7-4zM14 5.3c.7-.9 1.2-2 1-3.2-1 0-2.2.7-3 1.5-.6.7-1.2 1.9-1.1 3 1.2.1 2.3-.5 3.1-1.3z"/></svg>
+        <span><span class="sub">Download on the</span><span class="t">App Store</span></span>
+      </a>
+      <a class="btn glass" href="/play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Play in web</a>
+      <span class="btn soon" title="Coming soon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 20.5v-17c0-.6.6-1 1.1-.7l14.8 8.5c.5.3.5 1.1 0 1.4L4.1 21.2c-.5.3-1.1-.1-1.1-.7z"/></svg>Google Play · soon</span>
     </div>
+    <div class="meta"><span>Free to play</span><span>13,000 real recordings</span><span>No music subscription needed</span></div>
 
-    <div class="stage" aria-hidden="true">
-      <div class="mark">songspot</div>
-      <div class="pills"><span class="on">Easy</span><span class="m">Medium</span><span class="h">Hard</span><span class="e">Expert</span><span class="i">Impossible</span></div>
-      <div style="width:100%">
-        <div class="bar"><i></i><b style="left:5.5%"></b><b style="left:24.3%"></b><b style="left:41.3%"></b></div>
-        <div class="stages" style="margin-top:8px"><span>0.1s</span><span>0.5s</span><span>2s</span><span>8s</span><span>15s</span></div>
-      </div>
-      <div class="disc"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg></div>
-      <div class="field"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>Name that track<span class="skip">⏭ Skip</span></div>
-    </div>
-  </div>
-
-  <section id="how">
-    <p class="kicker">How it plays</p>
-    <h2>Five chances. Fewer is better.</h2>
-    <p class="sub">Press play and you hear a tenth of a second. If you know it, type it and pick from the suggestions. If you don't, skip — the clip gets longer each time.</p>
-    <div class="steps">
-      <div class="step"><b>0.1s</b><span>A single hit. The instant win.</span></div>
-      <div class="step"><b>0.5s</b><span>A beat and a breath.</span></div>
-      <div class="step"><b>2s</b><span>The hook starts to show.</span></div>
-      <div class="step"><b>8s</b><span>Most people have it by now.</span></div>
-      <div class="step"><b>15s</b><span>Last chance.</span></div>
+    <div class="phones" aria-hidden="true">
+      <div class="glow"></div>
+      <div class="phone l"><div class="screen"><div class="notch"></div><img src="/img/party.jpg" alt=""></div></div>
+      <div class="phone c"><div class="screen"><div class="notch"></div><img src="/img/stage.jpg" alt=""></div></div>
+      <div class="phone r"><div class="screen"><div class="notch"></div><img src="/img/win.jpg" alt=""></div></div>
+      <div class="fade"></div>
     </div>
   </section>
 
-  <section id="modes">
-    <p class="kicker">Three ways to play</p>
-    <h2>Alone, with friends, or for a rating.</h2>
-    <div class="rows">
-      <div class="row">
-        <h3>Solo<small>free</small></h3>
-        <p>Five difficulties from <span class="tier" style="background:#19df70"></span>Easy to <span class="tier" style="background:#b46cff"></span>Impossible, every era from the 60s to the 2020s, 22 genres — and a one-artist mode that plays a single artist's whole catalogue, from their signature song down to the one nobody streams.</p>
-      </div>
-      <div class="row">
-        <h3>Party<small>free to join</small></h3>
-        <p>Host a room, share the code, up to 50 friends hear the same clip at the same moment. The fastest right answer scores the most. Podium at the end, with confetti.</p>
-      </div>
-      <div class="row">
-        <h3>Ranked<small>premium</small></h3>
-        <p>Five rounds against an opponent, climbing from Easy to Impossible. Every round is worth its difficulty, a first-second answer earns a bonus, and a wrong guess costs you. A rating that moves, weekly seasons, and daily and weekly leaderboards.</p>
-      </div>
+  <section id="how" class="wrap center">
+    <div class="rv">
+      <p class="kicker"><i></i>How it plays</p>
+      <h2>Five chances. Fewer is better.</h2>
+      <p class="sub">Press play and you hear a tenth of a second. Know it? Type it and pick from the suggestions. Don't? Skip — the clip gets longer every time.</p>
+    </div>
+    <div class="strip rv">
+      <div class="stage-card" style="--c:#19df70;--w:6%"><em>STAGE 1</em><b>0.1s</b><span>A single hit. The instant win.</span></div>
+      <div class="stage-card" style="--c:#ffd60a;--w:24%"><em>STAGE 2</em><b>0.5s</b><span>A beat and a breath.</span></div>
+      <div class="stage-card" style="--c:#ff8a2a;--w:41%"><em>STAGE 3</em><b>2s</b><span>The hook starts to show.</span></div>
+      <div class="stage-card" style="--c:#ff4d5a;--w:70%"><em>STAGE 4</em><b>8s</b><span>Most people have it by now.</span></div>
+      <div class="stage-card" style="--c:#b46cff;--w:100%"><em>STAGE 5</em><b>15s</b><span>Last chance.</span></div>
     </div>
   </section>
 
-  <section id="premium">
-    <p class="kicker">Premium</p>
-    <h2>One purchase. Everything on.</h2>
-    <p class="sub">Free play shows a short ad after every five rounds. Premium turns that off and opens the rest.</p>
+  <section id="modes" class="wrap">
+    <div class="rv">
+      <p class="kicker"><i></i>Three ways to play</p>
+      <h2>Alone, with friends, or for a rating.</h2>
+      <p class="sub">The same clip engine underneath, three very different rooms on top.</p>
+    </div>
+    <div class="bento">
+      <div class="tile t-solo rv"><div class="art"></div><span class="tag">Solo · free</span>
+        <div class="tiers"><span class="a">Easy</span><span class="b">Medium</span><span class="c">Hard</span><span class="d">Expert</span><span class="e">Impossible</span></div>
+        <h3>Your pool, your rules.</h3><p>Five difficulties, every era from the 60s to the 2020s, 22 genres — and a one-artist mode that plays one artist's whole catalogue, from their signature song to the one nobody streams.</p></div>
+      <div class="tile t-party rv"><div class="art"></div><span class="tag">Party · free to join</span>
+        <div class="avatars"><i style="background:#19df70">L</i><i style="background:#ffd60a">N</i><i style="background:#ff8a2a">S</i><i style="background:#b46cff">A</i><i style="background:#4cc9f0">T</i></div>
+        <h3>Same clip, same moment.</h3><p>Host a room, share the code, up to 50 friends. The fastest right answer scores the most. Podium at the end, with confetti.</p></div>
+      <div class="tile t-ranked rv"><div class="art"></div><span class="tag">Ranked · premium</span>
+        <div class="ring"></div>
+        <h3>Five rounds. A rating that moves.</h3><p>Climb from Easy to Impossible against an opponent. Rounds are worth their difficulty, a first-second answer earns a bonus, a wrong guess costs you. Weekly seasons, daily and weekly boards.</p></div>
+      <div class="tile t-music rv"><div class="art"></div><span class="tag">The music</span>
+        <div class="notes"><b>🎸</b><b>🎹</b><b>🎤</b><b>🎧</b></div>
+        <h3>13,000 real recordings.</h3><p>Every clip is the actual track — previews from Apple's catalogue, artwork included. Open the song in Apple Music after a round. No account or subscription needed to play.</p></div>
+    </div>
+  </section>
+
+  <section id="premium" class="wrap">
+    <div class="rv">
+      <p class="kicker"><i></i>Premium</p>
+      <h2>One purchase. Everything on.</h2>
+      <p class="sub">Free play shows a short ad after every five rounds. Premium turns that off and opens the rest — once, never a subscription.</p>
+    </div>
     <div class="premium">
-      <div>
+      <div class="price-card rv">
         <div class="crown">♛ PREMIUM</div>
-        <div class="price" style="margin-top:8px">$9.99<small>one time</small></div>
+        <div class="price">$9.99<small>one time</small></div>
         <ul>
-          <li>No ads, ever</li>
-          <li>Ranked — the ladder, the rating, the leaderboards</li>
-          <li>Host parties for your friends</li>
-          <li>One-artist mode</li>
+          <li><i>✓</i>No ads, ever</li>
+          <li><i>✓</i>Ranked — the ladder, the rating, the leaderboards</li>
+          <li><i>✓</i>Host parties for your friends</li>
+          <li><i>✓</i>One-artist mode</li>
         </ul>
+        <a class="btn grad" href="https://apps.apple.com/app/id6808657554">Get Premium in the app</a>
       </div>
-      <div class="buttons" style="flex-direction:column;align-items:stretch">
-        <a class="btn primary" href="https://apps.apple.com/app/id6808657554">Buy in the iPhone app</a>
-        <a class="btn ghost" href="/play">Buy on the web</a>
+      <div class="free-card rv">
+        <h3>Free</h3>
+        <p>Everything you need to get hooked.</p>
+        <ul><li>Solo play, all difficulties, eras and genres</li><li>Join any party</li><li>Profile, stats and streaks</li><li>An ad every five rounds</li></ul>
+        <a class="btn glass" href="https://apps.apple.com/app/id6808657554">Download free</a>
       </div>
     </div>
   </section>
 
-  <section id="music">
-    <p class="kicker">The music</p>
-    <h2>13,000 songs. Real recordings.</h2>
-    <p class="sub">Every clip is the actual track — previews from Apple's catalogue, artwork included. Find the song after a round and open it in Apple Music. No account or subscription needed to play.</p>
+  <section id="faq" class="wrap">
+    <div class="rv">
+      <p class="kicker"><i></i>Questions</p>
+      <h2>Things people ask.</h2>
+    </div>
+    <div class="faq rv">
+      <details><summary>Do I need Apple Music or Spotify?</summary><p>No. Songspot plays the public 30-second previews from Apple's catalogue. No subscription, no music account.</p></details>
+      <details><summary>Is Premium a subscription?</summary><p>No. It's a one-time purchase on the App Store. Restore it any time with the same Apple ID.</p></details>
+      <details><summary>Can my friends play without buying anything?</summary><p>Yes. Joining a party is free for everyone; only the host needs Premium.</p></details>
+      <details><summary>Where's the Android version?</summary><p>Built and in testing. Google Play needs a closed test period before it can go public — it's coming.</p></details>
+      <details><summary>What does the game keep about me?</summary><p>A display name, an optional picture and your stats. Delete it all with one tap in Profile. Full details in the <a href="/privacy" style="color:var(--coral-2)">privacy policy</a>.</p></details>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="final rv">
+      <p class="kicker" style="justify-content:center"><i></i>Ready?</p>
+      <h2>Bet you can't do it from 0.1 seconds.</h2>
+      <p class="sub" style="margin:0 auto">Free on the App Store. Takes ten seconds to find out.</p>
+      <div class="cta">
+        <a class="btn primary store" href="https://apps.apple.com/app/id6808657554">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.5 2-3.7 2.1-3.8-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.8-1.7 0-3.3 1-4.1 2.5-1.8 3.1-.5 7.6 1.3 10.1.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.2-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.7-4zM14 5.3c.7-.9 1.2-2 1-3.2-1 0-2.2.7-3 1.5-.6.7-1.2 1.9-1.1 3 1.2.1 2.3-.5 3.1-1.3z"/></svg>
+          <span><span class="sub">Download on the</span><span class="t">App Store</span></span>
+        </a>
+        <a class="btn glass" href="/play">Play in web</a>
+      </div>
+    </div>
   </section>
 </main>
 
 <footer>
   <div class="wrap">
-    <a class="wordmark" href="/">songspot</a>
+    <a class="brand" href="/">songspot</a>
     <a href="/support">Support</a>
     <a href="/privacy">Privacy</a>
     <a href="mailto:contact@dues.gg">contact@dues.gg</a>
     <span class="right">© 2026 Songspot</span>
   </div>
 </footer>
-<script src="/menu.js"></script>
+<script src="/island.js"></script>
 </body>
 </html>
