@@ -48,8 +48,6 @@ export function openDrawer(ctx) {
       <div class="toggle"><span>Volume</span><input type="range" min="0" max="1" step="0.02" value="${opts.volume}" data-vol style="width:120px;accent-color:${accent}"></div>
       ${toggle('artwork', 'Artwork on the reveal')}
       ${toggle('glow', 'Accent glow')}
-      <div class="rule"></div>
-      ${premium ? `<p class="label">Premium</p><p class="note" style="margin:0">Thanks for keeping the lights on.</p>` : `<p class="label">Premium</p><button class="buy" data-press data-act="premium">${ICON.crown}Go premium — $9.99</button><p class="note">No ads, ranked, host parties, one-artist mode.</p>`}
       <a class="faqlink" href="#" data-act="faq">Questions? Read the FAQ</a>`;
   };
   function toggle(k, t, note) { return `<div class="toggle ${opts[k] ? 'on' : ''}" data-toggle="${k}"><span>${t}${note ? `<span class="note" style="display:block">${note}</span>` : ''}</span><span class="sw"></span></div>`; }

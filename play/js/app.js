@@ -21,7 +21,7 @@ gate(root, async () => {
 
   const ctx = {
     pool, game, player, sound, account, toast,
-    get premium() { return account.premium || settings.get('debugPremium', false); },
+    get premium() { return true; },                               // free while the web is in beta: no gates, no ads
     openProfile: async () => { const m = await import('./profile.js'); m.mountProfile(ctx); },
     openParty: async () => { player.stop(); const m = await import('./party.js'); m.mountParty(ctx); },
     openRanked: async () => { player.stop(); const m = await import('./ranked.js'); m.mountRanked(ctx); },
