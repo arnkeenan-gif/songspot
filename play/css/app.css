@@ -114,6 +114,8 @@ input { font: inherit; }
 .hit span { font-size: 13.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* reveal */
+.reveal .listen svg { width: 12px; height: 12px; }
+.reveal .actions svg { width: 10px; height: 10px; }
 .reveal { width: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; }
 .reveal .art { position: relative; width: 147px; height: 147px; margin-bottom: 24px; }
 .reveal .art .bloom { position: absolute; left: 50%; top: 50%; width: 426px; height: 426px; transform: translate(-50%,-50%); filter: blur(60px) saturate(1.5); opacity: 0; pointer-events: none; object-fit: cover; }
@@ -121,10 +123,10 @@ input { font: inherit; }
 .reveal .itwas { font-size: 9.5px; font-weight: 700; letter-spacing: 3.99px; color: var(--state); margin-bottom: 3px; }
 .reveal h2 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -.56px; line-height: 1.34; }
 .reveal .meta { color: var(--muted); font-size: 13px; margin-top: 3px; }
-.reveal .listen { margin-top: 16px; height: 40px; padding: 0 18px; border-radius: 999px; background: color-mix(in srgb, var(--track) 92%, var(--accent)); color: #d8d8d8; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 7px; }
+.reveal .listen { white-space: nowrap; text-decoration: none; margin-top: 16px; height: 40px; padding: 0 18px; border-radius: 999px; background: color-mix(in srgb, var(--track) 92%, var(--accent)); color: #d8d8d8; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 7px; }
 .reveal .badge { margin-top: 20px; height: 40px; padding: 0 23px; border-radius: 999px; border: 2px solid var(--state); color: var(--state); font-size: 13px; font-weight: 800; letter-spacing: .52px; display: inline-flex; align-items: center; text-shadow: 0 0 4px color-mix(in srgb, var(--state) 30%, transparent); transform: rotate(-4deg); }
 .reveal .actions { margin-top: 30px; display: flex; gap: 10px; }
-.reveal .actions button { min-width: 113px; height: 40px; border-radius: 999px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.reveal .actions button { white-space: nowrap; min-width: 113px; height: 40px; border-radius: 999px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .reveal .actions .share { background: color-mix(in srgb, var(--track) 88%, var(--state)); color: var(--state); }
 .reveal .actions .next { background: var(--surface); border: 1px solid var(--line); color: var(--text); }
 .rise { animation: riseIn .5s var(--easeOut) both; }
