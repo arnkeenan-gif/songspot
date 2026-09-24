@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://songspotapp.com/sitemap.xml

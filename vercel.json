@@ -1,0 +1,12 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "redirects": [
+    { "source": "/index.html", "destination": "/", "permanent": true },
+    { "source": "/support.html", "destination": "/support", "permanent": true },
+    { "source": "/privacy.html", "destination": "/privacy", "permanent": true }
+  ],
+  "headers": [
+    { "source": "/(.*)", "headers": [ { "key": "X-Content-Type-Options", "value": "nosniff" } ] }
+  ]
+}
