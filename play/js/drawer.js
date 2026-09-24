@@ -36,6 +36,10 @@ export function openDrawer(ctx) {
       <button class="action" data-act="reroll">${ICON.reroll}Reroll all</button>
       ${game.era !== 'all' ? `<button class="action" data-act="anyera">${ICON.era}Any era</button>` : ''}
       <div class="rule"></div>
+      <p class="label">Spotlight</p>
+      <div class="seg">${['off', 'simple'].map(v => `<button data-spot="${v}" class="${settings.get('spotlight', 'off') === v ? 'on' : ''}">${v === 'off' ? 'Off' : 'Simple'}</button>`).join('')}</div>
+      <p class="note">The stage light behind the game.</p>
+      <div class="rule"></div>
       <p class="label">Era</p>
       <div class="chips">${['all', ...ERAS].map(e => `<button data-era="${e}" class="${e === game.era ? 'on' : ''}">${e === 'all' ? 'Any' : e}</button>`).join('')}</div>
       <div class="rule"></div>
@@ -61,6 +65,7 @@ export function openDrawer(ctx) {
     if (b.classList.contains('close')) { sound.click(); return close(); }
     if (b.dataset.tier) { sound.click(); ctx.onTier(b.dataset.tier); return render(); }
     if (b.dataset.era) { sound.click(); game.era = b.dataset.era; ctx.onChange(); return render(); }
+    if (b.dataset.spot) { sound.click(); settings.set('spotlight', b.dataset.spot); ctx.onOption('spotlight', b.dataset.spot); return render(); }
     if (b.dataset.cat) { sound.click(); game.category = b.dataset.cat; ctx.onChange(); return render(); }
     const act = b.dataset.act; if (!act) return;
     sound.click(); e.preventDefault();

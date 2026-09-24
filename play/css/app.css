@@ -72,6 +72,16 @@ input { font: inherit; }
 
 /* ---------- stage ---------- */
 .stage { position: absolute; inset: 0; overflow-y: auto; background: var(--stage); }
+/* Wide screens: the whole stage scales up with the window (songspot.net's desktop size), up to 1.4×. */
+.stage .col { zoom: var(--z, 1); }
+/* Spotlight (Simple): the page goes to black and a beam widens down the stage, as the site's spotlight-simple layout. Off by default. */
+.stage.spot { background: var(--page); }
+.stage.spot::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.035) 55%, rgba(255,255,255,.02));
+  clip-path: polygon(30% 0, 70% 0, 83% 100%, 17% 100%); }
+.stage.spot::after { content: ""; position: absolute; left: 50%; top: -120px; width: 900px; height: 420px; transform: translateX(-50%); pointer-events: none;
+  background: radial-gradient(closest-side, rgba(25,223,112,.07), transparent 70%); }
+.stage.spot .col { position: relative; z-index: 1; }
 .stage .col { position: relative; max-width: 520px; margin: 0 auto; padding: clamp(48px, 17vh, 160px) 20px 40px; min-height: 100%; display: flex; flex-direction: column; align-items: center; }
 .menu-btn { position: absolute; top: 18px; left: 18px; width: 43px; height: 43px; border-radius: 50%; background: color-mix(in srgb, #1d1d1d 94%, var(--accent)); border: 1px solid var(--line); display: grid; place-items: center; z-index: 5; }
 .menu-btn svg { width: 16px; height: 16px; }

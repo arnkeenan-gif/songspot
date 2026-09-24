@@ -24,12 +24,13 @@ export function mountStage(root, ctx) {
   let pendingPromotion = null, promotedAfterWin = false, roundsSinceAd = settings.get('roundsSinceAd', 0), rerolls = 3, failed = 0;
   let query = '', picked = null, hits = [], activeHit = -1, showReveal = false, revealWon = false, winClock = null;
   let easySearch = settings.get('easySearch', true), artwork = settings.get('artwork', true), glow = settings.get('glow', true);
+  const applySpot = () => stage.classList.toggle('spot', settings.get('spotlight', 'off') !== 'off');
   sound.enabled = settings.get('sounds', true); player.setVolume(settings.get('volume', .28));
 
   root.innerHTML = `<div class="stage"><div class="col"></div></div>`;
   const stage = root.querySelector('.stage'), col = root.querySelector('.col');
   const accent = () => TIER_COLOR[game.difficulty], ink = () => TIER_INK[game.difficulty];
-  const applyAccent = () => { stage.style.setProperty('--accent', accent()); stage.style.setProperty('--accent-ink', ink()); };
+  const applyAccent = () => { stage.style.setProperty('--accent', accent()); stage.style.setProperty('--accent-ink', ink()); applySpot(); };
 
   // ---- render ----
   function render() {
@@ -172,7 +173,7 @@ export function mountStage(root, ctx) {
   // ---- events ----
   col.addEventListener('click', e => {
     const t = e.target;
-    if (t.closest('.menu-btn')) { sound.click(); return openDrawer({ ...ctx, onChange: newRound, onTier: tier => { pendingPromotion = null; game.difficulty = tier; newRound(); }, onOption: (k, v) => { if (k === 'easySearch') { easySearch = v; refreshHits(); } if (k === 'sounds') sound.enabled = v; if (k === 'volume') player.setVolume(v); if (k === 'artwork') artwork = v; if (k === 'glow') glow = v; } }); }
+    if (t.closest('.menu-btn')) { sound.click(); return openDrawer({ ...ctx, onChange: newRound, onTier: tier => { pendingPromotion = null; game.difficulty = tier; newRound(); }, onOption: (k, v) => { if (k === 'easySearch') { easySearch = v; refreshHits(); } if (k === 'sounds') sound.enabled = v; if (k === 'volume') player.setVolume(v); if (k === 'artwork') artwork = v; if (k === 'glow') glow = v; if (k === 'spotlight') applySpot(); } }); }
     const pill = t.closest('.pill'); if (pill) { sound.click(); pendingPromotion = null; game.difficulty = pill.dataset.tier; return newRound(); }
     const hit = t.closest('.hit'); if (hit) { picked = hits[+hit.dataset.i]; query = pickLabel(picked); col.querySelector('input').value = query; hits = []; col.querySelector('.hits').hidden = true; const sk = col.querySelector('.skip'); sk.className = 'skip armed'; sk.textContent = 'Guess'; return; }
     const act = t.closest('[data-act]')?.dataset.act;

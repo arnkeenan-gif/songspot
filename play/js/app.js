@@ -10,6 +10,9 @@ import { el, toast, pressable, settings } from './ui.js';
 
 const root = document.getElementById('app');
 pressable(document);
+// The stage grows with the window past 1500 px, like the site's desktop layout; phones stay 1:1.
+const fit = () => document.documentElement.style.setProperty('--z', Math.min(1.4, Math.max(1, innerWidth / 1500)).toFixed(3));
+fit(); addEventListener('resize', fit);
 
 gate(root, async () => {
   root.innerHTML = '<div class="login"><div class="wordmark">songspot</div></div>';
