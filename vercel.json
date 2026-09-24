@@ -4,7 +4,9 @@
   "redirects": [
     { "source": "/index.html", "destination": "/", "permanent": true },
     { "source": "/support.html", "destination": "/support", "permanent": true },
-    { "source": "/privacy.html", "destination": "/privacy", "permanent": true }
+    { "source": "/privacy.html", "destination": "/privacy", "permanent": true },
+    { "source": "/play", "destination": "/", "permanent": false },
+    { "source": "/play/(.*)", "destination": "/", "permanent": false }
   ],
   "headers": [
     { "source": "/(.*)", "headers": [ { "key": "X-Content-Type-Options", "value": "nosniff" } ] }
