@@ -68,7 +68,7 @@ export function openDrawer(ctx) {
     sound.click(); e.preventDefault();
     if (act === 'reroll') { ctx.toast('New song.'); ctx.onChange(); }
     else if (act === 'anyera') { game.era = 'all'; ctx.onChange(); render(); }
-    else if (act === 'profile') close(() => ctx.openProfile());
+    else if (act === 'profile') close(() => account.signedIn ? ctx.openProfile() : ctx.signIn());
     else if (act === 'party') close(() => ctx.openParty());
     else if (act === 'ranked') close(() => ctx.openRanked());
     else if (act === 'premium-ranked') ctx.openPremium('ranked');

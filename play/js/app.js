@@ -27,7 +27,7 @@ gate(root, async () => {
     openRanked: async () => { player.stop(); const m = await import('./ranked.js'); m.mountRanked(ctx); },
     openPremium: async perk => { const m = await import('./premium.js'); m.mountPremium(ctx, perk); },
     openFAQ: async () => { const m = await import('./faq.js'); m.mountFAQ(ctx); },
-    signIn: async () => { const m = await import('./login.js'); m.mountLogin(root, ctx, start); },
+    signIn: async () => { player.stop(); const m = await import('./login.js'); m.mountLogin(root, ctx, start); },
   };
   const start = () => { root.innerHTML = ''; mountStage(root, ctx); };
   window.__songspot = ctx;                                   // for poking at it from the console
@@ -44,5 +44,5 @@ gate(root, async () => {
   if (demo === 'ranked') { start(); setTimeout(() => ctx.openRanked(), 400); }
   else if (demo === 'party') { start(); setTimeout(() => ctx.openParty(), 400); }
   else if (demo === 'profile') { start(); setTimeout(() => ctx.openProfile(), 400); }
-  else if (account.signedIn || settings.get('skipLogin', false)) start(); else ctx.signIn();
+  else start();                                            // no login needed to play; the menu offers it
 });

@@ -92,12 +92,13 @@ img { max-width: 100%; display: block; }
   .island nav { display: none; }
   .island .brand { margin-right: 4px; }
   .island .burger { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
-  .sheet { position: fixed; left: 12px; right: 12px; top: 66px; z-index: 49; padding: 8px; border-radius: 18px; display: none; flex-direction: column;
-    background: var(--bg-2); border: 1px solid var(--line-2); box-shadow: var(--shadow); }
   .sheet.open { display: flex; }
   .sheet a { padding: 13px 14px; border-radius: 12px; font-weight: 600; color: var(--ink-2); }
   .sheet a:hover { background: var(--line); color: var(--ink); }
 }
+
+.sheet { position: fixed; left: 12px; right: 12px; top: 66px; z-index: 49; padding: 8px; border-radius: 18px; display: none; flex-direction: column;
+  background: var(--bg-2); border: 1px solid var(--line-2); box-shadow: var(--shadow); }
 
 /* buttons */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 22px; border-radius: 14px; font-weight: 700; font-size: 15px;
@@ -121,17 +122,24 @@ img { max-width: 100%; display: block; }
 .cta { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; }
 .hero .meta { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 20px; margin-top: 20px; color: var(--ink-3); font-size: 13.5px; font-weight: 500; }
 
-/* phone */
-.phone { width: 300px; margin: 56px auto 0; border-radius: 44px; padding: 10px; background: var(--frame); box-shadow: var(--shadow); }
-.phone .screen { border-radius: 36px; overflow: hidden; aspect-ratio: 393 / 851; background: #0c110d; }
-.phone .screen img { width: 100%; height: 100%; object-fit: cover; }
-.shots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 72px; }
-.shot { text-align: left; }
-.shot .frame { border-radius: 28px; padding: 8px; background: var(--frame); }
-.shot .frame img { border-radius: 22px; aspect-ratio: 393 / 851; object-fit: cover; width: 100%; }
-.shot h3 { margin: 16px 0 4px; font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
-.shot p { margin: 0; color: var(--ink-2); font-size: 14.5px; }
-@media (max-width: 760px) { .shots { grid-template-columns: 1fr; max-width: 320px; margin-left: auto; margin-right: auto; } .hero { padding-top: 112px; } }
+/* device frames — the image keeps its own ratio; nothing is cropped or stretched */
+.device { width: 100%; max-width: 320px; padding: 11px; border-radius: 50px; background: var(--frame); position: relative;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.10), 0 1px 0 rgba(255,255,255,.18) inset, var(--shadow); }
+.device .screen { position: relative; border-radius: 40px; overflow: hidden; background: #0c110d; }
+.device .screen img { width: 100%; height: auto; display: block; }
+.device .screen::after { content: ""; position: absolute; top: 10px; left: 50%; width: 92px; height: 27px; transform: translateX(-50%); border-radius: 999px; background: #000; }
+.hero .device { margin: 60px auto 0; }
+.hero .device.big { max-width: 340px; }
+
+.feature { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; padding: 72px 0; border-top: 1px solid var(--line); }
+.feature .device { justify-self: center; max-width: 300px; }
+.feature.flip .device { order: -1; }
+.feature h2 { max-width: 14ch; }
+.feature .sub { font-size: 17px; }
+.feature ul { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 10px; color: var(--ink-2); }
+.feature li { display: flex; gap: 12px; align-items: flex-start; }
+.feature li svg { width: 18px; height: 18px; flex: none; margin-top: 3px; color: var(--green); }
+@media (max-width: 760px) { .feature { grid-template-columns: 1fr; gap: 34px; padding: 56px 0; } .feature.flip .device { order: 0; } .feature .device { max-width: 260px; } .hero { padding-top: 112px; } .hero .device.big { max-width: 280px; } }
 
 /* sections */
 section { padding: 88px 0; }

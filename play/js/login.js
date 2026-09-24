@@ -25,6 +25,7 @@ export function mountLogin(root, ctx, onDone) {
       <button class="google" data-press>${GOOGLE_G}<span>Continue with Google</span></button>
       <div class="foot"><span>Already have a profile?</span> <b>Sign in</b></div>
       <p class="err" hidden></p>
+      <button class="btn quiet notnow" type="button" style="margin:0 auto">Not now</button>
       <div class="sync" hidden><i class="spin s"></i>Fetching your profile…</div>
     </div>
   </div>`);
@@ -40,6 +41,7 @@ export function mountLogin(root, ctx, onDone) {
   const finish = () => { if (done || !account.signedIn) return; done = true; off(); onDone(); };
 
   foot.addEventListener('click', () => { returning = !returning; paint(); });
+  view.querySelector('.notnow')?.addEventListener('click', () => onDone());   // play without an account
   btn.addEventListener('click', async () => {
     if (working) return;
     working = true; err.hidden = true; paint();
