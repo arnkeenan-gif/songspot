@@ -1,0 +1,6 @@
+{
+  "name": "songspot-web",
+  "private": true,
+  "type": "module",
+  "description": "songspotapp.com \u2014 the Songspot web game (static) plus Stripe/iTunes serverless functions in api/. No build step, no dependencies."
+}

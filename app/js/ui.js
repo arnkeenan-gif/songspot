@@ -1,0 +1,87 @@
+// Small helpers every screen uses. The colours are the iPhone app's Theme.swift.
+export const TIER_COLOR = { easy: '#19df70', medium: '#f7c823', hard: '#ff8a2b', expert: '#f8545c', impossible: '#a855f7' };
+export const TIER_INK = { easy: '#04160b', medium: '#171004', hard: '#180b02', expert: '#1a0507', impossible: '#120421' };
+/** The pill fills differ from the accent only for easy (Theme.pillFill). */
+export const PILL_FILL = { ...TIER_COLOR, easy: '#1ed760' };
+export const PILL_INK = '#08120c';
+export const ACCENT_TEXT = '#39e887';
+export const PARTY_PALETTE = ['#19df70', '#f7c823', '#ff8a2b', '#f8545c', '#a855f7', '#4cc9f0', '#f72585'];
+export const TIERS = ['easy', 'medium', 'hard', 'expert', 'impossible'];
+
+export const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+/** 0.1s, 0.5s, 2s, 8s, 15s — the apps' label(). */
+export const label = s => (s < 1 ? s.toFixed(1) + 's' : Math.round(s) + 's');
+export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+export const art = (url, size = 300) => (url || '').replace('{w}x{h}', `${size}x${size}`);
+export const sleep = ms => new Promise(r => setTimeout(r, ms));
+export const isPhone = () => innerWidth < 600;
+
+/** sRGB mix, like the app's srgbMix: a toward b by t (0..1). Hex in, hex out. */
+export function mix(a, b, t) {
+  const p = h => { h = h.replace('#', ''); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); };
+  const x = p(a), y = p(b);
+  return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+/** hex + alpha → rgba() */
+export function alpha(hex, a) { const h = hex.replace('#', ''); return `rgba(${parseInt(h.slice(0, 2), 16)},${parseInt(h.slice(2, 4), 16)},${parseInt(h.slice(4, 6), 16)},${a})`; }
+
+/** Build an element from an HTML string. */
+export function el(html) { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; }
+
+/** The toast: 12.5px, bottom, 3.6 s by default. One at a time. */
+let toastTimer = null;
+export function toast(msg, seconds = 3.6) {
+  let t = document.querySelector('.toast');
+  if (!t) { t = el('<div class="toast" role="status" aria-live="polite"></div>'); document.body.appendChild(t); }
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), seconds * 1000);
+}
+
+/** A stack of full-screen views over the stage: push to open, pop to close. */
+const stack = [];
+export function pushView(node) { const host = document.getElementById('views'); host.appendChild(node); stack.push(node); requestAnimationFrame(() => requestAnimationFrame(() => node.classList.add('in'))); return node; }
+export function popView(node) { const i = stack.indexOf(node); if (i >= 0) stack.splice(i, 1); node.classList.remove('in'); setTimeout(() => node.remove(), 300); }
+export const viewsOpen = () => stack.length > 0;
+
+/**
+ * A sheet: a bottom sheet on a phone, a centred card on a wide screen.
+ * `body` is the inner HTML. Returns { node, body, close }. Escape and the scrim close it.
+ */
+export function openSheet(body, { cls = '', label = 'Sheet', onClose } = {}) {
+  const node = el(`<div class="view sheet ${cls}" role="dialog" aria-modal="true" aria-label="${esc(label)}"><div class="scrim"></div><div class="sheet-body">${body}</div></div>`);
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  let closed = false;
+  const close = () => { if (closed) return; closed = true; document.removeEventListener('keydown', onKey); popView(node); onClose && onClose(); };
+  node.querySelector('.scrim').addEventListener('click', close);
+  document.addEventListener('keydown', onKey);
+  pushView(node);
+  return { node, body: node.querySelector('.sheet-body'), close };
+}
+
+/** Press feedback on anything with [data-press]: scale .96, dim .72 — the apps' Pressable. */
+export function pressable(root = document) {
+  root.addEventListener('pointerdown', e => { const b = e.target.closest('[data-press]'); if (b) b.classList.add('pressed'); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => root.addEventListener(ev, () => root.querySelectorAll('.pressed').forEach(b => b.classList.remove('pressed')), true));
+}
+
+/** A face: the picture if there is one, else the initial on a colour. */
+export function face(name, avatar, color, size = 40, ink = '#08120c') {
+  const initial = esc((name || '?').trim()[0] || '?').toUpperCase();
+  return avatar ? `<img class="face" src="data:image/jpeg;base64,${avatar}" alt="" style="width:${size}px;height:${size}px">`
+    : `<span class="face" style="width:${size}px;height:${size}px;background:${color};color:${ink};font-size:${Math.round(size * 0.4)}px">${initial}</span>`;
+}
+export function hueColor(hue) { const n = PARTY_PALETTE.length; return PARTY_PALETTE[((hue % n) + n) % n]; }
+
+export const settings = {
+  get(k, d) { try { const v = localStorage.getItem('songspot.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('songspot.' + k, JSON.stringify(v)); } catch (e) {} },
+  del(k) { try { localStorage.removeItem('songspot.' + k); } catch (e) {} },
+};
+
+/** Share a line of text: the system sheet where there is one, else the clipboard. */
+export async function shareText(text, done = 'Copied. Send it to someone.') {
+  if (navigator.share) { try { await navigator.share({ text }); return true; } catch (e) { if (e && e.name === 'AbortError') return false; } }
+  try { await navigator.clipboard.writeText(text); toast(done); return true; } catch (e) { toast("Couldn't copy that. Try again."); return false; }
+}
+
+export const LINKS = { get: 'https://songspotapp.com/get', go: 'https://songspotapp.com/go', appStore: 'https://apps.apple.com/app/id6808657554', privacy: '/privacy', support: '/support' };
