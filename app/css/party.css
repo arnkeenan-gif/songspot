@@ -288,3 +288,6 @@
   .ph-playing .pskip { height: 34px; margin-top: 2px; }
   .ph-playing .choice { min-height: 60px; padding-top: 6px; padding-bottom: 6px; }
 }
+.party-sheet .sp { flex: 1; }
+.party-sheet .chev { display: inline-flex; color: var(--dim); }
+.party-sheet .chev .i { width: 11px; height: 11px; }

@@ -2,8 +2,8 @@
    1pt = 1px; Inter stands in for SF, var(--mono) for SF Mono, ui-rounded for SF Rounded.
    Tokens, .view/.screen/.xbtn/.choices come from app.css. */
 .ranked { --rk-accent: var(--easy); --rk-ink: #04160b; --rounded: ui-rounded, "SF Pro Rounded", Inter, system-ui, sans-serif; overflow-x: hidden; }
-.ranked .rk-screen { padding: calc(14px + var(--sat)) 24px calc(18px + var(--sab)); line-height: 1.2; z-index: 1; }
-.ranked .rk-fill { flex: 1 1 0; min-height: 0; min-width: 0; }
+.ranked .rk-screen { padding: calc(14px + var(--sat)) 24px calc(18px + var(--sab)); line-height: 1.2; isolation: isolate; }
+.rk-fill { flex: 1 1 0; min-height: 0; min-width: 0; }
 .ranked .i { width: 1em; height: 1em; }
 
 /* the bar: "Ranked" + the round X */
@@ -48,7 +48,7 @@
 .rk-lb { margin-bottom: 12px; }
 .rk-go { display: flex; align-items: center; justify-content: center; width: 100%; height: 54px; flex: none; border-radius: 16px; background: var(--rk-accent); color: var(--rk-ink); font-size: 16px; font-weight: 800; margin-bottom: 24px; transition: transform .12s, opacity .12s; }
 .ranked.glow .rk-go { box-shadow: 0 6px 18px color-mix(in srgb, var(--rk-accent) 35%, transparent); }
-.rk-go.green { background: var(--easy); color: #04160b; box-shadow: none; margin-bottom: 0; }
+.ranked .rk-go.green { background: var(--easy); color: #04160b; box-shadow: none; margin-bottom: 0; }
 
 /* ---------- matchmaking + the fight card ---------- */
 .rk-match { display: flex; flex-direction: column; align-items: center; flex: none; }
@@ -133,7 +133,7 @@
 .rk-ok { display: inline-flex; font-size: 11px; animation: pop .3s var(--easeOut) both; }
 .rk-ok svg circle { fill: currentColor; }
 .rk-side > b { font: 800 22px/1.2 var(--mono); color: var(--text); font-variant-numeric: tabular-nums; }
-.rk-ring { --ring: clamp(132px, calc(100dvh - 500px), 196px); position: relative; width: var(--ring); height: var(--ring); align-self: center; flex: none; border-radius: 50%; display: grid; place-items: center; margin: 14px 0; }
+.rk-ring { --ring: clamp(132px, calc(100dvh - 500px), 196px); position: relative; width: var(--ring); height: var(--ring); align-self: center; flex: none; border-radius: 50%; display: grid; place-items: center; }
 .rk-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .ranked.glow .rk-ring .arc { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--rk-accent) 45%, transparent)); }
 .rk-ring-in { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; max-width: calc(var(--ring) - 30px); }
@@ -163,7 +163,7 @@
 .rk-hero { display: flex; align-items: center; gap: 16px; margin-top: 16px; flex: none; }
 .rk-hero-art { position: relative; width: 88px; height: 88px; flex: none; }
 .rk-hero-art .cov { position: relative; width: 88px; height: 88px; border-radius: 12px; object-fit: cover; display: block; box-shadow: 0 8px 14px rgba(0,0,0,.6); background: var(--surface); }
-.rk-hero-art .bloom { position: absolute; left: 50%; top: 50%; width: 200px; height: 200px; margin: -100px 0 0 -100px; object-fit: cover; filter: blur(46px) saturate(1.5); opacity: .55; pointer-events: none; }
+.rk-hero-art .bloom { position: absolute; z-index: -1; left: 50%; top: 50%; width: 200px; height: 200px; margin: -100px 0 0 -100px; object-fit: cover; filter: blur(46px) saturate(1.5); opacity: .55; pointer-events: none; }
 .rk-hero-t { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .rk-hero-t span { font-size: 9.5px; font-weight: 700; letter-spacing: 3px; color: var(--rk-accent); }
 .rk-hero-t b { font-size: 20px; font-weight: 700; letter-spacing: -.4px; color: var(--text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -188,10 +188,10 @@
 .rk-verdict.won .rk-vd b { color: var(--c); }
 .ranked.glow .rk-verdict.won .rk-vd b { text-shadow: 0 0 24px var(--glow); }
 .rk-vd span { font-size: 13px; color: var(--dim); position: relative; }
-.rk-bloom { position: absolute; left: 50%; top: 32px; width: 300px; height: 300px; margin: -150px 0 0 -150px; border-radius: 50%; background: var(--bloom); filter: blur(50px); transform: scale(.15); opacity: 0; transition: transform .7s var(--easeOut), opacity .7s var(--easeOut); pointer-events: none; }
+.rk-bloom { position: absolute; z-index: -1; left: 50%; top: calc(14px + var(--sat) + 35px + 8px + 38px); width: 300px; height: 300px; margin: -150px 0 0 -150px; border-radius: 50%; background: var(--bloom); filter: blur(50px); transform: scale(.15); opacity: 0; transition: transform .7s var(--easeOut), opacity .7s var(--easeOut); pointer-events: none; }
 .rk-end:not([data-step="0"]) .rk-ft { opacity: 0; transform: scale(.8); }
 .rk-end:not([data-step="0"]) .rk-vd { opacity: 1; transform: none; }
-.rk-end:not([data-step="0"]) .rk-bloom { opacity: 1; transform: scale(1.3); }
+.rk-bloom.on { opacity: 1; transform: scale(1.3); }
 .rk-faceoff { display: flex; align-items: flex-start; gap: 8px; margin-top: 4px; }
 .rk-sep { font-size: 20px; font-weight: 800; color: var(--dim); padding-top: 118px; }
 .rk-rface { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
@@ -245,7 +245,7 @@
 .rk-endbtns { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; flex: none; opacity: 0; transform: translateY(16px); transition: opacity .42s var(--easeOut), transform .42s cubic-bezier(.3,1.2,.5,1); }
 .rk-endbtns.in { opacity: 1; transform: none; }
 .rk-row2 { display: flex; gap: 10px; }
-.rk-row2 .rk-btn2 { font-size: 14.5px; }
+.rk-row2 .rk-btn2 { flex: 1 1 0; min-width: 0; font-size: 14.5px; }
 .rk-row2 .rk-btn2 .i { font-size: 12px; }
 
 /* error */

@@ -330,7 +330,7 @@ export function mountRanked(ctx) {
     </div>`;
   }
   function mysteryHTML() {
-    const i = search.roll, c = hueColor(i % 7), name = RK.names[i % RK.names.length];
+    const i = Math.max(0, search.roll), c = hueColor(i % 7), name = RK.names[i % RK.names.length];
     return `<div class="rk-fighter mystery" style="--c18:${alpha(c, 0.18)};--c50:${alpha(c, 0.5)};--c80:${alpha(c, 0.8)}">
       <div class="rk-fface"><span class="rk-myst">${esc(name[0])}</span><i class="rk-dash" style="transform:rotate(${i * 9}deg)"></i></div>
       <div class="rk-fname">${esc(name)}</div>
@@ -358,14 +358,14 @@ export function mountRanked(ctx) {
       ${found ? '<div class="rk-coming">First song coming up</div>' : '<button class="rk-btn2 rk-cancel" data-press data-act="cancel">Cancel</button>'}`;
   }
   function tickSearch(now) {
-    const roll = Math.floor((now - search.started) / 100);
+    const roll = Math.max(0, Math.floor((now - search.started) / 100));
     if (roll !== search.roll) {
       search.roll = roll;
       const seat = screen.querySelector('.rk-fighter.mystery');
       if (seat) seat.outerHTML = mysteryHTML();
       lit(true);
     }
-    const secs = Math.floor((now - search.started) / 1000);
+    const secs = Math.max(0, Math.floor((now - search.started) / 1000));
     if (secs !== search.secs) { search.secs = secs; const c = screen.querySelector('.rk-clock'); if (c) c.textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`; }
   }
   async function runCard() {
@@ -532,11 +532,11 @@ export function mountRanked(ctx) {
     const won = iWon(), drew = drawn();
     const colour = won ? TIER_COLOR.easy : drew ? MUTED : TIER_COLOR.expert;
     const sub = won ? `${g.opp.name} couldn't keep up` : drew ? 'Dead level after five' : `${g.opp.name} took it this time`;
-    return `${bar()}
+    return `<i class="rk-bloom" style="background:${alpha(colour, won ? 0.3 : 0.12)}"></i>${bar()}
       <div class="rk-endscroll"><div class="rk-end" data-step="0">
-        <div class="rk-verdict ${won ? 'won' : ''}" style="--c:${colour};--bloom:${alpha(colour, won ? 0.3 : 0.12)};--glow:${alpha(colour, 0.45)}">
+        <div class="rk-verdict ${won ? 'won' : ''}" style="--c:${colour};--glow:${alpha(colour, 0.45)}">
           <div class="rk-ft">FULL TIME</div>
-          <div class="rk-vd"><i class="rk-bloom"></i><b>${drew ? 'Draw' : won ? 'Victory' : 'Defeat'}</b><span>${esc(sub)}</span></div>
+          <div class="rk-vd"><b>${drew ? 'Draw' : won ? 'Victory' : 'Defeat'}</b><span>${esc(sub)}</span></div>
         </div>
         <div class="rk-faceoff">${resultFace('me')}<span class="rk-sep">–</span>${resultFace('them')}</div>
         <div class="rk-rounds rk-card">
@@ -589,6 +589,7 @@ export function mountRanked(ctx) {
     // The verdict.
     const won = iWon(), theyWon = !won && !drawn();
     end.dataset.step = '1';
+    screen.querySelector('.rk-bloom').classList.add('on');
     screen.querySelector('.rk-rface.me').classList.add(won ? 'winner' : theyWon ? 'loser' : 'even');
     screen.querySelector('.rk-rface.them').classList.add(theyWon ? 'winner' : won ? 'loser' : 'even');
     Haptics.success(); sound.reveal();
@@ -735,10 +736,10 @@ export function mountRanked(ctx) {
   let raf = 0;
   const loop = now => {
     if (closed) return;
+    raf = requestAnimationFrame(loop);
     if (g.phase === 'searching' && !g.frozen) tickSearch(now);
     else if (g.phase === 'countdown') drawReel(now);
     else if (g.phase === 'playing' && !g.frozen) tickPlaying(now);
-    raf = requestAnimationFrame(loop);
   };
   raf = requestAnimationFrame(loop);
 
