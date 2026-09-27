@@ -10,6 +10,9 @@ export class Player {
   }
   static couldNotLoad = "Couldn't load the clip. Check your connection and try again.";
   ensure() {
+    // iPhone Safari mutes Web Audio when the ring/silent switch is on unless
+    // the page says it is playing media, as the app's .playback session does.
+    try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch (e) {}
     if (!this.ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AC({ latencyHint: 'interactive' });
@@ -29,11 +32,7 @@ export class Player {
     const p = (async () => {
       this.bytes = this.bytes || new Map();
       let data = this.bytes.get(id);
-      if (!data) {
-        const r = await fetch(url, { mode: 'cors' });
-        if (!r.ok) throw new Error('preview ' + r.status);
-        data = await r.arrayBuffer();
-      }
+      if (!data) data = await Player.fetchClip(id, url);
       // Before the first tap there is no AudioContext (browsers refuse one): keep the bytes and decode on play.
       if (!this.ctx) { this.bytes.set(id, data); if (this.bytes.size > 6) this.bytes.delete(this.bytes.keys().next().value); return null; }
       this.bytes.delete(id);
@@ -45,6 +44,17 @@ export class Player {
     })().finally(() => this.loading.delete(id));
     this.loading.set(id, p);
     return p;
+  }
+  /** The clip's bytes. A preview that fails (moved, expired, a network
+   *  blip) is retried once, then looked up fresh by its Apple id. */
+  static async fetchClip(id, url) {
+    const get = async u => { const r = await fetch(u, { mode: 'cors' }); if (!r.ok) throw new Error('preview ' + r.status); return r.arrayBuffer(); };
+    try { return await get(url); } catch (e) {}
+    try { return await get(url); } catch (e) {}
+    const r = await fetch(`/api/itunes?id=${encodeURIComponent(id)}`).then(x => x.ok ? x.json() : null).catch(() => null);
+    const fresh = r && r.songs && r.songs[0] && r.songs[0].preview;
+    if (fresh && fresh !== url) return get(fresh);
+    throw new Error('no clip');
   }
   /** Play `seconds` from `offset` into the clip. Resolves true once it has started; lastError says why not. */
   async play(id, url, seconds, offset = 0) {
