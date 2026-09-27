@@ -97,10 +97,14 @@ export const Daily = {
     raw.set(K.record, JSON.stringify({ day: r.day, won: r.won, stage: r.stage, ms: r.ms, hints: r.hints || 0 }));
   },
   forgetToday() { raw.del(K.record); },
-  points(stage, won, hints = 0) {
+  /** By speed, as in party and the app: 1000 the moment play is first pressed, 500 at 20 s,
+   *  100 at a minute; each later stage caps it; each hint takes a quarter off. */
+  points(stage, won, hints = 0, ms = 0) {
     if (!won) return 0;
-    const base = [1000, 800, 600, 400, 200][Math.max(0, Math.min(4, stage))];
-    return Math.floor(base * (4 - Math.max(0, Math.min(2, hints))) / 4);
+    const t = Math.max(0, ms) / 1000;
+    let base = t <= 20 ? 1000 - 500 * (t / 20) : Math.max(100, 500 - 400 * ((t - 20) / 40));
+    base = Math.min(base, [1000, 850, 700, 550, 400][Math.max(0, Math.min(4, stage))]);
+    return Math.floor(Math.round(base) * (4 - Math.max(0, Math.min(2, hints))) / 4);
   },
   stageLabel(i) { return label(STAGES[Math.max(0, Math.min(4, i))]); },
   /** One line a person would write to a friend, the link under it. Never the song. */
@@ -433,8 +437,8 @@ export function mountDaily(ctx) {
       // A plain insert, as the phone posts it: the unique (user_id, day) index turns a
       // repeat into a 409 we ignore. (No upsert: players have no SELECT on the table.)
       await supabase.from('daily_results').insert({
-        user_id: u.id, day: r.day, stage: r.stage, won: r.won, ms: r.ms, hints: r.hints,
-        points: Daily.points(r.stage, r.won, r.hints), display_name: name.slice(0, 20), avatar: account.avatar || null,
+        user_id: u.id, day: r.day, stage: r.stage, won: r.won, ms: Math.min(r.ms, 3600000), hints: r.hints,
+        points: Daily.points(r.stage, r.won, r.hints, r.ms), display_name: name.slice(0, 20), avatar: account.avatar || null,
       });
     } catch (e) {}
   }
@@ -501,7 +505,7 @@ export function mountDaily(ctx) {
   function renderResult(fresh = false) {
     const r = record;
     const streak = (() => { const s = account.stats || {}; return (s.lastDaily || 0) >= day - 1 ? (s.dailyStreak || 0) : 0; })();
-    const pts = Daily.points(r.stage, r.won, r.hints);
+    const pts = Daily.points(r.stage, r.won, r.hints, r.ms);
     const state = r.won ? ACCENT : TIER_COLOR.expert;
     // From the round: withAnimation(.easeOut(duration: 0.28)) { phase = .result } — the two cross-fade.
     if (fresh && !still()) {
