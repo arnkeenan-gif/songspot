@@ -50,43 +50,84 @@
 .pf-sv b { font-size: 22px; font-weight: 800; font-style: italic; letter-spacing: -.8px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pf-sv small { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
 .pf-rowtext b { font-size: 15px; font-weight: 700; font-style: normal; letter-spacing: 0; }
-.pf-rowtext small { font-size: 11.5px; }
+.pf-rowtext small { font-size: 11.5px; color: var(--muted); }
 .pf-chev { color: var(--dim); font-size: 11px; display: grid; flex: none; }
 .pf-row .pf-chev { font-size: 12px; }
 
-/* panels */
-.pf-panel { margin-top: 14px; padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
-.pf-row + .pf-panel, .pf-grid + .pf-panel { margin-top: 30px; }
-.pf-panel h2 { margin: 0 0 12px; font-size: 10px; font-weight: 600; letter-spacing: 1.8px; color: var(--muted); line-height: 1.2; }
+/* sections: a title (17 heavy italic) over one surface */
+.pf-sec { padding-top: 30px; }
+.pf-sechd { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.pf-sechd h2 { margin: 0; font-size: 17px; font-weight: 800; font-style: italic; letter-spacing: -.4px; line-height: 1.2; color: var(--text); }
+.pf-sechd span { font-size: 12px; font-weight: 600; color: var(--dim); }
+.pf-card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+.pf-pad { padding: 16px; }
 .pf-div { height: 1px; background: var(--line); }
+.pf-hero { display: flex; align-items: center; gap: 14px; }
+.pf-big { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; font-size: 26px; flex: none; }
+.pf-big.pf-trophy { font-size: 22px; }
+.pf-herot { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pf-herot b { font-size: 20px; font-weight: 800; font-style: italic; letter-spacing: -.6px; line-height: 1.2; color: var(--text); }
+.pf-herot small { font-size: 12.5px; color: var(--muted); line-height: 1.25; }
+.pf-herot small.pf-mono { font: 600 12.5px var(--mono); }
+.pf-minis { display: flex; }
+.pf-mini { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.pf-mini b { font-size: 18px; font-weight: 800; font-style: italic; letter-spacing: -.5px; line-height: 1.2; color: var(--text); }
+.pf-mini small { font-size: 11px; color: var(--muted); line-height: 1.25; }
 
-/* figures (daily) */
-.pf-figs { display: flex; align-items: flex-start; }
-.pf-fig { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.pf-fig b { font-size: 20px; font-weight: 800; font-style: italic; letter-spacing: -.6px; line-height: 1.2; }
-.pf-fig small { font-size: 9.5px; font-weight: 600; letter-spacing: 1.6px; color: var(--muted); }
-.pf-dstreak { display: flex; align-items: center; gap: 5px; }
-.pf-flame { font-size: 15px; display: grid; }
+/* daily */
+.pf-daily { display: flex; flex-direction: column; gap: 16px; }
+.pf-week { display: flex; }
+.pf-day { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.pf-dot { position: relative; width: 26px; height: 26px; border-radius: 50%; background: var(--track); display: grid; place-items: center; color: #08120c; font-size: 10px; }
+.pf-dot.lit { background: var(--hard, #ff8a2b); }
+.pf-day.today .pf-dot::after { content: ''; position: absolute; inset: -3.75px; border-radius: 50%; border: 1.5px solid rgba(242,242,242,.5); }
+.pf-day small { font-size: 10.5px; font-weight: 600; color: var(--dim); line-height: 1.2; }
+.pf-day.today small { color: var(--text); }
 
-/* bars */
-.pf-bars { display: flex; flex-direction: column; gap: 7px; }
-.pf-barrow { display: flex; align-items: center; gap: 10px; }
-.pf-blabel { width: 74px; flex: none; font: 600 11.5px var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; }
-.pf-btrack { flex: 1; min-width: 0; height: 24px; }
-.pf-bfill { display: flex; align-items: center; justify-content: flex-end; height: 24px; width: 30px; padding-right: 8px; border-radius: 5px; font: 800 12px var(--mono); font-variant-numeric: tabular-nums; transition: width .6s var(--ease); }
+/* how fast: five columns */
+.pf-speed { display: flex; flex-direction: column; gap: 12px; }
+.pf-cols { display: flex; align-items: flex-end; gap: 10px; height: 140px; overflow: hidden; }
+.pf-cols.empty { height: 48px; }
+.pf-col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.pf-col b { font: 800 12px var(--mono); text-align: center; line-height: 1.2; }
+.pf-cols.empty .pf-col b { display: none; }
+.pf-colbar { display: block; height: 8px; border-radius: 7px; }
+.pf-col small { font: 600 11px var(--mono); color: var(--dim); text-align: center; line-height: 1.2; }
+.pf-col small.on { color: var(--text); }
+.pf-speed p { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.3; }
+
+/* by difficulty */
+.pf-tiers { display: flex; gap: 8px; }
+.pf-tier { position: relative; flex: 1; min-width: 0; height: 70px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.pf-tier i { position: absolute; top: 7px; left: 50%; width: 18px; height: 3px; margin-left: -9px; border-radius: 2px; }
+.pf-tier b { font-size: 20px; font-weight: 800; font-style: italic; letter-spacing: -.6px; line-height: 1.2; }
+.pf-tier small { font-size: 10.5px; font-weight: 600; color: var(--muted); white-space: nowrap; line-height: 1.2; }
 
 /* ranked */
-.pf-rk { display: flex; align-items: center; gap: 14px; height: 60px; }
-.pf-rkbadge { font-size: 10.5px; font-weight: 800; letter-spacing: 1.6px; color: #08120c; padding: 6px 10px; border-radius: 6px; line-height: 1.2; flex: none; }
-.pf-rk .pf-sv small { font-size: 11.5px; }
-.pf-dots { display: flex; gap: 5px; flex: none; margin-left: 8px; }
-.pf-dots i { width: 8px; height: 8px; border-radius: 50%; }
+.pf-ranked { display: flex; flex-direction: column; gap: 14px; }
+.pf-ranked .pf-herot { gap: 1px; }
+.pf-dots { display: flex; gap: 5px; flex: none; }
+.pf-dots i { width: 8px; height: 8px; border-radius: 50%; box-sizing: border-box; }
 .pf-dots i.empty { border: 1px solid var(--line); }
+.pf-rprog { display: flex; flex-direction: column; gap: 6px; }
+.pf-rtrack { height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
+.pf-rtrack i { display: block; height: 100%; width: 6px; border-radius: 3px; }
+.pf-rfoot { display: flex; justify-content: space-between; gap: 12px; font-size: 11.5px; color: var(--dim); line-height: 1.2; }
+
+/* career */
+.pf-career { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pf-ct { display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 10px; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.pf-ctile { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; flex: none; }
+.pf-ctv { display: flex; flex-direction: column; min-width: 0; }
+.pf-ctv b { font-size: 16px; font-weight: 800; font-style: italic; letter-spacing: -.4px; line-height: 1.2; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pf-ctv small { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; }
+
+/* account */
+.pf-acct { padding: 0 16px; }
 
 /* ledger + settings */
-.pf-lrow, .pf-set { display: flex; align-items: center; height: 44px; gap: 8px; width: 100%; }
-.pf-lrow span, .pf-sl { font-size: 14px; color: var(--muted); flex: 1; white-space: nowrap; }
-.pf-lrow b { font: 600 14px var(--mono); font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+.pf-set { display: flex; align-items: center; height: 44px; gap: 8px; width: 100%; }
+.pf-sl { font-size: 14px; color: var(--muted); flex: 1; white-space: nowrap; }
 .pf-set b { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
 .pf-set .pf-chev { font-size: 11px; }
 .pf-link { font-size: 13.5px; font-weight: 600; margin-left: 14px; }
@@ -100,3 +141,6 @@
 .pf-confirm h3 { margin: 0; font-size: 17px; font-weight: 800; }
 .pf-confirm p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.4; color: var(--muted); }
 .pf-confirm .pf-danger { background: var(--surface); border: 1px solid var(--line); color: var(--expert); height: 48px; font-size: 15px; font-weight: 700; }
+
+/* SF Symbols draw larger than their point size on a 24-box SVG: scale the glyphs in the tiles up to match */
+.profile .pf-tile .i, .profile .pf-ctile .i, .profile .pf-big .i { width: 1.35em; height: 1.35em; }

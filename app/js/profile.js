@@ -1,10 +1,13 @@
 // The profile, as the iPhone app's ProfileView.swift draws it: the avatar in
-// an accent ring, the name, the level bar, four stat cards two by two, then
-// the panels — Daily challenge, where you name it, per difficulty, ranked,
-// stats and the account. A guest sees their local stats and a way to sign in.
-import { el, esc, pushView, popView, openSheet, cap, label, alpha, TIER_COLOR, PILL_FILL, PILL_INK, TIERS } from './ui.js';
+// an accent ring, the name, the level bar, four stat cards two by two, the
+// Friends row, then titled sections — Daily challenge (streak + a week of
+// days), How fast you name them (five columns), By difficulty (five tiles),
+// Ranked, Career (tiles two to a row) and Account.
+import { el, esc, pushView, popView, openSheet, cap, label, alpha, TIER_COLOR, TIERS } from './ui.js';
 import { I } from './icons.js';
 import { Level } from './account.js';
+import { spring } from './motion.js';
+import { Haptics } from './haptics.js';
 
 const STAGES = [0.1, 0.5, 2, 8, 15];
 /** SF "target", which icons.js does not carry. */
@@ -14,7 +17,30 @@ const TARGET = `<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentCo
 const dailyNumber = (d = Date.now()) => Math.max(1, Math.floor((d - Date.UTC(2026, 8, 19)) / 864e5) + 1);
 /** Ranked.rank */
 const rankTier = r => (r < 1100 ? 'easy' : r < 1300 ? 'medium' : r < 1500 ? 'hard' : r < 1700 ? 'expert' : 'impossible');
-const fmt = n => Number(n || 0).toLocaleString('en-US');
+/** Int.formatted(): the reader's own grouping, as the phone uses the device's. */
+const fmt = n => Number(n || 0).toLocaleString();
+/** Ranked.progress: where the next rank starts and how far through this one. */
+function rankProgress(r) {
+  for (const [lo, hi] of [[900, 1100], [1100, 1300], [1300, 1500], [1500, 1700]]) if (r < hi) return { next: hi, fraction: Math.min(1, Math.max(0, (r - lo) / (hi - lo))) };
+  return { next: null, fraction: 1 };
+}
+/** Ranked.seasonCountdown: the season ends at the start of next ISO week (Monday 00:00, local). */
+function seasonCountdown(now = new Date()) {
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  end.setDate(end.getDate() + (8 - (end.getDay() || 7)));
+  const left = (end - now) / 1000;
+  if (left <= 0) return 'Resetting now';
+  const hours = Math.floor(left / 3600);
+  if (hours < 24) return hours <= 1 ? 'Resets within the hour' : `Resets in ${hours} hours`;
+  const days = Math.ceil(left / 86400);
+  return days <= 1 ? 'Resets tomorrow' : `Resets in ${days} days`;
+}
+/** weekday(.narrow) for a day `ago` days back. */
+const weekday = ago => { const d = new Date(); d.setDate(d.getDate() - ago); return d.toLocaleDateString(undefined, { weekday: 'narrow' }); };
+/** SF "stairs" and "star.fill", which icons.js does not carry. */
+const STAIRS = `<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h5v-5h5v-5h5V5h3"/></svg>`;
+const STAR = `<svg class="i" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4l-5.8 3.1 1.1-6.5L2.6 9.4l6.5-.9z"/></svg>`;
+const COLS = spring(0.55, 0.85), RANKBAR = spring(0.7, 0.9);
 const pct = s => Math.round((s.roundsPlayed ? s.roundsWon / s.roundsPlayed : 0) * 100);
 
 /** PartyAvatar.encode: a 144 square, filled and centred, JPEG stepped down to ≤14 kB. */
@@ -90,71 +116,87 @@ export function mountProfile(ctx) {
       ${statCard(String(s.bestStreak || 0), 'Best streak', I.trophy, TIER_COLOR.medium)}</div>`;
   }
 
-  /** Where the phone has the Friends row; on the web a guest gets the way to sign in. */
-  function signInRowHTML() {
-    if (account.signedIn) return '';
+  /** Friends: the phone's row. The web has no friend list yet, so a tap signs a guest in or points at the app. */
+  function friendsRowHTML() {
     const g = TIER_COLOR.easy;
-    return `<button class="pf-row" data-act="signin" data-press><span class="pf-tile" style="background:${alpha(g, 0.16)};color:${g}">${I.person}</span>
-      <span class="pf-sv pf-rowtext"><b>Sign in</b><small style="color:${g}">Sign in to keep your stats on every device</small></span><span class="pf-chev">${I.chevron}</span></button>`;
+    const line = account.signedIn ? 'Add friends in the Songspot app' : 'Sign in to add friends';
+    return `<button class="pf-row" data-act="friends" data-press><span class="pf-tile" style="background:${alpha(g, 0.16)};color:${g}">${I.people}</span>
+      <span class="pf-sv pf-rowtext"><b>Friends</b><small>${line}</small></span><span class="pf-chev">${I.chevron}</span></button>`;
   }
 
-  const panel = (title, inner) => `<section class="pf-panel"><h2>${esc(title.toUpperCase())}</h2>${inner}</section>`;
-  const figure = (value, name) => `<div class="pf-fig"><b class="${value === '—' ? 'dim' : ''}">${esc(value)}</b><small>${esc(name.toUpperCase())}</small></div>`;
+  /** A section the iOS way: its title above, its content on one surface. */
+  const section = (title, inner, note = null) => `<section class="pf-sec"><div class="pf-sechd"><h2>${esc(title)}</h2>${note ? `<span>${esc(note)}</span>` : ''}</div>${inner}</section>`;
+  const divider = '<div class="pf-div"></div>';
+  const mini = (value, name) => `<div class="pf-mini"><b class="${value === '—' ? 'dim' : ''}">${esc(value)}</b><small>${esc(name)}</small></div>`;
 
+  /** The daily: your streak as a flame and a week of days, then the record. */
   function dailyHTML(s) {
-    const live = (s.lastDaily || 0) >= dailyNumber() - 1 ? (s.dailyStreak || 0) : 0;
-    return `<div class="pf-figs"><div class="pf-fig"><span class="pf-dstreak"><span class="pf-flame" style="color:${live > 0 ? TIER_COLOR.hard : 'var(--dim)'}">${I.flame}</span><b>${live}</b></span><small>STREAK</small></div>
-      ${figure(s.dailyPlayed ? String(s.dailyPlayed) : '—', 'Played')}
-      ${figure(s.dailyWon ? String(s.dailyWon) : '—', 'Named')}
-      ${figure(s.dailyBest ? String(s.dailyBest) : '—', 'Best')}</div>`;
+    const today = dailyNumber();
+    const streak = (s.lastDaily || 0) >= today - 1 ? (s.dailyStreak || 0) : 0;
+    const playedToday = s.lastDaily === today;
+    const end = playedToday ? today : today - 1;
+    const hard = TIER_COLOR.hard, tint = streak > 0 ? hard : '#4a4a4a';
+    const days = [0, 1, 2, 3, 4, 5, 6].map(k => {
+      const day = today - 6 + k, lit = streak > 0 && day <= end && day > end - streak;
+      return `<div class="pf-day${k === 6 ? ' today' : ''}"><span class="pf-dot${lit ? ' lit' : ''}">${lit ? I.check : ''}</span><small>${esc(weekday(6 - k))}</small></div>`;
+    }).join('');
+    return `<div class="pf-card pf-pad pf-daily">
+      <div class="pf-hero"><span class="pf-big" style="color:${tint};background:${alpha(tint, 0.14)}">${I.flame}</span>
+        <span class="pf-herot"><b>${streak === 0 ? 'No streak yet' : `${streak}-day streak`}</b><small>${playedToday ? "Today's done. Back tomorrow." : streak > 0 ? 'Play today to keep it going' : "Name today's song to start one"}</small></span></div>
+      <div class="pf-week">${days}</div>${divider}
+      <div class="pf-minis">${mini(s.dailyPlayed ? String(s.dailyPlayed) : '—', 'Played')}${mini(s.dailyWon ? String(s.dailyWon) : '—', 'Named')}${mini(s.dailyBest ? String(s.dailyBest) : '—', 'Best streak')}</div></div>`;
   }
 
-  /** Horizontal bars, the longest filling the row; the lit one in its colour, the rest sit back. */
-  function barsHTML(items, lit) {
-    const top = Math.max(1, ...items.map(it => it.count));
-    return `<div class="pf-bars">${items.map((it, i) => {
-      const on = lit == null ? it.count > 0 : i === lit;
-      const fill = it.count === 0 ? 'var(--track)' : on ? it.tint : alpha(it.tint, 0.28);
-      const ink = it.count === 0 ? 'var(--dim)' : on ? PILL_INK : 'var(--text)';
-      const want = it.count === 0 ? '30px' : `max(34px, ${(100 * it.count / top).toFixed(2)}%)`;
-      return `<div class="pf-barrow"><span class="pf-blabel">${esc(it.label)}</span><span class="pf-btrack"><span class="pf-bfill" data-w="${want}" style="background:${fill};color:${ink};transition-delay:${(0.05 * i).toFixed(2)}s">${it.count}</span></span></div>`;
-    }).join('')}</div>`;
-  }
-
-  function distributionHTML(s) {
-    const counts = STAGES.map((_, i) => (s.wonByStage && s.wonByStage[i]) || 0);
-    const total = counts.reduce((a, b) => a + b, 0);
+  /** Wins by stage as five columns, the one you name most at lit. */
+  function speedHTML(s, counts, total) {
+    const top = Math.max(1, ...counts);
     let usual = null;
     if (total > 0) { usual = 0; counts.forEach((c, i) => { if (c > counts[usual]) usual = i; }); }
-    return barsHTML(counts.map((c, i) => ({ label: label(STAGES[i]), count: c, tint: accent() })), usual);
+    const cols = counts.map((c, i) => {
+      const on = usual === i;
+      const fill = total === 0 ? 'var(--track)' : on ? accent() : alpha(accent(), 0.28);
+      return `<div class="pf-col"><b style="color:${on ? accent() : 'var(--muted)'}">${total === 0 ? '' : c}</b>
+        <span class="pf-colbar" data-h="${Math.max(8, 96 * c / top).toFixed(2)}px" style="background:${fill};transition-delay:${(0.05 * i).toFixed(2)}s"></span>
+        <small class="${on ? 'on' : ''}">${label(STAGES[i])}</small></div>`;
+    }).join('');
+    const foot = total === 0 ? 'Name songs and this fills in with how early you get them.' : `You usually name it at ${label(STAGES[usual])}.`;
+    return `<div class="pf-card pf-pad pf-speed"><div class="pf-cols${total === 0 ? ' empty' : ''}">${cols}</div><p>${esc(foot)}</p></div>`;
   }
 
-  const tiersHTML = s => barsHTML(TIERS.map(t => ({ label: cap(t), count: (s.winsByTier && s.winsByTier[t]) || 0, tint: PILL_FILL[t] })), null);
+  /** Wins per difficulty as five tiles, each in its level's colour. */
+  const difficultyHTML = s => `<div class="pf-tiers">${TIERS.map(t => {
+    const n = (s.winsByTier && s.winsByTier[t]) || 0, c = TIER_COLOR[t];
+    return `<div class="pf-tier" style="background:${alpha(c, n === 0 ? 0.04 : 0.1)}"><i style="background:${c}"></i><b style="color:${n === 0 ? 'var(--dim)' : c}">${n}</b><small>${t === 'impossible' ? 'Imposs.' : cap(t)}</small></div>`;
+  }).join('')}</div>`;
 
-  const divider = '<div class="pf-div"></div>';
-  const row = (lbl, value, { tint = null, last = false } = {}) => `<div class="pf-lrow"><span>${esc(lbl)}</span><b class="${!tint && value === '—' ? 'dim' : ''}"${tint ? ` style="color:${tint}"` : ''}>${esc(value)}</b></div>${last ? '' : divider}`;
-
+  /** Your rank in its colour, the rating, the road to the next rank, form, and the week's record. */
   function rankedHTML(s) {
-    const rating = s.rating || 1000, t = rankTier(rating), recent = (s.recentRanked || []).slice(-5);
+    const rating = s.rating || 1000, t = rankTier(rating), tint = TIER_COLOR[t], p = rankProgress(rating);
+    const recent = (s.recentRanked || []).slice(-5);
     const dots = recent.map(r => `<i style="background:${r === 1 ? TIER_COLOR.easy : r === 0 ? TIER_COLOR.expert : 'var(--surface2)'}"></i>`).join('')
       + '<i class="empty"></i>'.repeat(Math.max(0, 5 - recent.length));
-    return `<div class="pf-rk"><span class="pf-rkbadge" style="background:${PILL_FILL[t]}">${cap(t).toUpperCase()}</span>
-      <span class="pf-sv"><b>${fmt(rating)}</b><small>${s.rankedPlayed ? `Rating · best ${fmt(s.bestRating)}` : 'Rating · play ranked to move it'}</small></span>
-      <span class="pf-dots">${dots}</span></div>${divider}
-      ${row('This season', s.rankedPlayed ? `${s.rankedWon} won of ${s.rankedPlayed}` : '—')}
-      ${row('Ranked points', s.rankedPoints ? fmt(s.rankedPoints) : '—', { last: true })}`;
+    const nextLine = p.next ? `${fmt(p.next - rating)} to ${cap(rankTier(p.next))}` : 'Top rank';
+    return `<div class="pf-card pf-pad pf-ranked">
+      <div class="pf-hero"><span class="pf-big pf-trophy" style="color:${tint};background:${alpha(tint, 0.14)}">${I.trophy}</span>
+        <span class="pf-herot"><b style="color:${tint}">${cap(t)}</b><small class="pf-mono">${fmt(rating)} rating</small></span><span class="pf-dots">${dots}</span></div>
+      <div class="pf-rprog"><div class="pf-rtrack"><i data-w="max(6px, ${(p.fraction * 100).toFixed(2)}%)" style="background:${tint}"></i></div>
+        <div class="pf-rfoot"><span>${esc(nextLine)}</span><span>${esc(seasonCountdown())}</span></div></div>${divider}
+      <div class="pf-minis">${mini(s.rankedPlayed ? `${s.rankedWon}–${s.rankedPlayed - s.rankedWon}` : '—', 'Won–lost')}${mini(fmt(s.bestRating || 1000), 'Best rating')}${mini(s.rankedPoints ? fmt(s.rankedPoints) : '—', 'Points')}</div></div>`;
   }
 
-  function ledgerHTML(s) {
+  /** Everything else you've done, as small tiles two to a row. */
+  function careerHTML(s) {
     const inst = (s.wonByStage && s.wonByStage[0]) || 0;
-    return row('Best streak', s.bestStreak ? `${s.bestStreak} in a row` : '—')
-      + (s.streak > 1 ? row('Right now', `${s.streak} in a row`, { tint: accent() }) : '')
-      + row('Instant hits', inst ? `${inst} at 0.1s` : '—')
-      + row('Ladders climbed', s.laddersClimbed ? fmt(s.laddersClimbed) : '—')
-      + row('Parties', s.partiesPlayed ? `${s.partiesWon} won of ${s.partiesPlayed}` : '—')
-      + row('Party rounds named', s.partyRoundsWon ? fmt(s.partyRoundsWon) : '—')
-      + row('Best party score', s.bestPartyScore ? fmt(s.bestPartyScore) : '—')
-      + row('Party points', s.partyPoints ? fmt(s.partyPoints) : '—', { last: true });
+    const items = [
+      [s.roundsPlayed ? fmt(s.roundsPlayed) : '—', 'Rounds played', I.play, TIER_COLOR.easy],
+      [inst ? fmt(inst) : '—', 'Named at 0.1s', I.bolt, TIER_COLOR.medium],
+      [s.laddersClimbed ? fmt(s.laddersClimbed) : '—', 'Ladders climbed', STAIRS, TIER_COLOR.hard],
+      [s.partiesPlayed ? `${s.partiesWon} of ${s.partiesPlayed}` : '—', 'Parties won', I.people, TIER_COLOR.impossible],
+      [s.bestPartyScore ? fmt(s.bestPartyScore) : '—', 'Best party score', STAR, TIER_COLOR.expert],
+      [s.partyPoints ? fmt(s.partyPoints) : '—', 'Party points', I.sparkles, '#4cc9f0'],
+    ];
+    return `<div class="pf-career">${items.map(([v, n, icon, c]) => `<div class="pf-ct"><span class="pf-ctile" style="color:${c};background:${alpha(c, 0.14)}">${icon}</span>
+      <span class="pf-ctv"><b class="${v === '—' ? 'dim' : ''}">${esc(v)}</b><small>${esc(n)}</small></span></div>`).join('')}</div>`;
   }
 
   const setting = (act, lbl, value, { tint = null, chevron = false } = {}) => {
@@ -184,15 +226,16 @@ export function mountProfile(ctx) {
     const f0 = body.querySelector('.pf-field');
     const draft = f0 ? f0.value : null, caret = f0 ? f0.selectionStart : null;
     const s = account.stats;
-    const total = (s.wonByStage || []).reduce((a, b) => a + (b || 0), 0);
+    const total = (s.wonByStage || []).slice(0, 5).reduce((a, b) => a + (b || 0), 0);
     node.style.setProperty('--pf-accent', accent());
-    body.innerHTML = whoHTML() + levelHTML(s) + gridHTML(s) + signInRowHTML()
-      + panel('Daily challenge', dailyHTML(s))
-      + panel(total === 0 ? "Where you'll name it" : 'Where you name it', distributionHTML(s))
-      + panel('Named per difficulty', tiersHTML(s))
-      + panel('Ranked', rankedHTML(s))
-      + panel('Stats', ledgerHTML(s))
-      + panel('Account', accountHTML())
+    const counts = STAGES.map((_, i) => (s.wonByStage && s.wonByStage[i]) || 0);
+    body.innerHTML = whoHTML() + levelHTML(s) + gridHTML(s) + friendsRowHTML()
+      + section('Daily challenge', dailyHTML(s))
+      + section('How fast you name them', speedHTML(s, counts, total), total === 0 ? null : `${fmt(total)} named`)
+      + section('By difficulty', difficultyHTML(s))
+      + section('Ranked', rankedHTML(s), s.rankedPlayed ? 'This week' : null)
+      + section('Career', careerHTML(s))
+      + section('Account', `<div class="pf-card pf-acct">${accountHTML()}</div>`)
       + (deleteError ? `<p class="pf-err">${esc(deleteError)}</p>` : '');
     const f = body.querySelector('.pf-field');
     if (f) {
@@ -201,14 +244,19 @@ export function mountProfile(ctx) {
       const at = caret ?? f.value.length; try { f.setSelectionRange(at, at); } catch (e) {}
       f.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commitName(); } });
     }
-    // the bars grow in on first show (0.6 s, the stage's curve); later renders land at once
-    const fills = body.querySelectorAll('[data-w]');
+    // the bars and columns grow in on first show (level: the stage's curve, 0.6 s;
+    // columns: spring(0.55, 0.85); rank line: spring(0.7, 0.9) after 0.2 s); later renders land at once
+    const grow = [...body.querySelectorAll('[data-w],[data-h]')];
+    const land = n => { if (n.dataset.w) n.style.width = n.dataset.w; if (n.dataset.h) n.style.height = n.dataset.h; };
     if (first) {
       first = false;
       body.classList.add('pf-rise');
-      setTimeout(() => fills.forEach(n => { n.style.width = n.dataset.w; }), 60);
+      body.querySelectorAll('.pf-colbar').forEach(n => { n.style.transition = `height ${COLS.css}`; });
+      body.querySelectorAll('.pf-rtrack i').forEach(n => { n.style.transition = `width ${RANKBAR.css} .2s`; });
+      body.querySelectorAll('.pf-colbar').forEach((n, i) => { n.style.transitionDelay = `${(0.05 * i).toFixed(2)}s`; });
+      requestAnimationFrame(() => requestAnimationFrame(() => grow.forEach(land)));
     } else {
-      fills.forEach(n => { n.style.transition = 'none'; n.style.width = n.dataset.w; });
+      grow.forEach(n => { n.style.transition = 'none'; land(n); });
     }
   }
 
@@ -259,6 +307,9 @@ export function mountProfile(ctx) {
       case 'premium': close(); return ctx.openPremium(null);
       case 'portal': return openPortal();
       case 'signin': return ctx.signIn();
+      case 'friends': Haptics.select();
+        if (!account.signedIn) { ctx.toast('Sign in to add friends.'); return ctx.signIn(); }
+        return ctx.toast('Friends live in the Songspot app for now.');
       case 'signout': return confirm({ title: 'Sign out of Songspot?', message: 'Your stats stay on your account. Sign in again any time to pick them up.', action: 'Sign out',
         run: async () => { await account.signOut(); close(); ctx.toast('Signed out.'); } });
       case 'delete': return confirm({ title: 'Delete your account?', message: 'Your name, picture and every stat are erased from Songspot for good. This cannot be undone.', action: 'Delete account',
