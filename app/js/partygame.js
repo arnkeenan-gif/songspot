@@ -89,7 +89,7 @@ export function decode(m) {
 // ---------- the transport: Supabase Realtime, the room the iPhone joins ----------
 
 class RealtimeTransport {
-  constructor() { this.channel = null; this.closed = false; this.onMessage = null; this.onPresence = null; this.onError = null; this.tap = null; }
+  constructor() { this.channel = null; this.closed = false; this.onMessage = null; this.onPresence = null; this.onError = null; this.onReconnect = null; this.tap = null; this.lost = 0; }
   /** Same room and payload nesting as RealtimeTransport.swift: topic realtime:party-<room>, event "party", presence key = player id, track {id, name}. */
   join(room, playerID, name) {
     this.closed = false;
@@ -102,14 +102,19 @@ class RealtimeTransport {
       const timer = setTimeout(() => { if (!joined) reject(new Error("Couldn't reach the party. Check your connection.")); }, 10000);
       ch.subscribe(async status => {
         if (status === 'SUBSCRIBED') {
-          if (joined) return;
+          if (joined) {
+            // The line dropped and came back by itself (supabase-js rejoins): say who we are again and let the game re-announce.
+            if (this.lost) { clearTimeout(this.lost); this.lost = 0; try { await ch.track({ id: playerID, name }); } catch (e) {} if (this.onReconnect) this.onReconnect(); }
+            return;
+          }
           joined = true; clearTimeout(timer);
           // Presence: say who we are, so the host can list us even before our join message lands.
           try { await ch.track({ id: playerID, name }); } catch (e) {}
           resolve();
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
           if (!joined) { clearTimeout(timer); reject(new Error(status === 'CLOSED' ? 'The party refused us: closed' : "Couldn't reach the party. Check your connection.")); }
-          else if (!this.closed && status !== 'CLOSED' && this.onError) this.onError('Lost the connection to the party.');
+          // Dropped after joining: the client retries on its own; like the iPhone's four rejoins, give it a while before giving up.
+          else if (!this.closed && status !== 'CLOSED' && !this.lost) this.lost = setTimeout(() => { this.lost = 0; if (!this.closed && this.onError) this.onError('Lost the connection to the party.'); }, 15000);
         }
       });
     });
@@ -121,7 +126,7 @@ class RealtimeTransport {
     catch (e) { if (this.onError) this.onError("Couldn't reach the party. Check your connection."); }
   }
   async leave() {
-    this.closed = true;
+    this.closed = true; clearTimeout(this.lost); this.lost = 0;
     const ch = this.channel; this.channel = null;
     if (ch) { try { await ch.untrack(); } catch (e) {} try { await supabase.removeChannel(ch); } catch (e) {} }
   }
@@ -165,6 +170,7 @@ export class PartyGame {
     this.transport.onMessage = m => this.handle(m);
     this.transport.onError = e => { this.phase = 'error'; this.error = e; this.emit(); };
     this.transport.onPresence = ids => this.prune(ids);
+    this.transport.onReconnect = () => this.reannounce();
     this.myID = uuid();
     this.phase = 'idle'; this.error = null;
     this.players = []; this.settings = freshSettings(); this.catalogue = [];
@@ -172,6 +178,8 @@ export class PartyGame {
     this.round = 0; this.current = null; this.roundStartedAt = 0; this.roundWindow = 20; this.roundSeconds = 20;
     this.currentChoices = []; this.myPick = null; this.answered = []; this.wrong = new Set();
     this.myPoints = null; this.myRoundsWon = 0; this.lastGained = {}; this.lastAnswer = null;
+    /** Every finished round of this game: the song and what each player took (PartyRoundRecord, for the 1v1 breakdown). */
+    this.history = [];
     this.preparingSongs = false; this.clockOffset = 0; this.bestRtt = Infinity;
     // host only
     this.queue = []; this.deck = []; this.roundOpen = false; this.gainedThisRound = {}; this.closer = null; this.artistSongs = [];
@@ -230,8 +238,17 @@ export class PartyGame {
       this.later(() => { if (this.phase === 'connecting') { this.phase = 'error'; this.error = 'No party with that code. Check it with the host.'; this.emit(); } }, 4);
     } catch (e) { if (this.phase === 'connecting') { this.phase = 'error'; this.error = e.message; this.emit(); } }
   }
+  /** A finished 1v1 against Songbot, for looking at the result (-demoDuelResult). */
+  demoDuelFinish(name) {
+    this.isHost = true;
+    this.players = [{ id: this.myID, name, isHost: true, score: 3620, avatar: null, hue: 0 }, { id: 'bot-songbot', name: 'Songbot', isHost: false, score: 2890, avatar: null, hue: 3 }];
+    const demo = [['Blinding Lights', 'The Weeknd', 962, 0], ['Levitating', 'Dua Lipa', 0, 874], ['Mr. Brightside', 'The Killers', 918, 802], ['Stronger', 'Kanye West', 811, 0], ['Heartless', 'Kanye West', 929, 1214]];
+    this.history = demo.map(([title, artist, a, b], i) => ({ id: i, title, artist, artwork: null, gained: { [this.myID]: a, 'bot-songbot': b } }));
+    this.settings.rounds = 5;
+    this.phase = 'finished'; this.emit();
+  }
   async leave() {
-    clearTimeout(this.closer);
+    clearTimeout(this.closer); clearTimeout(this.pruneTimer);
     this.timers.forEach(clearTimeout); this.timers.clear();
     if (this.transport.channel) { await this.transport.send(Msg.leave(this.myID)); await this.transport.leave(); }
     this.phase = 'idle'; this.players = []; this.round = 0; this.queue = []; this.current = null;
@@ -379,6 +396,7 @@ export class PartyGame {
         this.emit(); return;
       case 'round': {
         this.round = m.index;
+        if (m.index === 0) this.history = [];
         this.currentChoices = m.choices || [];
         this.myPick = null; this.wrong = new Set();
         if (m.index === 0) this.myRoundsWon = 0;
@@ -409,6 +427,8 @@ export class PartyGame {
         if (this.isHost) this.judge(m.playerID, m.songID, m.text, m.at);
         return;
       case 'scored':
+        // Realtime can deliver a round's result before its last score; the result already carries the totals, so a late score is ignored.
+        if (this.phase === 'result') return;
         if (!this.answered.includes(m.playerID)) this.answered.push(m.playerID);
         if (m.points === 0) this.wrong.add(m.playerID);
         if (m.playerID === this.myID) { this.myPoints = m.points; if (m.points > 0) this.myRoundsWon += 1; }
@@ -418,6 +438,7 @@ export class PartyGame {
       case 'result':
         for (const [id, s] of Object.entries(m.scores)) { const p = this.players.find(x => x.id === id); if (p) p.score = s; }
         this.lastGained = m.gained; this.lastAnswer = { title: m.title, artist: m.artist, artwork: m.artwork };
+        if (!this.history.some(r => r.id === m.index)) this.history.push({ id: m.index, title: m.title, artist: m.artist, artwork: m.artwork, gained: m.gained });
         this.round = m.index; this.resultFor = m.index; this.phase = 'result'; this.emit(); return;
       case 'finished':
         for (const [id, s] of Object.entries(m.scores)) { const p = this.players.find(x => x.id === id); if (p) p.score = s; }
@@ -458,10 +479,20 @@ export class PartyGame {
     // Late joiners need the artist's songs too, so it rides with the lobby.
     await this.transport.send(Msg.catalogue(this.catalogue));
   }
+  /** Back on the line after a drop: the host re-sends the room, a guest re-introduces itself (same id, so its seat and score are kept). */
+  async reannounce() {
+    if (this.isHost) await this.broadcastLobby();
+    else if (this.me) { await this.transport.send(Msg.join(this.me)); await this.measureClock(); }
+  }
+  /** Someone missing from presence may only have switched apps for a moment: twenty seconds to come back before their seat goes. */
   prune(ids) {
-    if (!this.isHost || !ids.length) return;
+    clearTimeout(this.pruneTimer);
+    this.pruneTimer = setTimeout(() => this.pruneNow(ids), 20000);
+  }
+  pruneNow(ids) {
+    if (!this.isHost || !ids.length || this.phase === 'idle') return;
     const before = this.players.length;
-    this.players = this.players.filter(p => ids.includes(p.id) || p.id === this.myID || p.id.startsWith('bot-'));
+    this.players = this.players.filter(p => ids.includes(p.id) || p.id === this.myID || p.id.startsWith('bot-') || p.id.startsWith('demo-'));
     if (this.players.length !== before) { this.broadcastLobby(); this.emit(); }
   }
   scoreMap() { return Object.fromEntries(this.players.map(p => [p.id, p.score])); }

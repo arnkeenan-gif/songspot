@@ -86,10 +86,10 @@
 .pdots i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: .25; animation: pdot .55s cubic-bezier(.42,0,.58,1) infinite alternate; }
 .pdots i:nth-child(2) { animation-delay: .18s; } .pdots i:nth-child(3) { animation-delay: .36s; }
 @keyframes pdot { from { opacity: .25; } to { opacity: 1; } }
-/* Equalizer: bars bottom-aligned to each other, the group centred in its 18pt frame (so it grows both ways),
+/* Equalizer: on the iPhone the bars come out centred on one line (captured: party-joining), in an 18pt frame,
    each easeInOut .34 + i·.05 s, repeating with autoreverse, i·.07 s apart; peaks 30·[.55,.95,.7,1,.6] */
 .peq { display: inline-flex; align-items: center; justify-content: center; height: 18px; overflow: visible; }
-.peq > span { display: inline-flex; align-items: flex-end; gap: 4px; }
+.peq > span { display: inline-flex; align-items: center; gap: 4px; }
 .peq i { width: 5px; height: 6px; border-radius: 2px; background: currentColor; animation: peq .34s cubic-bezier(.42,0,.58,1) infinite alternate; }
 .peq i:nth-child(1) { --p: 16.5px; }
 .peq i:nth-child(2) { --p: 28.5px; animation-duration: .39s; animation-delay: .07s; }
@@ -351,3 +351,51 @@
 .party-sheet .sp { flex: 1; }
 .party-sheet .chev { display: inline-flex; color: var(--dim); }
 .party-sheet .chev .i { width: 11px; height: 11px; }
+
+/* ---- the end of a 1v1 (PartyView.duelFinished) ----
+   podiumUp flips 0.15 s in; each part rides its own spring after its own delay */
+.ph-finished .dres { padding-bottom: 12px; }
+.dverdict { margin-top: 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; animation: dverdict var(--sp-dhead) .35s both; }
+.dverdict h2 { margin: 0; font-size: 46px; font-weight: 800; font-style: italic; letter-spacing: -2px; line-height: 1.1; color: var(--text); padding-right: 6px; }
+.dverdict p { margin: 0; font-size: 13px; color: var(--dim); }
+@keyframes dverdict { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+.dscores { margin-top: 8px; display: flex; align-items: flex-start; gap: 8px; }
+.dscores > .dash { padding-top: 108px; font-size: 20px; font-weight: 800; color: var(--dim); line-height: 1; animation: pfade var(--sp-dscore) .6s both; }
+.dsc { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.dsc.l { animation: dsc-l var(--sp-dscore) .6s both; } .dsc.r { animation: dsc-r var(--sp-dscore) .6s both; }
+@keyframes dsc-l { from { opacity: 0; transform: translateX(-120px); } to { opacity: 1; transform: none; } }
+@keyframes dsc-r { from { opacity: 0; transform: translateX(120px); } to { opacity: 1; transform: none; } }
+.dsc .av { position: relative; margin-top: 16px; display: inline-flex; }
+.dsc .ring { display: inline-flex; border-radius: 50%; outline: 1.5px solid var(--c); outline-offset: 4.25px; }
+.dsc.win .ring { outline-width: 3px; outline-offset: 3.5px; }
+.dsc.lose .ring { filter: saturate(.4); opacity: .55; }
+.dsc .pav.bot { background: var(--surface2); color: var(--easy); }
+.dsc .pav.bot .i { width: 25px; height: 25px; }
+.dsc .crown { position: absolute; left: 50%; top: -22px; transform: translateX(-50%); color: #ffd166; display: inline-flex; }
+.dsc .crown .i { width: 22px; height: 22px; }
+.dsc b { font-size: 13.5px; font-weight: 600; color: var(--text); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dsc.win b { font-weight: 800; } .dsc.lose b { color: var(--muted); }
+.dsc .n { font-size: 28px; font-weight: 800; line-height: 1.15; color: var(--text); }
+.dsc.lose .n { color: var(--muted); }
+.drounds { margin-top: 18px; padding: 12px 14px; border-radius: 18px; }
+.pdhead { display: flex; align-items: center; gap: 8px; padding-bottom: 6px; }
+.pdhead small { font-size: 9.5px; font-weight: 800; letter-spacing: 2px; color: var(--muted); }
+.pdhead .c { width: 58px; display: inline-flex; justify-content: center; flex: none; }
+.drounds .hr { display: block; height: 1px; background: var(--line); }
+.drow { display: flex; align-items: center; gap: 10px; padding: 5px 0; animation: drow var(--sp-drow) var(--d) both; }
+@keyframes drow { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+.drow img, .drow .ph { width: 30px; height: 30px; border-radius: 6px; object-fit: cover; background: var(--surface2); flex: none; }
+.drow .t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.drow .t b { font-size: 13.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drow .t small { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dcell { width: 58px; flex: none; display: flex; justify-content: center; }
+.dcell > span { width: 52px; height: 24px; border-radius: 12px; display: grid; place-items: center; }
+.dcell b { font-size: 13px; font-weight: 800; color: var(--muted); }
+.dcell .took b { color: #08120c; }
+.dcell i { display: inline-flex; color: var(--expert); } .dcell i .i { width: 13px; height: 13px; }
+.dcell em { font-style: normal; font-size: 13px; font-weight: 800; color: var(--dim); }
+.pdfoot { display: flex; flex-direction: column; gap: 10px; animation: pfade .3s cubic-bezier(0,0,.58,1) 1.55s both; }
+.pdfoot .pwait.dw { padding: 14px 0; }
+.dleave { width: 100%; height: 44px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); font-size: 14.5px; font-weight: 800; text-align: center; }
+/* the host's settings: a full-height sheet on a phone, as iOS presents a sheet with no detents */
+@media (max-width: 599px) { .view.sheet.party-sheet.full .sheet-body { height: calc(100% - 44px - var(--sat)); } }

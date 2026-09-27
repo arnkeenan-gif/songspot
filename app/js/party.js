@@ -9,7 +9,7 @@ import { confetti } from './confetti.js';
 import { Haptics } from './haptics.js';
 import { spring, still } from './motion.js';
 import { I } from './icons.js';
-import { el, pushView, popView, openSheet, hueColor, shareText, esc, art, cap, settings, TIER_COLOR, TIER_INK, PILL_FILL, PILL_INK } from './ui.js';
+import { el, pushView, popView, openSheet, hueColor, shareText, esc, art, cap, settings, TIER_COLOR, TIER_INK, PILL_FILL, PILL_INK, LevelTheme } from './ui.js';
 
 const SHAZAM_TAIL = 12;           // seconds a clip stays muted after the tab was away on the results screen
 const STRIP_MAX = 10;
@@ -36,6 +36,9 @@ const MOTION = {
   '--sp-vs': spring(0.4, 0.6),        // the 1v1 seats
   '--sp-pts': spring(0.4, 0.55),      // the locked-in points
   '--sp-num': spring(0.2, 0.85),      // .snappy(duration: .2): the ring's seconds
+  '--sp-dhead': spring(0.5, 0.6),     // 1v1 result: the verdict
+  '--sp-dscore': spring(0.5, 0.78),   // 1v1 result: the two of you sliding in
+  '--sp-drow': spring(0.4, 0.8),      // 1v1 result: round by round
 };
 
 // ---------- a small DOM patcher ----------
@@ -141,10 +144,12 @@ function avatar(name, pic, color, size) {
 export function mountParty(ctx, opts = {}) {
   const { pool, player, sound, account } = ctx;
   // Localhost-only knobs, the iPhone's DEBUG launch flags: ?demoParty (eight stand-ins, no network),
-  // ?showJoining (the room loader), ?showDuel (a 1v1 with Songbot).
+  // ?showJoining (the room loader), ?showDuel (a 1v1 with Songbot), ?demoDuelResult or ?demo=duelresult (a finished 1v1).
   const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
-  const knob = k => local && new URLSearchParams(location.search).has(k);
-  const game = new PartyGame(pool, { loopback: knob('demoParty') || knob('showDuel') || knob('showJoining'), standIns: knob('demoParty') });
+  const qs = new URLSearchParams(location.search);
+  const knob = k => local && (qs.has(k) || (qs.get('demo') || '').toLowerCase() === k.toLowerCase().replace(/^demo/, ''));
+  const demoDuelResult = knob('demoDuelResult');
+  const game = new PartyGame(pool, { loopback: knob('demoParty') || knob('showDuel') || knob('showJoining') || demoDuelResult, standIns: knob('demoParty') });
   // The raw wire, for anyone checking it from the console.
   const wire = (window.__partyWire = []);
   game.transport.tap = (dir, m) => { wire.push({ dir, t: Date.now(), m: JSON.parse(JSON.stringify(m)) }); if (wire.length > 400) wire.shift(); };
@@ -156,11 +161,12 @@ export function mountParty(ctx, opts = {}) {
   let key = '', raf = 0, closed = false;
   let clip = { round: -1, started: false, error: null, muted: false };
   let wentAwayAt = null, countN = -1, secsShown = -1;
-  let scoresBefore = {}, revealed = false, recordedGame = false, podiumTimer = 0;
+  let scoresBefore = {}, revealed = false, podiumTimer = 0;
   let settingsSheet = null, songsSheet = null;
   // A friend's 1v1 (PartyLaunch on the iPhone): two seats, five rounds, the host's settings.
-  const launch = opts.duel || (knob('showDuel') ? { name: 'Songbot', bot: true } : null);
+  const launch = opts.duel || (knob('showDuel') || demoDuelResult ? { name: 'Songbot', bot: true } : null);
   const isDuel = !!launch;
+  let recordedGame = demoDuelResult;   // a demo result is not a game played
   let challengeNote = null;
   view.style.cssText = Object.entries(MOTION).map(([k, v]) => `${k}:${v.css}`).join(';');
 
@@ -188,7 +194,7 @@ export function mountParty(ctx, opts = {}) {
         <span class="who"><small>PLAYING AS</small><b class="${n ? '' : 'none'}">${esc(n || 'Add your name')}</b></span>
         <span class="edit">${account.avatar ? 'Edit' : 'Add a photo'}</span><i class="chev">${I.chevron}</i>
       </button>
-      <button class="phost ${premium ? 'on' : ''} ${premium && glow() ? 'glow' : ''}" data-press data-act="host">
+      <button class="phost ${premium ? 'on' : ''} ${premium && glow() ? 'glow' : ''}" data-press data-act="host" ${premium && !n ? 'disabled' : ''}>
         <span class="ic">${premium ? I.people : I.lock}</span>
         <span class="tx"><b>Host a party</b><small>${premium ? 'Get a code, play live with up to 50 people.' : 'Hosting is a premium perk. Joining a party is free for everyone.'}</small></span>
         ${premium ? `<i class="chev">${I.chevron}</i>` : '<span class="ptag">PREMIUM</span>'}
@@ -196,7 +202,7 @@ export function mountParty(ctx, opts = {}) {
       <div class="por"><i></i><span>or</span><i></i></div>
       <div class="pjoin">
         <input class="pcode ${codeEntry.length === 5 ? 'full' : ''}" value="${esc(codeEntry)}" placeholder="ROOM CODE" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="5" aria-label="Room code" enterkeyhint="go">
-        <button class="pgo ${codeEntry.length === 5 ? 'on' : ''}" data-press data-act="join" ${codeEntry.length === 5 ? '' : 'disabled'}>Join</button>
+        <button class="pgo ${codeEntry.length === 5 ? 'on' : ''}" data-press data-act="join" ${codeEntry.length === 5 && n ? '' : 'disabled'}>Join</button>
       </div>
       <div class="flex"></div>`;
   }
@@ -236,7 +242,7 @@ export function mountParty(ctx, opts = {}) {
     const summary = `${game.isHost ? `<div class="shead"><small>GAME SETTINGS</small><div class="sp"></div><span style="color:${accent()}">Edit</span><i class="chev">${I.chevron}</i></div>` : ''}
       ${row(I.hash, `${s.rounds} rounds`)}${row(I.bars, s.difficulty === 'mixed' ? 'Easy to Impossible' : cap(s.difficulty))}
       ${row(I.timer, `${Math.round(s.guessWindow)} seconds a song`)}${row(I.calendar, s.era === 'all' ? 'Any year' : `The ${s.era}`)}
-      ${row(I.search, s.easySearch ? 'Easy search' : 'Hard search')}${row(s.artist ? I.mic : I.genres, game.songsLabel)}`;
+      ${row(s.artist ? I.mic : I.genres, game.songsLabel)}`;
     const foot = game.isHost
       ? `<button class="pstart ${game.canStart ? 'on' : ''} ${glow() ? 'glow' : ''}" data-press data-act="start" ${!game.canStart || game.preparingSongs ? 'disabled' : ''}>${game.preparingSongs ? 'Getting the songs ready…' : game.canStart ? (isDuel ? 'Start the 1v1' : 'Start the party') : (isDuel ? `Waiting for ${esc(opponentName())}` : 'Waiting for players')}</button>`
       : `<div class="pwait">${dots('var(--muted)')}<span>Waiting for ${esc(game.hostName || 'the host')} to start</span></div>`;
@@ -351,7 +357,7 @@ export function mountParty(ctx, opts = {}) {
       const p = ranked[i], c = hueColor(p.hue);
  return `<div class="pod" style="--d:${delays[i]}s"><span class="ring" style="outline:2.5px solid ${c};outline-offset:1.75px">${pav(p, i === 0 ? 56 : 44)}${i === 0 ? `<i class="crown">${I.crown}</i>` : ''}</span>
         <b>${esc(p.name)}</b><span class="sc mono" style="color:${c}">${p.score}</span>
-        <div class="blk" style="--h:${heights[i]}px;background:linear-gradient(${c}e6, ${c}59)"><span>${i + 1}</span></div></div>`;
+        <div class="blk" style="--h:${heights[i]}px;background:${c}${i === 0 ? 'e6' : '8c'}"><span>${i + 1}</span></div></div>`;
     }).join('');
     const rest = ranked.slice(3).map((p, i) => `<div class="restrow"><span class="rk mono">${i + 4}</span>${pav(p, 26)}<b>${esc(p.name)}</b><div class="sp"></div><span class="mono">${p.score}</span></div>`).join('');
     return `${bar('Results')}
@@ -363,14 +369,52 @@ export function mountParty(ctx, opts = {}) {
       <button class="pleave" data-act="close">Leave the party</button>`;
   }
 
+  /** A friend's 1v1 ends like ranked: the verdict, the two of you with your scores, the match again round by round, a rematch. */
+  function duelFinished() {
+    const me = game.me, other = game.players.find(p => p.id !== game.myID);
+    const mine = me?.score || 0, theirs = other?.score || 0, won = mine > theirs, drew = mine === theirs;
+    const them = esc(other?.name || 'They');
+    const verdict = drew ? 'Draw' : won ? 'Victory' : 'Defeat';
+    const sub = won ? `${them} couldn't keep up` : drew ? 'Dead level' : `${them} took it this time`;
+    const score = (p, sc, winner, loser, side) => {
+      const c = hueColor(p?.hue ?? 0), bot = !!p?.id?.startsWith('bot-');
+      const face = p && !bot ? pav(p, 62) : `<span class="pav bot" style="width:62px;height:62px">${CPU}</span>`;
+      return `<div class="dsc ${side} ${winner ? 'win' : ''} ${loser ? 'lose' : ''}"><span class="av"><span class="ring" style="--c:${winner ? c : 'var(--line)'}">${face}</span>${winner ? `<i class="crown">${I.crown}</i>` : ''}</span>
+        <b>${esc(p?.name || '—')}</b><span class="n mono" style="${winner ? `color:${c}` : ''}">${sc}</span></div>`;
+    };
+    const cell = (pts, took, c) => `<span class="dcell"><span class="${took ? 'took' : ''}" style="${took ? `background:${c}` : ''}">${pts > 0 ? `<b class="mono">${pts}</b>` : pts === 0 ? `<i>${I.x}</i>` : '<em>—</em>'}</span></span>`;
+    const coverOf = r => {
+      if (r.artwork) return art(r.artwork, 120);
+      const s = pool.songs.find(x => x.title === r.title && x.artist === r.artist);
+      return s?.artwork ? art(s.artwork, 120) : '';
+    };
+    const mc = hueColor(me?.hue ?? 0), oc = hueColor(other?.hue ?? 1);
+    const rows = game.history.map((r, k) => {
+      const a = me ? r.gained[me.id] : undefined, b = other ? r.gained[other.id] : undefined, cv = coverOf(r);
+      return `<i class="hr"></i><div class="drow" style="--d:${(0.95 + k * 0.09).toFixed(2)}s">${cv ? `<img src="${esc(cv)}" alt="">` : '<span class="ph"></span>'}
+        <span class="t"><b>${esc(r.title)}</b><small>${esc(r.artist)}</small></span>
+        ${cell(a, (a || 0) > (b || 0), mc)}${cell(b, (b || 0) > (a || 0), oc)}</div>`;
+    }).join('');
+    return `${bar('1v1')}
+      <div class="pscroll dres">
+        <div class="dverdict"><h2 style="${won ? 'color:var(--easy)' : ''}">${verdict}</h2><p>${sub}</p></div>
+        <div class="dscores">${score(me, mine, won, !won && !drew, 'l')}<span class="dash">–</span>${score(other, theirs, !won && !drew, won, 'r')}</div>
+        ${game.history.length ? `<div class="drounds card"><div class="pdhead"><small>ROUND BY ROUND</small><div class="sp"></div>${me ? `<span class="c">${pav(me, 22)}</span>` : ''}${other ? `<span class="c">${pav(other, 22)}</span>` : ''}</div>${rows}</div>` : ''}
+      </div>
+      <div class="pdfoot">${game.isHost ? '<button class="pagain" data-press data-act="again">Rematch</button>' : `<div class="pwait dw">${dots('var(--muted)')}<span>Waiting for ${esc(game.hostName || 'the host')} to start</span></div>`}
+        <button class="dleave" data-press data-act="close">Leave</button></div>`;
+  }
+
   const errorCard = () => `<div class="flex"></div><div class="perr"><i>${I.wifi}</i><p>${esc(game.error || 'Something went wrong.')}</p><button data-press data-act="back">Back</button></div><div class="flex"></div>`;
 
   // ---------- drawing ----------
   function render(force = false) {
     if (closed) return;
     const k = [game.phase, game.round, game.players.length, force ? Math.random() : ''].join('|');
-    const screens = { idle: isDuel ? connecting : entry, connecting, lobby: isDuel ? duelLobby : lobby, countdown, playing, result, finished, error: errorCard };
+    const screens = { idle: isDuel ? connecting : entry, connecting, lobby: isDuel ? duelLobby : lobby, countdown, playing, result, finished: isDuel ? duelFinished : finished, error: errorCard };
     const phaseChanged = !key.startsWith(game.phase + '|');
+    // LevelTheme: the page takes the round's colour (.onChange(of: tier)); it cross-fades by itself.
+    LevelTheme.setOverride(tier());
     // Keep a typed guess or code through a redraw.
     const typed = scr.querySelector('.gin')?.value;
     const html = (screens[game.phase] || entry)();
@@ -539,7 +583,7 @@ export function mountParty(ctx, opts = {}) {
     const c = game.current;
     const exact = normT(t) === normT(c.title) || normT(t) === normT(`${c.title} ${c.artist}`);
     const best = game.catalogue.length ? null : pool.search(t, 1)[0];
-    if (exact || best?.id === c.songID) { inp.value = ''; refreshHits(); game.submit(c.songID, t); } else wrongShake();
+    if (exact || best?.id === c.songID) { Haptics.success(); inp.value = ''; refreshHits(); game.submit(c.songID, t); } else wrongShake();
   }
 
   // ---------- the host's settings ----------
@@ -555,16 +599,15 @@ export function mountParty(ctx, opts = {}) {
         ${pickerHTML('Difficulty', DIFFICULTIES, s.difficulty, 'difficulty')}
         ${pickerHTML('Time per song', WINDOWS.map(w => [w, w + 's']), Math.round(s.guessWindow), 'window')}
         ${pickerHTML('Years', YEARS, s.era, 'era')}
-        ${pickerHTML('Search', [['easy', 'Easy'], ['hard', 'Hard']], s.easySearch ? 'easy' : 'hard', 'search')}
         <button class="psongs" data-press data-sact="songs"><i style="color:var(--easy)">${s.artist ? I.mic : I.genres}</i><span class="l">Songs</span><div class="sp"></div><b>${esc(game.songsLabel)}</b><i class="chev">${I.chevron}</i></button>
       </div>`;
   }
   function openSettings() {
     if (settingsSheet) return;
-    settingsSheet = openSheet(settingsBody(), { cls: 'party-sheet', label: 'Game settings', onClose: () => { settingsSheet = null; } });
+    settingsSheet = openSheet(settingsBody(), { cls: 'party-sheet full', label: 'Game settings', onClose: () => { settingsSheet = null; } });
     settingsSheet.body.addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
-      if (b.dataset.sact === 'done') { sound.click(); settingsSheet.close(); return; }
+      if (b.dataset.sact === 'done') { settingsSheet.close(); return; }
       if (b.dataset.sact === 'songs') { sound.click(); openSongs(); return; }
       const f = b.dataset.field; if (!f) return;
       sound.click();
@@ -573,7 +616,6 @@ export function mountParty(ctx, opts = {}) {
       if (f === 'difficulty') s.difficulty = v;
       if (f === 'window') { s.guessWindow = parseInt(v, 10) || 20; s.clipSeconds = s.guessWindow; }
       if (f === 'era') s.era = v;
-      if (f === 'search') s.easySearch = v === 'easy';
       morph(settingsSheet.body, settingsBody());
       game.pushSettings(); render();
     });
@@ -605,7 +647,7 @@ export function mountParty(ctx, opts = {}) {
     body.addEventListener('input', e => { if (e.target.tagName === 'INPUT') { q = e.target.value; redraw(); } });
     body.addEventListener('click', async e => {
       const b = e.target.closest('button'); if (!b) return;
-      if (b.dataset.sact === 'done') { sound.click(); songsSheet.close(); return; }
+      if (b.dataset.sact === 'done') { songsSheet.close(); return; }
       if (b.dataset.tab != null) { sound.click(); tab = +b.dataset.tab; q = ''; redraw(); return; }
       if (b.dataset.genre != null) { sound.click(); await game.setCategory(b.dataset.genre); redraw(); refreshSettings(); return; }
       if (b.dataset.artist != null) {
@@ -623,6 +665,7 @@ export function mountParty(ctx, opts = {}) {
     if (closed) return;
     closed = true;
     cancelAnimationFrame(raf); clearTimeout(podiumTimer);
+    LevelTheme.setOverride(null);
     player.stop();
     settingsSheet?.close(); songsSheet?.close();
     document.removeEventListener('visibilitychange', onVis);
@@ -631,19 +674,22 @@ export function mountParty(ctx, opts = {}) {
     game.leave().catch(() => {}).finally(() => player.stop());
     popView(view);
   }
+  const needName = () => { if (name()) return false; if (ctx.openProfile) ctx.openProfile(); return true; };
   function host() {
     if (!ctx.premium) { ctx.openPremium('host'); return; }
+    if (needName()) return;
     player.ensure();
     game.host(account.displayName, account.avatar);
   }
   function join() {
-    if (codeEntry.length !== 5) return;
+    if (codeEntry.length !== 5 || needName()) return;
     player.ensure();
     game.join(codeEntry, account.displayName, account.avatar);
   }
   /** A challenge: host a 5-round room for two and seat the friend (Songbot answers from here). */
   async function startFromLaunch() {
-    if (game.phase !== 'idle') return;
+    if (game.phase !== 'idle' || demoDuelResult) return;
+    if (needName()) return;
     game.seatLimit = 2;
     player.ensure();
     await game.host(account.displayName, account.avatar);
@@ -664,7 +710,8 @@ export function mountParty(ctx, opts = {}) {
     const choice = b.dataset.choice;
     if (choice != null) { sound.click(); Haptics.press(0.7); game.pick(choice); return; }
     const act = b.dataset.act;
-    if (act !== 'replay') sound.click();
+    // The bar's X and the Leave buttons close without a click on the iPhone (Button(action: close)); Cancel clicks.
+    if (act !== 'replay' && !(act === 'close' && !b.classList.contains('pcancel'))) sound.click();
     switch (act) {
       case 'close': close(); break;
       case 'premium': ctx.openPremium('host'); break;
@@ -681,7 +728,7 @@ export function mountParty(ctx, opts = {}) {
       case 'guess': submitTyped(); break;
       case 'hit': {
         const c = game.current; if (!c) break;
-        if (b.dataset.id === c.songID) { game.submit(c.songID, b.dataset.title); scr.querySelector('.gin').value = ''; refreshHits(); } else wrongShake();
+        if (b.dataset.id === c.songID) { Haptics.success(); game.submit(c.songID, b.dataset.title); scr.querySelector('.gin').value = ''; refreshHits(); } else wrongShake();
         break;
       }
       case 'replay':
@@ -696,7 +743,7 @@ export function mountParty(ctx, opts = {}) {
       if (n !== e.target.value) e.target.value = n;
       codeEntry = n;
       e.target.classList.toggle('full', n.length === 5);
-      const go = scr.querySelector('.pgo'); go.disabled = n.length !== 5; go.classList.toggle('on', n.length === 5);
+      const go = scr.querySelector('.pgo'); go.disabled = n.length !== 5 || !name(); go.classList.toggle('on', n.length === 5);
     }
     if (e.target.classList.contains('gin')) refreshHits();
   });
@@ -730,5 +777,6 @@ export function mountParty(ctx, opts = {}) {
   if (opts.join && codeEntry.length === 5) setTimeout(join, 0);
   if (knob('showJoining')) { codeEntry = 'BCDFG'; setTimeout(join, 0); }
   if (launch) setTimeout(startFromLaunch, 0);
+  if (demoDuelResult) setTimeout(() => game.demoDuelFinish(name() || 'Leo'), 0);
   return view;
 }
