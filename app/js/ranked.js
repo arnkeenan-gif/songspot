@@ -158,6 +158,11 @@ export function mountRanked(ctx) {
   const inMatch = () => g.phase === 'playing' || g.phase === 'roundResult' || (g.phase === 'countdown' && g.round > 0);
   const pickedRight = () => g.myPick != null && g.myPick === g.cur?.id;
   const myName = () => (account.name || '').trim() || 'You';
+  /** Ranked is premium, with one free match for a new player (StageView.rankedOpen). */
+  const rankedOpen = () => ctx.premium || (account.stats.rankedPlayed || 0) === 0;
+  const freeMatch = () => !ctx.premium && (account.stats.rankedPlayed || 0) === 0;
+  /** Out of free matches: close ranked and show premium. */
+  function locked() { quit(); setTimeout(() => ctx.openPremium('ranked'), 450); }
 
   // Walking out by closing the tab counts as a loss, once (Ranked.markPending / settlePending).
   const markPending = () => store.set('ranked.pending', g.opp.rating);
@@ -370,7 +375,7 @@ export function mountRanked(ctx) {
       </div>
       <div class="rk-fill"></div>
       <button class="rk-btn2 rk-lb" data-press data-act="board">${LIST}<span>Leaderboard</span></button>
-      <button class="rk-go" data-press data-act="find">Find a match</button></div>`;
+      <button class="rk-go" data-press data-act="find">${rankedOpen() ? (freeMatch() ? 'Play your free match' : 'Find a match') : 'Unlock ranked with Premium'}</button></div>`;
   }
 
   // matchmaking: the pulse ring and one line, nothing else
@@ -508,8 +513,10 @@ export function mountRanked(ctx) {
   // playing
   function sideScore({ name, score, answered, colour, leading, missed, key }) {
     const mark = answered ? `<i class="rk-ok" style="color:${missed ? TIER_COLOR.expert : colour}">${missed ? I.xCircle : I.checkCircle}</i>` : '';
+    // Your own total shows; the opponent's stays hidden until full time — only whether they have answered.
+    const value = leading ? `<b class="rk-sscore">${score}</b>` : `<b class="rk-sstate" style="color:${answered ? colour : DIM}">${answered ? 'Answered' : 'Listening'}</b>`;
     return `<div class="rk-side ${leading ? 'lead' : 'trail'}" data-side="${key}" style="background:${alpha(colour, answered ? 0.14 : 0.06)}">
-      <div class="rk-sname">${leading ? mark : ''}<span>${esc(name)}</span>${leading ? '' : mark}</div><b class="rk-sscore">${score}</b></div>`;
+      <div class="rk-sname">${leading ? mark : ''}<span>${esc(name)}</span>${leading ? '' : mark}</div>${value}</div>`;
   }
   const sides = () => [
     { key: 'me', name: myName(), score: g.my, answered: g.iAns, colour: TIER_COLOR[tier()], leading: true, missed: g.myPick != null && !pickedRight() },
@@ -529,7 +536,8 @@ export function mountRanked(ctx) {
         if (s.leading) nm.prepend(i); else nm.append(i);
         popIn(i, 0, spring(0.4, 0.6));
       }
-      numText(node.querySelector('.rk-sscore'), s.score, spring(0.3, 0.85));
+      if (s.leading) numText(node.querySelector('.rk-sscore'), s.score, spring(0.3, 0.85));
+      else { const st = node.querySelector('.rk-sstate'), t = s.answered ? 'Answered' : 'Listening'; if (st && st.textContent !== t) { st.textContent = t; st.style.color = s.answered ? s.colour : DIM; } }
     }
   }
   function statusHTML() {
@@ -622,7 +630,7 @@ export function mountRanked(ctx) {
     return `${roundBar()}
       <div class="rk-hero">${cover}<div class="rk-hero-t"><span>IT WAS_</span><b>${esc(a.title || '')}</b><em>${esc(a.artist || '')}</em></div></div>
       <div class="rk-gains">${gained(myName(), g.myPts, acc, g.myPick != null && !pickedRight())}${gained(g.opp.name, g.theirPts, hueColor(g.opp.hue))}</div>
-      ${scoreLine()}<div class="rk-fill"></div>
+      <div class="rk-fill"></div>
       <div class="rk-hold"><div class="rk-hold-t"></div><div class="rk-track h6"><i></i></div></div>`;
   }
   /** The bar drains linearly over resultHold; the count rolls (withAnimation, the default spring). */
@@ -855,7 +863,7 @@ export function mountRanked(ctx) {
       // Mid-match the X costs the match, so it asks first. Before the first clip it is a free exit.
       case 'roundx': sound.click(); inMatch() ? confirmLeave() : quit(); break;
       case 'board': openBoard(); break;
-      case 'find': case 'again': sound.click(); player.ensure(); start(); break;
+      case 'find': case 'again': sound.click(); if (!rankedOpen()) { locked(); break; } player.ensure(); start(); break;
       case 'cancel': sound.click(); leave(); setPhase('idle'); break;
       case 'replay': replay(); break;
     }

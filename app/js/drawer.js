@@ -19,11 +19,14 @@ export async function openDrawer(ctx) {
   const d = wrap.querySelector('.drawer');
   const S = (k, def) => settings.get(k, def);
   let restoring = false;
+  // Ranked is premium, with one free match for a new player (Drawer.swift).
+  const rankedOpen = () => ctx.premium || (account.stats.rankedPlayed || 0) === 0;
 
   const render = () => {
     const accent = TIER_COLOR[game.difficulty], ink = TIER_INK[game.difficulty];
     wrap.style.setProperty('--accent', accent); wrap.style.setProperty('--accent-ink', ink);
     const st = account.stats, level = Level.at(st.roundsWon);
+    const freeMatch = !ctx.premium && (st.rankedPlayed || 0) === 0, rankedOpen = ctx.premium || freeMatch;
     const counts = game.artistSongs.length ? Object.fromEntries(TIERS.map(t => [t, 1])) : pool.counts(game.era, game.category, game.artist);
     const D = dailyMod?.Daily;
     const playedToday = D ? !!D.todayRecord() : false;
@@ -42,7 +45,7 @@ export async function openDrawer(ctx) {
       ${prow('daily', 'Daily challenge', playedToday ? 'Played today' : 'One song a day, one go', I.calendar, TIER_COLOR.easy, !playedToday && !!D,
         playedToday ? `<span class="tick">${I.check}</span>` : D ? `<span class="num">#${D.displayNumber()}</span>` : `<span class="chev">${I.chevron}</span>`)}
       ${prow('party', 'Play with friends', 'Up to 50 players', I.people, TIER_COLOR.impossible, false, `<span class="chev">${I.chevron}</span>`)}
-      ${prow('ranked', 'Play ranked', ctx.premium ? 'Climb the ladder' : 'Premium · climb the ladder', I.trophy, TIER_COLOR.medium, false, ctx.premium ? `<span class="chev">${I.chevron}</span>` : `<span class="tick">${I.lock}</span>`)}
+      ${prow('ranked', 'Play ranked', ctx.premium ? 'Climb the ladder' : freeMatch ? 'Your first match is free' : 'Premium · climb the ladder', I.trophy, TIER_COLOR.medium, false, rankedOpen ? `<span class="chev">${I.chevron}</span>` : `<span class="tick">${I.lock}</span>`)}
       ${prow('friends', 'Friends', 'Challenge a friend to a 1v1', I.people, TIER_COLOR.hard, false, `<span class="chev">${I.chevron}</span>`)}
       <div class="rule"></div>
       <div class="dhead"><p class="dlabel">Difficulty</p><button data-press data-act="reroll">${I.reroll}Reroll</button></div>
@@ -115,7 +118,7 @@ export async function openDrawer(ctx) {
     else if (act === 'premium') ctx.openPremium(null);
     else if (act === 'daily') { close(); ctx.openDaily(); }
     else if (act === 'party') { close(); ctx.openParty(); }
-    else if (act === 'ranked') ctx.premium ? (close(), ctx.openRanked()) : ctx.openPremium('ranked');
+    else if (act === 'ranked') rankedOpen() ? (close(), ctx.openRanked()) : ctx.openPremium('ranked');
     else if (act === 'reroll') { ctx.toast('New song.'); ctx.newRound(); }
     else if (act === 'anyera') { Haptics.select(); game.era = 'all'; ctx.newRound(); render(); }
     else if (act === 'friends') { close(); openFriends(ctx); }

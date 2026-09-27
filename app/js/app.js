@@ -55,7 +55,8 @@ export function loadCSS(name) {
     openDrawer: async () => (await lazy('drawer', 'openDrawer', 'app'))(ctx),
     openProfile: async () => { ctx.stopStage(); (await lazy('profile', 'mountProfile'))(ctx); },
     openParty: async (opts) => { ctx.stopStage(); (await lazy('party', 'mountParty'))(ctx, opts); },
-    openRanked: async () => { if (!ctx.premium) return ctx.openPremium('ranked'); ctx.stopStage(); (await lazy('ranked', 'mountRanked'))(ctx); },
+    // Ranked is premium, with one free match for a new player (StageView.rankedOpen).
+    openRanked: async () => { if (!ctx.premium && (account.stats.rankedPlayed || 0) > 0) return ctx.openPremium('ranked'); ctx.stopStage(); (await lazy('ranked', 'mountRanked'))(ctx); },
     openDaily: async () => { ctx.stopStage(); (await lazy('daily', 'mountDaily'))(ctx); },
     openPremium: async perk => (await lazy('premium', 'mountPremium'))(ctx, perk ?? null),
     openGenres: async () => (await lazy('pickers', 'openGenres', 'app'))(ctx),

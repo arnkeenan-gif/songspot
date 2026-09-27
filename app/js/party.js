@@ -16,8 +16,12 @@ const STRIP_MAX = 10;
 const RING_R = 98, RING_C = 2 * Math.PI * RING_R;
 // SF Symbols the shared icon set lacks: cpu (Songbot's seat) and hourglass.
 const CPU = '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.4"/><rect x="9.5" y="9.5" width="5" height="5" rx=".8" fill="currentColor" stroke="none"/><path d="M9.5 2.5v3M14.5 2.5v3M9.5 18.5v3M14.5 18.5v3M2.5 9.5h3M2.5 14.5h3M18.5 9.5h3M18.5 14.5h3"/></svg>';
+// person.fill.xmark, for the host's Kick.
+const PERSON_X = '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9.5" cy="7.5" r="3.6" fill="currentColor" stroke="none"/><path d="M2.8 20c0-3.6 3-6 6.7-6s6.7 2.4 6.7 6z" fill="currentColor" stroke="none"/><path d="M17.5 8.5l4 4M21.5 8.5l-4 4"/></svg>';
 const HOURGLASS = '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg>';
 
+/** 1st, 2nd, 3rd, 4th … 11th, 12th, 13th … 21st. */
+const ordinal = n => { const t = n % 100, u = n % 10; return n + (t >= 11 && t <= 13 ? 'th' : u === 1 ? 'st' : u === 2 ? 'nd' : u === 3 ? 'rd' : 'th'); };
 const dots = color => `<span class="pdots" style="color:${color}"><i></i><i></i><i></i></span>`;
 /** Equalizer: five bars, bottom-aligned to each other, the group centred in an 18pt frame. */
 const eq = () => '<span class="peq"><span><i></i><i></i><i></i><i></i><i></i></span></span>';
@@ -162,7 +166,7 @@ export function mountParty(ctx, opts = {}) {
   let clip = { round: -1, started: false, error: null, muted: false };
   let wentAwayAt = null, countN = -1, secsShown = -1;
   let scoresBefore = {}, revealed = false, podiumTimer = 0;
-  let settingsSheet = null, songsSheet = null;
+  let settingsSheet = null, songsSheet = null, kickMenu = null, pressTimer = 0, pressAt = null;
   // A friend's 1v1 (PartyLaunch on the iPhone): two seats, five rounds, the host's settings.
   const launch = opts.duel || (knob('showDuel') || demoDuelResult ? { name: 'Songbot', bot: true } : null);
   const isDuel = !!launch;
@@ -194,7 +198,7 @@ export function mountParty(ctx, opts = {}) {
         <span class="who"><small>PLAYING AS</small><b class="${n ? '' : 'none'}">${esc(n || 'Add your name')}</b></span>
         <span class="edit">${account.avatar ? 'Edit' : 'Add a photo'}</span><i class="chev">${I.chevron}</i>
       </button>
-      <button class="phost ${premium ? 'on' : ''} ${premium && glow() ? 'glow' : ''}" data-press data-act="host" ${premium && !n ? 'disabled' : ''}>
+      <button class="phost ${premium ? 'on' : ''} ${premium && glow() ? 'glow' : ''}" data-press data-act="host">
         <span class="ic">${premium ? I.people : I.lock}</span>
         <span class="tx"><b>Host a party</b><small>${premium ? 'Get a code, play live with up to 50 people.' : 'Hosting is a premium perk. Joining a party is free for everyone.'}</small></span>
         ${premium ? `<i class="chev">${I.chevron}</i>` : '<span class="ptag">PREMIUM</span>'}
@@ -202,7 +206,7 @@ export function mountParty(ctx, opts = {}) {
       <div class="por"><i></i><span>or</span><i></i></div>
       <div class="pjoin">
         <input class="pcode ${codeEntry.length === 5 ? 'full' : ''}" value="${esc(codeEntry)}" placeholder="ROOM CODE" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="5" aria-label="Room code" enterkeyhint="go">
-        <button class="pgo ${codeEntry.length === 5 ? 'on' : ''}" data-press data-act="join" ${codeEntry.length === 5 && n ? '' : 'disabled'}>Join</button>
+        <button class="pgo ${codeEntry.length === 5 ? 'on' : ''}" data-press data-act="join" ${codeEntry.length === 5 ? '' : 'disabled'}>Join</button>
       </div>
       <div class="flex"></div>`;
   }
@@ -234,7 +238,9 @@ export function mountParty(ctx, opts = {}) {
     const n = game.players.length, empty = n < MAX_PLAYERS ? Math.max(1, 4 - n) : 0;
     const tiles = game.players.map(p => {
       const c = hueColor(p.hue), me = p.id === game.myID;
- return `<div class="ptile" data-k="${esc(p.id)}" data-enter data-exit><span class="ring" style="outline:${me ? 3 : 2}px solid ${c};outline-offset:${me ? 1.5 : 2}px">${pav(p, 60)}${p.isHost ? `<i class="crownb">${I.crown}</i>` : ''}</span>
+      // The host holds a player down (or right-clicks them) to remove them.
+      const kick = game.isHost && !me ? ` data-kick="${esc(p.id)}"` : '';
+ return `<div class="ptile" data-k="${esc(p.id)}"${kick} data-enter data-exit><span class="ring" style="outline:${me ? 3 : 2}px solid ${c};outline-offset:${me ? 1.5 : 2}px">${pav(p, 60)}${p.isHost ? `<i class="crownb">${I.crown}</i>` : ''}</span>
         <b class="${me ? 'me' : ''}">${esc(p.name)}</b><small style="color:${me ? c : 'var(--dim)'}">${me ? 'you' : p.isHost ? 'host' : '&nbsp;'}</small></div>`;
     }).join('') + Array.from({ length: empty }, (_, i) => `<div class="ptile seat" data-k="seat-${i}" data-enter data-exit><span class="dash">${I.plus}</span><b>waiting</b>${dots('var(--dim)')}</div>`).join('');
     const s = game.settings;
@@ -329,7 +335,8 @@ export function mountParty(ctx, opts = {}) {
 
   function result() {
     const a = game.lastAnswer, pts = game.lastGained[game.myID] || 0;
-    const ranked = game.sortedPlayers, top = Math.max(1, ...ranked.map(p => p.score)), cut = 8;
+    // The top five, plus your own row if you are further down: the top of the board and your place are what anyone looks for.
+    const ranked = game.sortedPlayers, top = Math.max(1, ...ranked.map(p => p.score)), cut = 5;
     let visible = ranked.slice(0, cut).map((p, i) => [i, p]);
     const mi = ranked.findIndex(p => p.id === game.myID); if (mi >= cut) visible.push([mi, ranked[mi]]);
     const rows = visible.map(([i, p]) => {
@@ -344,14 +351,14 @@ export function mountParty(ctx, opts = {}) {
       ${a ? `<div class="phero">${a.artwork ? `<span class="cov">${glow() ? `<img class="bloom" src="${esc(art(a.artwork, 300))}" alt="">` : ''}<img class="art" src="${esc(art(a.artwork, 300))}" alt=""></span>` : ''}
         <span class="tx"><small style="color:${accent()}">IT WAS_</small><b>${esc(a.title)}</b><span>${esc(a.artist)}</span></span></div>` : ''}
       <div class="pverdict" style="color:${verdictCol};background:${pts > 0 ? myColor() + '1f' : 'rgba(168,168,168,.12)'}"><i>${pts > 0 ? I.bolt : I.x}</i><span>${pts > 0 ? 'You scored' : game.wrong.has(game.myID) ? 'Wrong answer' : 'Missed it'}</span><div class="sp"></div><b class="mono">+${pts}</b></div>
-      <div class="pboard ${revealed ? 'rev' : ''}">${rows}${ranked.length > cut ? `<small class="more">+${ranked.length - cut} more</small>` : ''}</div>
+      <div class="pboard ${revealed ? 'rev' : ''}">${rows}${ranked.length > cut + (visible.length > cut ? 1 : 0) ? `<small class="more">+${ranked.length - visible.length} more</small>` : ''}</div>
       <div class="flex"></div>
       ${game.isHost ? `<button class="pnext" data-press data-act="next" style="background:${accent()};color:${ink()}">${last ? 'See the podium' : 'Next round'}</button>`
         : `<div class="pwait h54">${dots('var(--muted)')}<span>Waiting for the host</span></div>`}`;
   }
 
   function finished() {
-    const ranked = game.sortedPlayers, first = ranked[0];
+    const ranked = game.sortedPlayers, first = ranked[0], place = ranked.findIndex(p => p.id === game.myID);
     const order = [1, 0, 2].filter(i => i < ranked.length), heights = [132, 96, 72], delays = [0.55, 0.3, 0.75].map(d => d + 0.15);
     const podium = order.map(i => {
       const p = ranked[i], c = hueColor(p.hue);
@@ -359,11 +366,13 @@ export function mountParty(ctx, opts = {}) {
         <b>${esc(p.name)}</b><span class="sc mono" style="color:${c}">${p.score}</span>
         <div class="blk" style="--h:${heights[i]}px;background:${c}${i === 0 ? 'e6' : '8c'}"><span>${i + 1}</span></div></div>`;
     }).join('');
-    const rest = ranked.slice(3).map((p, i) => `<div class="restrow"><span class="rk mono">${i + 4}</span>${pav(p, 26)}<b>${esc(p.name)}</b><div class="sp"></div><span class="mono">${p.score}</span></div>`).join('');
+    // Fourth and fifth under the podium; anyone lower sees only their own place.
+    const rest = ranked.slice(3, 5).map((p, i) => `<div class="restrow"><span class="rk mono">${i + 4}</span>${pav(p, 26)}<b>${esc(p.name)}</b><div class="sp"></div><span class="mono">${p.score}</span></div>`).join('');
     return `${bar('Results')}
       <h2 class="pwin">${first ? (first.id === game.myID ? 'You win!' : `${esc(first.name)} wins!`) : 'Game over'}</h2>
       <div class="podium">${podium}</div>
       ${rest ? `<div class="rest">${rest}</div>` : ''}
+      ${place >= 5 ? `<div class="pplace" style="color:${myColor()};background:${myColor()}1f">You came ${ordinal(place + 1)} of ${ranked.length} · ${ranked[place].score.toLocaleString('en-US')} points</div>` : ''}
       <div class="flex"></div>
       ${game.isHost ? '<button class="pagain" data-press data-act="again">Play again</button>' : ''}
       <button class="pleave" data-act="close">Leave the party</button>`;
@@ -451,6 +460,7 @@ export function mountParty(ctx, opts = {}) {
 
   function onPhase(prev) {
     const p = game.phase;
+    if (p !== 'lobby') closeKickMenu();
     if (p === 'countdown' || (p === 'playing' && prev !== 'countdown')) {
       clip = { round: game.round, started: false, error: null, muted: document.hidden };
       scoresBefore = Object.fromEntries(game.players.map(x => [x.id, x.score]));
@@ -467,7 +477,8 @@ export function mountParty(ctx, opts = {}) {
       player.stop(); wentAwayAt = null;
       if (!recordedGame) {
         recordedGame = true;
-        const mine = game.me?.score || 0, won = game.sortedPlayers[0]?.id === game.myID;
+        // A tie for first is a win for everyone on the top score.
+        const mine = game.me?.score || 0, won = mine > 0 && mine === (game.sortedPlayers[0]?.score || 0);
         try { account.recordParty(won, mine, game.myRoundsWon); } catch (e) {}
       }
       clearTimeout(podiumTimer);
@@ -587,19 +598,29 @@ export function mountParty(ctx, opts = {}) {
   }
 
   // ---------- the host's settings ----------
-  function pickerHTML(title, options, value, field) {
-    return `<div class="ppick"><small>${esc(title.toUpperCase())}</small><div class="opts">${options.map(([v, l]) =>
-      `<button data-field="${field}" data-v="${esc(v)}" class="${String(v) === String(value) ? 'on' : ''}">${esc(l)}</button>`).join('')}</div></div>`;
+  /** A setting's title with a note saying what the pick means. */
+  const settingTitle = (title, note) => `<div class="pstitle"><b>${esc(title)}</b><small>${esc(note)}</small></div>`;
+  /** A setting as a segmented row: the selected option on a pill that slides. */
+  function settingRow(title, note, options, value, field) {
+    const at = Math.max(0, options.findIndex(([v]) => String(v) === String(value)));
+    return `<div class="psrow">${settingTitle(title, note)}<div class="pseg" style="--n:${options.length}">
+      <i class="pill" style="--i:${at};background:${accent()}"></i>${options.map(([v, l]) =>
+      `<button data-field="${field}" data-v="${esc(v)}" class="${String(v) === String(value) ? 'on' : ''}" style="${String(v) === String(value) ? `color:${TIER_INK.easy}` : ''}">${esc(l)}</button>`).join('')}</div></div>`;
   }
   function settingsBody() {
-    const s = game.settings;
+    const s = game.settings, a = accent();
+    const minutes = Math.max(1, Math.round(s.rounds * (s.guessWindow + 9) / 60));
+    const levels = DIFFICULTIES.map(([v, l]) => [v, l, v === 'mixed' ? a : TIER_COLOR[v], v === 'mixed' ? TIER_INK.easy : TIER_INK[v]]);
+    const chips = levels.map(([v, l, c, k]) => { const on = v === s.difficulty;
+      return `<button data-field="difficulty" data-v="${esc(v)}" class="${on ? 'on' : ''}" style="background:${on ? c : c + '1f'};color:${on ? k : c}">${esc(l)}</button>`; }).join('');
     return `<div class="grab"></div><div class="pshead"><h3>Game settings</h3><button class="done" data-press data-sact="done">Done</button></div>
-      <div class="psettings card">
-        ${pickerHTML('Rounds', ROUND_OPTIONS.map(r => [r, String(r)]), s.rounds, 'rounds')}
-        ${pickerHTML('Difficulty', DIFFICULTIES, s.difficulty, 'difficulty')}
-        ${pickerHTML('Time per song', WINDOWS.map(w => [w, w + 's']), Math.round(s.guessWindow), 'window')}
-        ${pickerHTML('Years', YEARS, s.era, 'era')}
-        <button class="psongs" data-press data-sact="songs"><i style="color:var(--easy)">${s.artist ? I.mic : I.genres}</i><span class="l">Songs</span><div class="sp"></div><b>${esc(game.songsLabel)}</b><i class="chev">${I.chevron}</i></button>
+      <div class="psettings">
+        <button class="psongs" data-press data-sact="songs"><span class="ic" style="background:${a};color:${TIER_INK.easy}">${s.artist ? I.mic : I.genres}</span>
+          <span class="tx"><small>SONGS</small><b>${esc(game.songsLabel)}</b></span><div class="sp"></div><span class="chg" style="color:${a}">Change</span></button>
+        ${settingRow('Rounds', `About ${minutes} min of play`, ROUND_OPTIONS.map(r => [r, String(r)]), s.rounds, 'rounds')}
+        <div class="psrow">${settingTitle('Difficulty', s.difficulty === 'mixed' ? 'Starts easy and climbs to Impossible by the last round' : `Every round at ${cap(s.difficulty)}`)}<div class="plevels">${chips}</div></div>
+        ${settingRow('Time per song', 'The clip plays the whole time; faster answers score more', WINDOWS.map(w => [w, w + 's']), Math.round(s.guessWindow), 'window')}
+        ${settingRow('Years', s.era === 'all' ? 'Songs from any decade' : `Only songs from the ${s.era}`, YEARS, s.era, 'era')}
       </div>`;
   }
   function openSettings() {
@@ -610,7 +631,8 @@ export function mountParty(ctx, opts = {}) {
       if (b.dataset.sact === 'done') { settingsSheet.close(); return; }
       if (b.dataset.sact === 'songs') { sound.click(); openSongs(); return; }
       const f = b.dataset.field; if (!f) return;
-      sound.click();
+      // A tick, a tap of the phone, and the room told.
+      sound.click(); Haptics.select();
       const v = b.dataset.v, s = game.settings;
       if (f === 'rounds') s.rounds = parseInt(v, 10) || 10;
       if (f === 'difficulty') s.difficulty = v;
@@ -660,11 +682,48 @@ export function mountParty(ctx, opts = {}) {
   }
   const refreshSettings = () => { if (settingsSheet) morph(settingsSheet.body, settingsBody()); render(); };
 
+  // ---------- the host's kick ----------
+  /** A small menu under the held player: "Kick <name>". */
+  function openKickMenu(tile) {
+    const id = tile.dataset.kick, p = game.players.find(x => x.id === id);
+    if (!game.isHost || !p || id === game.myID || kickMenu) return;
+    Haptics.press(0.6);
+    const r = tile.getBoundingClientRect();
+    const box = el(`<div class="pkick"><div class="scrim" data-kact="dismiss"></div><div class="menu" role="menu"><button role="menuitem" data-kact="kick">${PERSON_X}<span>Kick ${esc(p.name)}</span></button></div></div>`);
+    const menu = box.querySelector('.menu');
+    view.appendChild(box);
+    const w = menu.offsetWidth, h = menu.offsetHeight;
+    const x = Math.min(Math.max(12, r.left + r.width / 2 - w / 2), window.innerWidth - w - 12);
+    const y = r.bottom + 8 + h > window.innerHeight - 12 ? Math.max(12, r.top - h - 8) : r.bottom + 8;
+    menu.style.left = x + 'px'; menu.style.top = y + 'px';
+    box.addEventListener('click', e => {
+      const b = e.target.closest('[data-kact]'); if (!b) return;
+      if (b.dataset.kact === 'kick') { Haptics.press(0.8); game.kick(id); }
+      closeKickMenu();
+    });
+    kickMenu = box;
+  }
+  function closeKickMenu() { if (kickMenu) { kickMenu.remove(); kickMenu = null; } }
+  const cancelPress = () => { clearTimeout(pressTimer); pressTimer = 0; pressAt = null; };
+  view.addEventListener('contextmenu', e => {
+    const t = e.target.closest('.ptile[data-kick]'); if (!t || !game.isHost) return;
+    e.preventDefault(); cancelPress(); openKickMenu(t);
+  });
+  view.addEventListener('pointerdown', e => {
+    if (e.pointerType !== 'touch') return;
+    const t = e.target.closest('.ptile[data-kick]'); if (!t || !game.isHost) return;
+    cancelPress(); pressAt = { x: e.clientX, y: e.clientY };
+    pressTimer = setTimeout(() => { pressTimer = 0; pressAt = null; openKickMenu(t); }, 500);
+  });
+  view.addEventListener('pointermove', e => { if (pressAt && Math.hypot(e.clientX - pressAt.x, e.clientY - pressAt.y) > 10) cancelPress(); });
+  view.addEventListener('pointerup', cancelPress);
+  view.addEventListener('pointercancel', cancelPress);
+
   // ---------- actions ----------
   function close() {
     if (closed) return;
     closed = true;
-    cancelAnimationFrame(raf); clearTimeout(podiumTimer);
+    cancelAnimationFrame(raf); clearTimeout(podiumTimer); cancelPress(); closeKickMenu();
     LevelTheme.setOverride(null);
     player.stop();
     settingsSheet?.close(); songsSheet?.close();
@@ -674,7 +733,16 @@ export function mountParty(ctx, opts = {}) {
     game.leave().catch(() => {}).finally(() => player.stop());
     popView(view);
   }
-  const needName = () => { if (name()) return false; if (ctx.openProfile) ctx.openProfile(); return true; };
+  /** No name yet: the "Playing as" row shakes and turns red, so it's plain what's missing. */
+  const needName = () => {
+    if (name()) return false;
+    const row = scr.querySelector('.prow');
+    if (!row) { if (ctx.openProfile) ctx.openProfile(); return true; }
+    row.classList.remove('need'); void row.offsetWidth; row.classList.add('need');
+    const b = row.querySelector('.who b'); if (b) b.textContent = 'Add your name to play';
+    Haptics.wrong();
+    return true;
+  };
   function host() {
     if (!ctx.premium) { ctx.openPremium('host'); return; }
     if (needName()) return;
@@ -743,7 +811,7 @@ export function mountParty(ctx, opts = {}) {
       if (n !== e.target.value) e.target.value = n;
       codeEntry = n;
       e.target.classList.toggle('full', n.length === 5);
-      const go = scr.querySelector('.pgo'); go.disabled = n.length !== 5 || !name(); go.classList.toggle('on', n.length === 5);
+      const go = scr.querySelector('.pgo'); go.disabled = n.length !== 5; go.classList.toggle('on', n.length === 5);
     }
     if (e.target.classList.contains('gin')) refreshHits();
   });
@@ -752,7 +820,7 @@ export function mountParty(ctx, opts = {}) {
     if (e.target.classList.contains('pcode')) join();
     if (e.target.classList.contains('gin')) submitTyped();
   });
-  const onKey = e => { if (e.key === 'Escape' && !settingsSheet && !songsSheet && document.querySelector('#views > .view:last-child') === view) close(); };
+  const onKey = e => { if (e.key === 'Escape' && kickMenu) { closeKickMenu(); return; } if (e.key === 'Escape' && !settingsSheet && !songsSheet && document.querySelector('#views > .view:last-child') === view) close(); };
   document.addEventListener('keydown', onKey);
   // Leaving the tab silences the clip for the rest of the round (a phone's Shazam lives one swipe away).
   const onVis = () => {

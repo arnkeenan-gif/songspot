@@ -155,6 +155,8 @@
 .rk-ok { display: inline-flex; font-size: 11px; }
 .rk-ok svg circle { fill: currentColor; }
 .rk-side > b { font: 800 22px/1.2 var(--mono); color: var(--text); font-variant-numeric: tabular-nums; }
+/* The opponent's side mid-match: whether they have answered, never their total (that waits for full time). */
+.rk-side > b.rk-sstate { font: 800 15px/26px Inter, system-ui, sans-serif; height: 26px; font-variant-numeric: normal; transition: color var(--sp-side); }
 .rk-ring { --ring: clamp(132px, calc(100dvh - 500px), 196px); position: relative; width: var(--ring); height: var(--ring); align-self: center; flex: none; border-radius: 50%; display: grid; place-items: center; }
 .rk-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .ranked.glow .rk-ring .arc { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--rk-accent) 45%, transparent)); }
