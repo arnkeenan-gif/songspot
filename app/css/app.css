@@ -417,3 +417,21 @@ body.spot .cone { display: block; }
 .fv-empty p { margin: 0; font-size: 15px; font-weight: 600; color: var(--muted); }
 .fv-get { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 22px; background: var(--easy); color: #04160b; font-size: 14px; font-weight: 800; text-decoration: none; }
 .fv-get .i { font-size: 14px; }
+
+/* ---------- desktop: a little wider, and the PC / phone switch ---------- */
+@media (min-width: 900px) {
+  :root { --col: 520px; }
+  .screen { max-width: 600px; }
+  .view.sheet .sheet-body { width: min(560px, calc(100vw - 48px)); }
+}
+.viewtoggle { position: fixed; top: calc(18px + var(--sat, 0px)); right: 18px; z-index: 90; display: flex; gap: 2px; padding: 3px; height: 43px; align-items: center;
+  background: #1d1d1d; border: 1px solid var(--line); border-radius: 999px; }
+.viewtoggle button { width: 40px; height: 35px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; transition: background .2s, color .2s; }
+.viewtoggle button.on { background: var(--accent, #19df70); color: #04160b; }
+.viewtoggle button:not(.on):hover { color: var(--text); }
+body.has-viewtoggle .crown-btn { right: 118px; }
+/* phone mode: the site in a phone-sized frame, centred, for streaming */
+body.phone-shell { background: #050505; overflow: hidden; }
+.phoneframe { position: fixed; inset: 0; display: grid; place-items: center; }
+.phoneframe iframe { height: min(932px, calc(100vh - 40px)); aspect-ratio: 430 / 932; width: auto; border: 0; border-radius: 44px; background: #0b0f0c;
+  box-shadow: 0 0 0 10px #161616, 0 0 0 11px #2a2a2a, 0 40px 120px rgba(0,0,0,.7); }

@@ -9,6 +9,7 @@ import { Account } from './account.js';
 import { Ads } from './ads.js';
 import { mountStage } from './stage.js';
 import { toast, pressable, settings, TIER_COLOR, TIER_INK } from './ui.js';
+import { showPhoneShell, mountViewToggle } from './view.js';
 
 const root = document.getElementById('app');
 pressable(document);
@@ -23,6 +24,9 @@ export function loadCSS(name) {
 }
 
 (async function boot() {
+  // Desktop phone mode: the game runs in a phone frame instead of here.
+  if (showPhoneShell()) return;
+  mountViewToggle();
   const player = new Player(), sound = new Sound(player), account = new Account();
   let pool;
   try { [pool] = await Promise.all([Pool.load('/data/pool.json'), account.boot().catch(e => console.warn('account', e))]); }
