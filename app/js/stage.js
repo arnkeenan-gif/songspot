@@ -4,7 +4,7 @@
 // metrics (a 400pt column) above.
 import { TIERS, ERAS, STAGES, eraLabel } from './pool.js';
 import { Game } from './game.js';
-import { el, toast, TIER_COLOR, TIER_INK, PILL_FILL, cap, label, esc, art, settings, sleep, viewsOpen, morph, mix } from './ui.js';
+import { el, toast, TIER_COLOR, TIER_INK, PILL_FILL, cap, label, esc, art, settings, sleep, viewsOpen, morph, mix, LevelTheme, rgbOf } from './ui.js';
 import * as Win from './win.js';
 import { spring, springTo, still } from './motion.js';
 import { I } from './icons.js';
@@ -37,7 +37,8 @@ export function mountStage(root, ctx) {
     document.body.classList.toggle('spot', S('spotlight') !== 'off');
     document.body.classList.toggle('noglow', !S('glow'));
     document.body.classList.toggle('nomotion', !S('motion'));
-    document.querySelector('meta[name=theme-color]')?.setAttribute('content', S('spotlight') !== 'off' ? '#030704' : '#0c110d');
+    // LevelTheme: the stage sets the tier; the background cross-fades to it.
+    LevelTheme.stageTier === game.difficulty ? LevelTheme.apply() : LevelTheme.setStage(game.difficulty);
     crownBtn.hidden = ctx.premium;
     sound.enabled = S('sounds'); player.setVolume(S('volume'));
     game.lastStageExtra = ctx.premium ? 5 : 0;
@@ -141,7 +142,7 @@ export function mountStage(root, ctx) {
   function tick() {
     cancelAnimationFrame(raf);
     const step = () => {
-      const on = player.playing || performance.now() < lookUntil;
+      const on = player.playing || !!player.pending || performance.now() < lookUntil;
       if (!on || phase !== 'play' && phase !== 'offer') { setLook(false); return; }
       if (!looking) setLook(true);
       const e = player.elapsed, d = game.duration;
@@ -160,12 +161,17 @@ export function mountStage(root, ctx) {
     lookUntil = performance.now() + 500; setLook(true); tick();
     const ok = await player.play(s.id, s.preview, game.duration);
     if (game.song !== s) return;
+    // Stopped while it was still loading: nothing to say.
+    if (!ok && !player.lastError) return;
     if (!ok) {
       stopLook(); failed += 1;
       if (failed >= 2 && rerolls > 0) { failed = 0; rerolls -= 1; toast("That track wouldn't load. Here's another.", 3.5); return newRound(); }
       return toast(player.lastError || "Couldn't load the clip.");
     }
-    failed = 0; tick();
+    failed = 0; rerolls = 3;
+    // Stopped, skipped or answered while it was loading: never show a playing look for a finished round.
+    if (phase !== 'play' && phase !== 'offer') { stopLook(); return; }
+    tick();
   }
   function stopLook() { player.stop(); lookUntil = 0; cancelAnimationFrame(raf); setLook(false); }
 
@@ -190,7 +196,26 @@ export function mountStage(root, ctx) {
     render();
     if (!s) return toast(game.artist ? `No ${game.difficulty} songs for ${game.artist}. Try another difficulty.` : `Nothing matches ${game.difficulty} + that era and category. Loosen a filter.`, 5);
     for (const size of [400, 60]) if (s.artwork) { const im = new Image(); im.src = art(s.artwork, size); }
-    player.prepare(s.id, s.preview).then(() => { if (game.song !== s) return; const n = game.drawUpcoming(); if (n) player.prepare(n.id, n.preview).catch(() => {}); }).catch(() => { if (game.song === s && rerolls > 0) { rerolls -= 1; newRound(); } });
+    prime(s);
+  }
+  /** StageView.prime(): get this round's clip ready as soon as it is dealt,
+   *  then the next one behind it, so the first press and Next both sound at
+   *  once. A clip that will not load is swapped for another before anyone
+   *  presses play — silently, as the app does with a song it cannot play. */
+  async function prime(s) {
+    let ok = true;
+    try { await player.prepare(s.id, s.preview); } catch (e) { ok = false; }
+    if (game.song !== s) return;
+    if (!ok) {
+      // Pressed already: the play path reports it. Otherwise deal another.
+      if (!looking && !player.pending && !player.playing && phase === 'play' && game.stage === 0 && rerolls > 0) { rerolls -= 1; newRound(); }
+      return;
+    }
+    rerolls = 3;
+    for (let i = 0; i < 3; i++) {
+      const n = game.drawUpcoming(); if (!n) return;
+      try { await player.prepare(n.id, n.preview); return; } catch (e) { if (game.song !== s) return; }
+    }
   }
   /** A finished round, counted once. */
   function settle() {
@@ -207,8 +232,7 @@ export function mountStage(root, ctx) {
   // sweeps the full width as a soft band instead (StageView.bareWave).
   const cone = document.querySelector('.cone'), coneI = cone?.querySelector('i');
   let winRaf = 0, winT = null, lamp = 1, lampTimers = [];
-  const STAGE_RGB = [12, 17, 13];
-  function paintLight() {
+    function paintLight() {
     const spot = S('spotlight') !== 'off', t = winT;
     const narrow = innerWidth < 600, foot = narrow ? 0.52 : 0.5;
     const r = t == null ? 1 : Win.ratio(t), gl = t == null ? 0 : Win.glow(t);
@@ -217,7 +241,7 @@ export function mountStage(root, ctx) {
     if (coneI) {
       coneI.style.clipPath = `polygon(${(50 - 30 * r).toFixed(3)}% 0, ${(50 + 30 * r).toFixed(3)}% 0, ${(50 + foot * 100 * r).toFixed(3)}% 100%, ${(50 - foot * 100 * r).toFixed(3)}% 100%)`;
       // SwiftUI .brightness() adds to every channel; the cone is one flat fill.
-      coneI.style.backgroundColor = gl ? `rgb(${STAGE_RGB.map(v => Math.min(255, Math.round(v + gl * 255))).join(',')})` : '';
+      coneI.style.backgroundColor = gl ? `rgb(${rgbOf(LevelTheme.stage()).map(v => Math.min(255, Math.round(v + gl * 255))).join(',')})` : '';
       cone.style.transform = t == null ? '' : `translateX(-50%) translateX(${Win.sway(t).toFixed(2)}px) rotate(${Win.tilt(t).toFixed(3)}deg)`;
       cone.style.opacity = lamp === 1 ? '' : lamp;
       let sw = coneI.querySelector('.sweep');
@@ -397,7 +421,7 @@ export function mountStage(root, ctx) {
 
   // ---------- events ----------
   menuBtn.addEventListener('click', () => { sound.click(); Haptics.press(0.5); ctx.openDrawer(); });
-  crownBtn.addEventListener('click', () => { sound.click(); ctx.openPremium(null); });
+  crownBtn.addEventListener('click', () => { sound.click(); Haptics.press(0.5); ctx.openPremium(null); });
   col.addEventListener('click', e => {
     if (col._suppressClick) return;
     const t = e.target;

@@ -3,7 +3,7 @@
 // artist and genre, the spotlight, the settings, and a quiet footer that
 // holds the only link out of the game: Get the app.
 import { TIERS } from './pool.js';
-import { el, face, TIER_COLOR, TIER_INK, cap, esc, settings, LINKS } from './ui.js';
+import { el, face, TIER_COLOR, TIER_INK, cap, esc, settings, LINKS, LevelTheme, openSheet } from './ui.js';
 import { I } from './icons.js';
 import { Level } from './account.js';
 import { Haptics } from './haptics.js';
@@ -18,7 +18,7 @@ export async function openDrawer(ctx) {
   const wrap = el(`<div class="drawer-wrap"><div class="scrim"></div><aside class="drawer" role="dialog" aria-modal="true" aria-label="Menu"></aside></div>`);
   const d = wrap.querySelector('.drawer');
   const S = (k, def) => settings.get(k, def);
-  const canVibrate = 'vibrate' in navigator;
+  let restoring = false;
 
   const render = () => {
     const accent = TIER_COLOR[game.difficulty], ink = TIER_INK[game.difficulty];
@@ -43,6 +43,7 @@ export async function openDrawer(ctx) {
         playedToday ? `<span class="tick">${I.check}</span>` : D ? `<span class="num">#${D.displayNumber()}</span>` : `<span class="chev">${I.chevron}</span>`)}
       ${prow('party', 'Play with friends', 'Up to 50 players', I.people, TIER_COLOR.impossible, false, `<span class="chev">${I.chevron}</span>`)}
       ${prow('ranked', 'Play ranked', ctx.premium ? 'Climb the ladder' : 'Premium · climb the ladder', I.trophy, TIER_COLOR.medium, false, ctx.premium ? `<span class="chev">${I.chevron}</span>` : `<span class="tick">${I.lock}</span>`)}
+      ${prow('friends', 'Friends', 'Challenge a friend to a 1v1', I.people, TIER_COLOR.hard, false, `<span class="chev">${I.chevron}</span>`)}
       <div class="rule"></div>
       <div class="dhead"><p class="dlabel">Difficulty</p><button data-press data-act="reroll">${I.reroll}Reroll</button></div>
       <div class="ladder">${TIERS.map(t => `<button class="rung card ${t === game.difficulty ? 'on' : ''} ${counts[t] === 0 ? 'dead' : ''}" style="--t:${TIER_COLOR[t]}" data-tier="${t}">${cap(t)}${t === game.difficulty ? I.check : ''}</button>`).join('')}</div>
@@ -67,14 +68,16 @@ export async function openDrawer(ctx) {
         ${tline('glow', 'Accent glow', I.sparkles, false)}
         ${tline('artwork', 'Reveal artwork', I.photo, true)}
         ${tline('motion', 'Animations', I.wand, true)}
-        ${canVibrate ? tline('haptics', 'Haptics', I.haptics, true) : ''}
+        ${tline('haptics', 'Haptics', I.haptics, true)}
+        ${tline('levelColours', 'Level colours', I.palette, true)}
         ${tline('sounds', 'Sounds', I.sound, true)}
         <div class="vol">${I.sound}<input type="range" min="0" max="1" step="0.02" value="${S('volume', 0.28)}" aria-label="Volume" data-vol></div>
         ${tline('hint', 'Hint', I.bulb, false)}
       </div>
       <div class="dfoot">
         <button data-act="faq">How to play</button>
-        ${ctx.premium ? '' : `<button data-act="restore">Restore purchases</button>`}
+        ${!ctx.premium && window.googlefc && typeof window.googlefc.showRevocationMessage === 'function' ? `<button data-act="privacy">Privacy choices</button>` : ''}
+        ${ctx.premium ? '' : `<button data-act="restore" ${restoring ? 'disabled' : ''}>${restoring ? 'Restoring…' : 'Restore purchases'}</button>`}
         <a class="getapp" href="${LINKS.get}" target="_blank" rel="noopener">${I.apple}Get the app</a>
         <a href="/privacy">Privacy</a><a href="/support">Support</a>
       </div>`;
@@ -98,14 +101,15 @@ export async function openDrawer(ctx) {
 
   d.addEventListener('click', e => {
     const tg = e.target.closest('[data-toggle]');
-    if (tg) { const k = tg.dataset.toggle, v = !S(k, tg.dataset.def === 'true'); settings.set(k, v); Haptics.select(); sound.enabled = S('sounds', true); tg.classList.toggle('on', v); tg.setAttribute('aria-checked', v); ctx.refresh(); if (k === 'sounds' && v) sound.click(); return; }
+    // Toggles: the select tick first, with the setting as it was (Haptics.select(settings.haptics); tap()).
+    if (tg) { const k = tg.dataset.toggle, v = !S(k, tg.dataset.def === 'true'); Haptics.select(); if (k === 'levelColours') LevelTheme.enabled = v; else settings.set(k, v); sound.enabled = S('sounds', true); tg.classList.toggle('on', v); tg.setAttribute('aria-checked', v); ctx.refresh(); if (k === 'sounds' && v) sound.click(); return; }
     const b = e.target.closest('button, a, [data-act]'); if (!b) return;
-    if (b.dataset.tier) { sound.click(); Haptics.select(); ctx.setTier(b.dataset.tier); return render(); }
-    if (b.dataset.cat) { sound.click(); Haptics.select(); game.category = b.dataset.cat; ctx.newRound(); return render(); }
-    if (b.dataset.spot) { sound.click(); Haptics.select(); settings.set('spotlight', b.dataset.spot); ctx.refresh(); return render(); }
+    // The drawer makes no sounds in the app; only the switches, the segment and the era action tick.
+    if (b.dataset.tier) { if (b.classList.contains('dead')) return; ctx.setTier(b.dataset.tier); return render(); }
+    if (b.dataset.cat) { game.category = b.dataset.cat; ctx.newRound(); return render(); }
+    if (b.dataset.spot) { if (S('spotlight', 'off') !== b.dataset.spot) Haptics.select(); settings.set('spotlight', b.dataset.spot); ctx.refresh(); return render(); }
     const act = b.dataset.act; if (!act) return;
     if (b.tagName !== 'A') e.preventDefault();
-    sound.click();
     if (act === 'close') close();
     else if (act === 'profile') { close(); ctx.openProfile(); }
     else if (act === 'premium') ctx.openPremium(null);
@@ -113,7 +117,9 @@ export async function openDrawer(ctx) {
     else if (act === 'party') { close(); ctx.openParty(); }
     else if (act === 'ranked') ctx.premium ? (close(), ctx.openRanked()) : ctx.openPremium('ranked');
     else if (act === 'reroll') { ctx.toast('New song.'); ctx.newRound(); }
-    else if (act === 'anyera') { game.era = 'all'; ctx.newRound(); render(); }
+    else if (act === 'anyera') { Haptics.select(); game.era = 'all'; ctx.newRound(); render(); }
+    else if (act === 'friends') { close(); openFriends(ctx); }
+    else if (act === 'privacy') { try { window.googlefc.showRevocationMessage(); } catch (err) {} }
     else if (act === 'noartist') { e.stopPropagation(); game.artist = null; game.setArtistSongs([]); ctx.newRound(); render(); }
     else if (act === 'artist') { close(); ctx.openArtists(); }
     else if (act === 'lockedartist') ctx.openPremium('artist');
@@ -124,10 +130,28 @@ export async function openDrawer(ctx) {
   d.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.dataset.toggle) { e.preventDefault(); e.target.click(); } });
   d.addEventListener('input', e => { if (e.target.dataset.vol !== undefined) { settings.set('volume', +e.target.value); ctx.player.setVolume(+e.target.value); } });
   async function restore() {
+    if (restoring) return;
     if (!account.signedIn) { ctx.toast('Sign in with the account you bought premium on.'); return close(() => ctx.signIn()); }
-    const has = await account.refreshPremium();
+    restoring = true; render();
+    let has = false;
+    try { has = await account.refreshPremium(); } catch (err) {}
+    restoring = false;
     ctx.toast(has ? 'Premium restored.' : 'No premium was found for this account.');
     ctx.refresh(); render();
   }
   return { close };
+}
+
+/** FriendsView: the header, and — with no friend system on the web — the
+ *  app's own signed-out line, or where friends live for a signed-in player. */
+function openFriends(ctx) {
+  const signedIn = !!ctx.account.signedIn;
+  const sh = openSheet(`<div class="friends-v"><div class="fv-head"><span class="fv-title">Friends</span><button class="xbtn" data-press data-act="close" aria-label="Close">${I.x}</button></div>
+    <div class="fv-empty"><p>${signedIn ? 'Friends and 1v1 challenges are in the Songspot app for now.' : 'Sign in to add friends.'}</p>
+    ${signedIn ? `<a class="fv-get" href="${LINKS.get}" target="_blank" rel="noopener">${I.apple}Get the app</a>` : `<button class="fv-get" data-press data-act="signin">Sign in</button>`}</div></div>`, { cls: 'tall friends-sheet', label: 'Friends' });
+  sh.body.addEventListener('click', e => {
+    const a = e.target.closest('[data-act]')?.dataset.act;
+    if (a === 'close') sh.close();
+    if (a === 'signin') { sh.close(); ctx.signIn(); }
+  });
 }

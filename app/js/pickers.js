@@ -39,6 +39,8 @@ export function openArtists(ctx) {
   const sh = openSheet(`${head('Artists')}${searchBox('Search any artist')}<div class="plist"></div>`, { cls: 'picker tall', label: 'Artists' });
   sh.node.style.setProperty('--accent', accent);
   const list = sh.body.querySelector('.plist'), input = sh.body.querySelector('input'), clear = sh.body.querySelector('.pclear');
+  // The app opens the artist search with the field focused.
+  setTimeout(() => { try { input.focus({ preventScroll: true }); } catch (e) {} }, 520);
   const local = new Map(); for (const s of pool.songs) { const a = local.get(s.artist) || { name: s.artist, count: 0, art: null, genre: s.category }; a.count++; if (!a.art && s.artwork && s.artistRank === 0) a.art = s.artwork; if (!a.art && s.artwork) a.art = s.artwork; local.set(s.artist, a); }
   const norm = t => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   let strangers = [], searching = false, loading = false, timer = 0, seq = 0;

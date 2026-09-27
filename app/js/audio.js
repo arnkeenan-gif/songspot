@@ -6,7 +6,7 @@ export class Player {
     this.ctx = null; this.buffers = new Map(); this.loading = new Map();
     this.source = null; this.gain = null; this.volume = 0.28;
     this.playing = false; this.startedAt = 0; this.length = 0; this.onEnded = null; this.lastError = null;
-    this.muted = false;
+    this.muted = false; this.token = 0; this.pending = null;
   }
   static couldNotLoad = "Couldn't load the clip. Check your connection and try again.";
   ensure() {
@@ -17,8 +17,13 @@ export class Player {
       const AC = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AC({ latencyHint: 'interactive' });
       this.gain = this.ctx.createGain(); this.gain.gain.value = this.muted ? 0 : this.volume; this.gain.connect(this.ctx.destination);
+      // Unlock inside the tap: one silent frame started now, in the gesture,
+      // so iPhone Safari lets the clip that follows the download sound too.
+      try { const b = this.ctx.createBuffer(1, 1, this.ctx.sampleRate), s = this.ctx.createBufferSource(); s.buffer = b; s.connect(this.ctx.destination); s.start(0); } catch (e) {}
+      // A clip fetched before the first tap is only bytes; decode it now.
+      if (this.bytes) for (const [id] of this.bytes) if (!this.loading.has(id)) this.prepare(id, null).catch(() => {});
     }
-    if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+    if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
     return this.ctx;
   }
   setVolume(v) { this.volume = v; if (this.gain) this.gain.gain.value = this.muted ? 0 : v; }
@@ -26,8 +31,8 @@ export class Player {
   mute(on) { this.muted = on; if (this.gain) this.gain.gain.value = on ? 0 : this.volume; if (this.ui) this.ui.gain.value = on ? 0 : 0.3; }
   /** Fetch (and, once audio is allowed, decode) once; safe to call ahead of time for the next round. */
   prepare(id, url) {
-    if (!url) return Promise.reject(new Error('no preview'));
     if (this.buffers.has(id)) return Promise.resolve(this.buffers.get(id));
+    if (!url && !(this.bytes && this.bytes.has(id))) return Promise.reject(new Error('no preview'));
     if (this.loading.has(id)) return this.loading.get(id);
     const p = (async () => {
       this.bytes = this.bytes || new Map();
@@ -48,10 +53,15 @@ export class Player {
   /** The clip's bytes. A preview that fails (moved, expired, a network
    *  blip) is retried once, then looked up fresh by its Apple id. */
   static async fetchClip(id, url) {
-    const get = async u => { const r = await fetch(u, { mode: 'cors' }); if (!r.ok) throw new Error('preview ' + r.status); return r.arrayBuffer(); };
+    // Nothing on the play path may hang: each try gives up after 8 s (the app's ceiling is 5 s for a lookup).
+    const get = async u => {
+      const ac = typeof AbortController === 'function' ? new AbortController() : null, t = ac && setTimeout(() => ac.abort(), 8000);
+      try { const r = await fetch(u, { mode: 'cors', signal: ac?.signal }); if (!r.ok) throw new Error('preview ' + r.status); const b = await r.arrayBuffer(); if (b.byteLength < 1024) throw new Error('empty preview'); return b; }
+      finally { clearTimeout(t); }
+    };
     try { return await get(url); } catch (e) {}
     try { return await get(url); } catch (e) {}
-    const r = await fetch(`/api/itunes?id=${encodeURIComponent(id)}`).then(x => x.ok ? x.json() : null).catch(() => null);
+    const r = await fetch(`/api/itunes?id=${encodeURIComponent(id)}`, { signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined }).then(x => x.ok ? x.json() : null).catch(() => null);
     const fresh = r && r.songs && r.songs[0] && r.songs[0].preview;
     if (fresh && fresh !== url) return get(fresh);
     throw new Error('no clip');
@@ -59,12 +69,19 @@ export class Player {
   /** Play `seconds` from `offset` into the clip. Resolves true once it has started; lastError says why not. */
   async play(id, url, seconds, offset = 0) {
     this.stop();
-    this.lastError = null;
+    const token = ++this.token;
+    this.lastError = null; this.pending = id;
     let buf;
     const ctx = this.ensure();
-    try { buf = await this.prepare(id, url); } catch (e) { this.lastError = Player.couldNotLoad; return false; }
-    if (!buf) buf = await this.prepare(id, url).catch(() => null);
+    let failed = false;
+    try { buf = await this.prepare(id, url); } catch (e) { buf = null; failed = true; }
+    // Fetched before the first tap (bytes only) and not yet decoded: decode now.
+    if (!buf && !failed && token === this.token) buf = await this.prepare(id, url).catch(() => null);
+    // Stopped (or another clip asked for) while this one was loading: never start it late.
+    if (token !== this.token) return false;
+    this.pending = null;
     if (!buf) { this.lastError = Player.couldNotLoad; return false; }
+    if (ctx.state !== 'running') { try { await Promise.race([ctx.resume(), new Promise(r => setTimeout(r, 300))]); } catch (e) {} if (token !== this.token) return false; }
     const src = ctx.createBufferSource();
     src.buffer = buf; src.connect(this.gain);
     const at = ctx.currentTime + 0.005;
@@ -84,6 +101,7 @@ export class Player {
   /** Seconds since the clip started, while it plays. */
   get elapsed() { return this.playing ? (performance.now() - this.startedAt) / 1000 : 0; }
   stop() {
+    this.token = (this.token || 0) + 1; this.pending = null;
     if (this.source) { try { this.source.onended = null; this.source.stop(); } catch (e) {} this.source = null; }
     this.playing = false;
   }

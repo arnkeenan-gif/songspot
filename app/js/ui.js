@@ -115,3 +115,30 @@ function morphNode(a, b) {
   if (a.hasAttribute('data-keep')) return;
   morphChildren(a, b);
 }
+
+/**
+ * Theme.swift's LevelTheme: the page and the stage behind the light take a
+ * whisper of the current level's colour (green on Easy, gold on Medium…), or
+ * the original green-black with "Level colours" off. The stage sets
+ * `stageTier`; ranked and party set `override` round by round and clear it on
+ * the way out. --page and --stage are registered properties (app.css), so a
+ * change cross-fades over 0.6 s easeInOut as withAnimation does in the app.
+ */
+export const LevelTheme = {
+  stageTier: 'easy', override: null,
+  get enabled() { return settings.get('levelColours', true); },
+  set enabled(v) { settings.set('levelColours', !!v); this.apply(); },
+  get tier() { return this.override || this.stageTier; },
+  page(t = this.tier) { return this.enabled ? mix('#040404', TIER_COLOR[t], t === 'easy' ? 0.035 : 0.05) : '#030704'; },
+  stage(t = this.tier) { return this.enabled ? mix('#0b0b0b', TIER_COLOR[t], t === 'easy' ? 0.03 : 0.075) : '#0c110d'; },
+  setStage(t) { if (t && t !== this.stageTier) { this.stageTier = t; this.apply(); } },
+  setOverride(t) { t = t || null; if (t !== this.override) { this.override = t; this.apply(); } },
+  apply() {
+    const r = document.documentElement.style, page = this.page(), stage = this.stage();
+    r.setProperty('--page', page); r.setProperty('--stage', stage);
+    const spot = document.body && document.body.classList.contains('spot');
+    document.querySelector('meta[name=theme-color]')?.setAttribute('content', spot ? page : stage);
+  },
+};
+/** The stage colour as [r, g, b], for the win light's brightness. */
+export const rgbOf = hex => { const h = hex.replace('#', ''); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); };

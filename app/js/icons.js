@@ -31,6 +31,7 @@ export const I = {
   sparkles: f('<path d="M10 2.5l1.7 5.1 5.1 1.7-5.1 1.7L10 16.1l-1.7-5.1-5.1-1.7 5.1-1.7zM18 13l.9 2.6 2.6.9-2.6.9L18 20l-.9-2.6-2.6-.9 2.6-.9z"/>'),
   photo: f('<path d="M5 4h14a2.5 2.5 0 0 1 2.5 2.5v11A2.5 2.5 0 0 1 19 20H5a2.5 2.5 0 0 1-2.5-2.5v-11A2.5 2.5 0 0 1 5 4zm0 2a.5.5 0 0 0-.5.5v9.3l4-4.1 3.2 3.2 2.4-2.4 5.4 5.3V6.5A.5.5 0 0 0 19 6zm11.2 1.8a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6z"/>'),
   wand: f('<path d="M15.8 3.2l1.3 1.3-11.8 11.8L4 15zM3 18l1.3-1.3 2.9 2.9L5.9 21zM17 8l1 1-9.3 9.3-1-1z" opacity=".95"/><path d="M19 2l.6 1.6 1.6.6-1.6.6L19 6.4l-.6-1.6-1.6-.6 1.6-.6zM20.5 10l.4 1.1 1.1.4-1.1.4-.4 1.1-.4-1.1-1.1-.4 1.1-.4z"/>'),
+  palette: s('<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-1 .8-1.7 1.7-1.7H16.6A4.4 4.4 0 0 0 21 10.8C21 6.5 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.1" fill="currentColor"/><circle cx="10" cy="7" r="1.1" fill="currentColor"/><circle cx="14.5" cy="7" r="1.1" fill="currentColor"/><circle cx="17.2" cy="10.5" r="1.1" fill="currentColor"/>', 1.8),
   haptics: s('<rect x="8" y="3.5" width="8" height="17" rx="2"/><path d="M4.5 8.5v7M19.5 8.5v7M2 10.5v3M22 10.5v3"/>', 1.8),
   sound: f('<path d="M3.5 9v6h4l5 4.2V4.8L7.5 9z"/><path d="M15.5 8.8a4.5 4.5 0 0 1 0 6.4M18 6.4a8 8 0 0 1 0 11.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'),
   mute: f('<path d="M3.5 9v6h4l5 4.2V4.8L7.5 9z"/><path d="M16 9.5l5 5M21 9.5l-5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>'),
