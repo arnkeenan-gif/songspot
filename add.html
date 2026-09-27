@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Add me on Songspot</title>
+<meta name="description" content="Add a friend on Songspot and challenge them to a 1v1.">
+<meta property="og:title" content="Add me on Songspot">
+<meta property="og:description" content="Name the song from a tenth of a second. Add me and challenge me to a 1v1.">
+<meta property="og:image" content="https://songspotapp.com/img/icon-512.png">
+<meta name="apple-itunes-app" content="app-id=6808657554">
+<link rel="icon" href="/img/icon-192.png">
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#030704;color:#f2f2f2;
+    font:16px/1.5 -apple-system,system-ui,sans-serif;text-align:center;padding:24px;box-sizing:border-box}
+  img{width:84px;height:84px;border-radius:20px}
+  h1{font-size:28px;font-style:italic;letter-spacing:-.03em;margin:14px 0 6px}
+  .code{font:800 26px/1 ui-monospace,Menlo,monospace;letter-spacing:.3em;margin:14px 0 6px}
+  p{color:#a8a8a8;margin:0 0 22px;max-width:320px}
+  a{display:block;background:#19df70;color:#04120a;font-weight:700;padding:15px 30px;border-radius:999px;text-decoration:none;margin:10px auto;max-width:260px}
+  a.alt{background:#141a16;color:#f2f2f2;border:1px solid #262626}
+</style>
+</head>
+<body><main>
+  <img src="/img/icon-192.png" alt="">
+  <h1>Add me on Songspot</h1>
+  <div class="code" id="code">······</div>
+  <p>Open Songspot to add this friend, or type the code in Friends.</p>
+  <a id="open" href="#">Open Songspot</a>
+  <a class="alt" href="https://apps.apple.com/app/id6808657554">Get the app</a>
+</main>
+<script>
+  // The friend code from ?c=, six letters and numbers.
+  var c = (new URLSearchParams(location.search).get('c') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  document.getElementById('code').textContent = c || '——';
+  var app = 'songspot://add?c=' + encodeURIComponent(c);
+  document.getElementById('open').href = app;
+  // Straight into the app when it's installed; this page stays for everyone else.
+  var ua = navigator.userAgent || '';
+  if (c && /iPhone|iPad|iPod/.test(ua) && !/bot|crawler|facebookexternalhit|WhatsApp|Twitterbot/i.test(ua)) {
+    setTimeout(function () { location.href = app; }, 60);
+  }
+</script>
+</body></html>
