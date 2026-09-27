@@ -27,6 +27,8 @@ export function loadCSS(name) {
   let pool;
   try { [pool] = await Promise.all([Pool.load('/data/pool.json'), account.boot().catch(e => console.warn('account', e))]); }
   catch (e) { root.innerHTML = `<div class="boot"><div><div class="wordmark">songspot</div><p class="err">Couldn't load the songs. Check your connection and reload.</p></div></div>`; return; }
+  // Today's daily song from the server, the same one everyone plays.
+  import('./daily.js').then(m => m.Daily.syncSong(pool)).catch(() => {});
   const game = new Game(pool);
   // The filters of the last round, as the app remembers them.
   game.difficulty = settings.get('difficulty', 'easy'); game.era = settings.get('era', 'all'); game.category = settings.get('category', 'all');

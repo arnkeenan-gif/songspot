@@ -1,6 +1,6 @@
 // The daily challenge — Daily/Daily.swift and Daily/DailyView.swift on the web.
-// One song a day, five chances to name it, one go. The song comes from this
-// browser's own seed, so a spoiler in a chat can't ruin a friend's go. It opens
+// One song a day, five chances to name it, one go. The song is the same for
+// everyone in the world: the server's row for the day (daily_songs). It opens
 // straight into the round, dressed exactly like the stage; the go is spent on
 // the first press of play. The result is kept here and posted to the board.
 import { STAGES, Pool, eraOf } from './pool.js';
@@ -8,7 +8,7 @@ import { Game } from './game.js';
 import { el, esc, art, label, face, settings, shareText, pushView, popView, LINKS, TIER_COLOR, TIER_INK, PILL_FILL } from './ui.js';
 import { I } from './icons.js';
 import { Haptics } from './haptics.js';
-import { supabase } from './supabase.js';
+import { supabase, SUPABASE_URL, SUPABASE_ANON } from './supabase.js';
 import { spring, bezier, CURVE, still } from './motion.js';
 
 /** Shake: .easeInOut(duration: 0.42) over the piecewise offsets of WinSequence's Shake, on the whole round. */
@@ -55,12 +55,30 @@ export const Daily = {
   number(now = Date.now()) { return Math.max(1, Math.floor((now - EPOCH) / DAY) + 1); },
   /** Seconds until the next song, the same moment for everyone. */
   secondsToNext(now = Date.now()) { const e = now - EPOCH; const into = e - Math.floor(e / DAY) * DAY; return Math.max(0, Math.floor((DAY - into) / 1000)); },
-  /** The day's song: Easy and Medium, never the regional scenes, by a hash of the day and this browser's seed. */
+  /** The day's song, the same for everyone: the server's row once fetched, else the pick by the day alone (as the app makes it). */
   song(pool, day = Daily.number()) {
+    const id = (raw.get('songspot.daily.song.' + day) || '').replace(/"/g, '');
+    return (id && pool.byId.get(id)) || Daily.localPick(pool, day);
+  },
+  /** Ask the server for the day's song (proposing ours if the day has none) and keep it. */
+  async syncSong(pool, day = Daily.number()) {
+    try {
+      const mine = Daily.localPick(pool, day);
+      const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/daily_song', {
+        method: 'POST', headers: { apikey: SUPABASE_ANON, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_day: day, p_song_id: mine?.id || '', p_title: mine?.title || '', p_artist: mine?.artist || '' }),
+      });
+      const rows = r.ok ? await r.json() : [];
+      const id = rows && rows[0] && rows[0].song_id;
+      if (id && pool.byId.get(id)) { raw.set('songspot.daily.song.' + day, id); return pool.byId.get(id); }
+    } catch (e) {}
+    return null;
+  },
+  localPick(pool, day) {
     const c = pool.songs.filter(s => (s.tier === 'easy' || s.tier === 'medium') && !Pool.excludedFromAll(s))
       .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     if (!c.length) return null;
-    let h = ((BigInt(day) ^ seed()) * 0x9E3779B97F4A7C15n) & M64;
+    let h = (BigInt(day) * 0x9E3779B97F4A7C15n) & M64;
     h ^= h >> 29n; h = (h * 0xBF58476D1CE4E5B9n) & M64; h ^= h >> 32n;
     return c[Number(h % BigInt(c.length))];
   },
