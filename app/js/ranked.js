@@ -44,7 +44,8 @@ export const RK = {
   opponentRound(rating, window, botSkill = RK.defaultBotSkill) {
     const k = Math.min(1.5, Math.max(0.2, botSkill));
     const accuracy = Math.min(0.9, (0.3 + (rating - 600) / 1400) * k);
-    if (!(Math.random() < accuracy)) return { correct: false, at: window };
+    // Like a person, it always answers: a miss is a wrong tile tapped, a little quicker than a right one, never silence.
+    if (!(Math.random() < accuracy)) return { correct: false, at: Math.max(1.5, window * (0.18 + Math.random() * 0.52)) };
     const skill = clamp((rating - 600) / 1000);
     const best = window * (0.55 - 0.40 * skill), worst = window * (0.98 - 0.35 * skill);
     const raw = rand(Math.min(best, worst), Math.max(best, worst));
@@ -234,7 +235,7 @@ export function mountRanked(ctx) {
   function openRound() {
     if (g.round >= g.queue.length) return finish();
     const s = g.queue[g.round];
-    Object.assign(g, { cur: s, era: eraOf(s.year), myPts: null, theirPts: null, iAns: false, theyAns: false, myPick: null, board: g.choices[g.round] || [] });
+    Object.assign(g, { cur: s, era: eraOf(s.year), myPts: null, theirPts: null, iAns: false, theyAns: false, theirWrong: false, myPick: null, board: g.choices[g.round] || [] });
     clip = { started: false, muted: false, error: null };
     reelStartedAt = performance.now();
     player.prepare(s.id, s.preview).catch(() => {});
@@ -245,13 +246,13 @@ export function mountRanked(ctx) {
       if (g.round === 0 && !g.practice) markPending();
       g.startedAt = performance.now();
       setPhase('playing');
-      if (plan.correct) later(plan.at * 1000, () => {
+      later(plan.at * 1000, () => {
         if (g.phase !== 'playing' || g.theyAns) return;
         g.theyAns = true;
-        const pts = RK.points(plan.at, roundTier(g.round));
-        g.theirPts = pts; g.their += pts;
+        if (plan.correct) { const pts = RK.points(plan.at, roundTier(g.round)); g.theirPts = pts; g.their += pts; }
+        else { g.theirPts = 0; g.theirWrong = true; }
         updatePlaying();
-        if (g.iAns) closeRound();
+        if (g.iAns) closeSoon();
       });
       later((RK.window + 0.4) * 1000, () => { if (g.phase === 'playing') closeRound(); });
     };
@@ -272,7 +273,7 @@ export function mountRanked(ctx) {
       g.myPts = pts; g.my += pts;
     } else g.myPts = 0;
     updatePlaying();
-    if (g.theyAns || !g.plan[g.round]?.correct) closeSoon();
+    if (g.theyAns) closeSoon();
   }
   /** Hold the board a beat so the tile goes green or red before the answer card. */
   function closeSoon() { const r = g.round; later(900, () => { if (r === g.round) closeRound(); }); }
@@ -652,7 +653,7 @@ export function mountRanked(ctx) {
     const cover = artOn() && a.artwork ? `<div class="rk-bigart"><img class="glow" src="${esc(a.artwork)}" alt=""><img class="cov" src="${esc(a.artwork)}" alt=""></div>` : '';
     return `${roundBar()}<div class="rk-fill"></div>
       <div class="rk-answer">${cover}<span class="rk-itwas">IT WAS</span><b>${esc(a.title || '')}</b><em>${esc(a.artist || '')}</em></div>
-      <div class="rk-gains">${gained(myFace(26), g.myPts, hueColor(0), g.myPick != null && !pickedRight())}${gained(theirFace(26), g.theirPts, hueColor(g.opp.hue))}</div>
+      <div class="rk-gains">${gained(myFace(26), g.myPts, hueColor(0), g.myPick != null && !pickedRight())}${gained(theirFace(26), g.theirPts, hueColor(g.opp.hue), !!g.theirWrong)}</div>
       <div class="rk-fill"></div>
       <div class="rk-next"><span>${g.round + 1 >= RK.rounds ? 'FULL TIME IN' : 'NEXT ROUND IN'}</span><b class="n">${RK.resultHold}</b></div>`;
   }
