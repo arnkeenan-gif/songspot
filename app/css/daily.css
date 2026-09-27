@@ -89,12 +89,15 @@
 .noglow .pill-t.won { box-shadow: none; }
 .d-next { margin-top: 18px; margin-bottom: 30px; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
 
-/* leaving mid-round */
-.d-leave { padding: 20px 20px 24px; display: flex; flex-direction: column; gap: 10px; text-align: center; }
-.d-leave h3 { margin: 4px 0 0; font-size: 17px; font-weight: 800; color: var(--text); }
-.d-leave p { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
-.d-leave .d-leave-go { height: 48px; font-size: 15px; background: rgba(248,84,92,.14); color: var(--expert); }
-
+/* leaving mid-round: the app's confirmationDialog, an action sheet */
+.d-confirm .stackup { position: absolute; left: 8px; right: 8px; bottom: calc(8px + var(--sab)); max-width: 520px; margin: 0 auto; display: grid; gap: 8px; transform: translateY(100%); opacity: 0; transition: transform .25s var(--easeOut), opacity .25s var(--easeOut); }
+.d-confirm.in .stackup { transform: none; opacity: 1; }
+.d-confirm .cardc { background: rgba(23,23,23,.97); border-radius: 14px; overflow: hidden; }
+.d-confirm .lead { padding: 14px 18px; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.3; border-bottom: 1px solid var(--line); display: grid; gap: 4px; }
+.d-confirm .lead b { font-weight: 600; }
+.d-confirm .act { width: 100%; height: 57px; font-size: 20px; color: #ff453a; text-align: center; }
+.d-confirm .cancel { width: 100%; height: 57px; font-size: 20px; font-weight: 600; color: var(--easy); text-align: center; }
+@media (prefers-reduced-motion: reduce) { .d-confirm * { transition-duration: .01ms !important; } }
 
 /* wide screens: the stage's own 400pt column and desktop metrics */
 @media (min-width: 600px) {

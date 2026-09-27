@@ -5,7 +5,7 @@
 // the first press of play. The result is kept here and posted to the board.
 import { STAGES, Pool, eraOf } from './pool.js';
 import { Game } from './game.js';
-import { el, esc, art, label, face, settings, shareText, pushView, popView, openSheet, LINKS, TIER_COLOR, TIER_INK, PILL_FILL } from './ui.js';
+import { el, esc, art, label, face, settings, shareText, pushView, popView, LINKS, TIER_COLOR, TIER_INK, PILL_FILL } from './ui.js';
 import { I } from './icons.js';
 import { Haptics } from './haptics.js';
 import { supabase } from './supabase.js';
@@ -164,7 +164,7 @@ export function mountDaily(ctx) {
           <div class="marker" style="left:${STAGE_POS[st]}%"><span class="caret">${I.caretUp}</span><b>${label(secs)}</b></div>
         </div>
         <div class="playrow${player.playing ? ' playing' : ''}">
-          <button class="disc" data-act="play" aria-label="${player.playing ? 'Stop' : 'Play the clip'}">${player.playing ? I.pause : I.play.replace('class="i"', 'class="i play-g"')}<span class="ring"></span><svg class="sweep" viewBox="0 0 125.12 125.12"><circle cx="62.56" cy="62.56" r="61.472" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/></svg></button>
+          <button class="disc" data-act="play" aria-label="${player.playing ? 'Play the clip again' : 'Play the clip'}">${player.playing ? I.pause : I.play.replace('class="i"', 'class="i play-g"')}<span class="ring"></span><svg class="sweep" viewBox="0 0 125.12 125.12"><circle cx="62.56" cy="62.56" r="61.472" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/></svg></button>
           <span class="seconds">${label(secs)}</span>
         </div>
         ${secondChance ? offerHTML() : `
@@ -296,13 +296,19 @@ export function mountDaily(ctx) {
 
   async function play() {
     if (!song || finished || game.status !== 'playing') return;
-    sound.click();
-    if (player.playing) { Haptics.press(0.45); player.stop(); return; }
-    Haptics.press(0.8);
+    if (!started) {
+      // The go is spent the moment play is first pressed. Written now as a miss,
+      // so a reload mid-round cannot buy a second attempt; finishing overwrites it.
+      started = true; roundStart = performance.now();
+      if (!demo && !Daily.todayRecord()) Daily.save({ day, won: false, stage: 5, ms: 0, hints });
+    }
+    // As DailyView.play(): a press while it plays starts the clip again from the hook.
+    sound.click(); Haptics.press(0.8);
     clipError = null; const err = scr.querySelector('.d-err'); if (err) err.style.opacity = 0;
     const row = scr.querySelector('.playrow'), disc = scr.querySelector('.disc');
-    row.classList.add('playing');
-    disc.querySelector('.i').outerHTML = I.pause; disc.setAttribute('aria-label', 'Stop');
+    cancelAnimationFrame(raf);
+    const paused = () => { row.classList.add('playing'); const ic = disc.querySelector('.i'); if (ic.classList.contains('play-g')) ic.outerHTML = I.pause; disc.setAttribute('aria-label', 'Play the clip again'); };
+    paused();
     const ok = await player.play(song.id, song.preview, game.duration);
     if (closed || finished) { if (ok) player.stop(); return; }
     if (!ok) {
@@ -311,12 +317,7 @@ export function mountDaily(ctx) {
       if (err) { err.textContent = clipError; err.style.opacity = 1; }
       return;
     }
-    if (!started) {
-      // The go is spent the moment the clip first plays. Written now as a miss,
-      // so a reload mid-round cannot buy a second attempt; finishing overwrites it.
-      started = true; roundStart = performance.now();
-      if (!demo && !Daily.todayRecord()) Daily.save({ day, won: false, stage: 5, ms: 0, hints });
-    }
+    paused();
     animate();
   }
 
@@ -522,11 +523,21 @@ export function mountDaily(ctx) {
     document.removeEventListener('keydown', onKey);
     popView(node);
   }
+  /** The app's confirmationDialog: an action sheet, the destructive choice in red, Keep playing on its own below. */
+  let leaveOpen = false;
   function askLeave() {
-    const s = openSheet(`<div class="grab"></div><div class="d-leave"><h3>Leave today's song?</h3><p>One go a day. Leaving now uses it.</p>
-      <button class="btn d-leave-go" data-press>Leave and count it as missed</button><button class="btn surface d-leave-stay" data-press>Keep playing</button></div>`, { label: "Leave today's song?" });
-    s.body.querySelector('.d-leave-go').addEventListener('click', () => { sound.click(); s.close(); finish(false, 5); close(); });
-    s.body.querySelector('.d-leave-stay').addEventListener('click', () => { sound.click(); s.close(); });
+    if (leaveOpen) return;
+    leaveOpen = true;
+    const sheet = el(`<div class="view sheet d-confirm" role="alertdialog" aria-label="Leave today's song?"><div class="scrim"></div>
+      <div class="stackup"><div class="cardc"><div class="lead"><b>Leave today's song?</b><div>One go a day. Leaving now uses it.</div></div>
+      <button class="act" data-press>Leave and count it as missed</button></div><div class="cardc"><button class="cancel" data-press>Keep playing</button></div></div></div>`);
+    const end = ok => { if (!leaveOpen) return; leaveOpen = false; document.removeEventListener('keydown', onEsc, true); popView(sheet); if (ok) finish(false, 5); };
+    const onEsc = e => { if (e.key === 'Escape') { e.stopPropagation(); end(false); } };
+    sheet.querySelector('.scrim').addEventListener('click', () => end(false));
+    sheet.querySelector('.cancel').addEventListener('click', () => end(false));
+    sheet.querySelector('.act').addEventListener('click', () => end(true));
+    document.addEventListener('keydown', onEsc, true);
+    pushView(sheet);
   }
   const tryClose = () => { sound.click(); if (!finished && started && !record) return askLeave(); close(); };
 
@@ -540,7 +551,8 @@ export function mountDaily(ctx) {
   node.addEventListener('click', e => {
     const t = e.target;
     const hit = t.closest('.hit');
-    if (hit) { picked = hits[+hit.dataset.i]; query = `${picked.title} — ${picked.artist}`; const inp = scr.querySelector('input'); inp.value = query; hits = []; showHits(scr.querySelector('.hits'), false); setSkip(); return; }
+    // DailyView: a tap on a suggestion is the guess (.onTapGesture { submit(song: s) }).
+    if (hit) { const s2 = hits[+hit.dataset.i]; scr.querySelector('.field input')?.blur(); showHits(scr.querySelector('.hits'), false); if (s2) submit(s2); return; }
     const act = t.closest('[data-act]')?.dataset.act;
     if (act === 'close') return tryClose();
     if (act === 'play') return play();

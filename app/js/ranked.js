@@ -6,7 +6,7 @@
 // near you, answering on its own clock, right about as often as that rating
 // says (scaled by app_config.ranked_bot_skill). No hint: the app's ranked
 // board has none (its hint key sits on the old typed-guess row, unused).
-import { el, esc, art, alpha, face, hueColor, pushView, popView, openSheet, sleep, cap, TIER_COLOR, TIER_INK, PILL_FILL, PILL_INK, settings as store } from './ui.js';
+import { el, esc, art, alpha, face, hueColor, pushView, popView, openSheet, sleep, cap, TIER_COLOR, TIER_INK, PILL_FILL, PILL_INK, LevelTheme, settings as store } from './ui.js';
 import { I } from './icons.js';
 import { deal, toChoice, choiceGrid, updateChoiceGrid } from './choices.js';
 import { eraOf } from './pool.js';
@@ -308,6 +308,8 @@ export function mountRanked(ctx) {
     if (same && p === 'countdown') return updateCountdown();
     anim++;
     const t = tier();
+    // RankedView .onChange(of: tier): the page wears a whisper of this round's colour.
+    LevelTheme.setOverride(t);
     view.style.setProperty('--rk-accent', TIER_COLOR[t]);
     view.style.setProperty('--rk-ink', TIER_INK[t]);
     view.classList.toggle('glow', glowOn());
@@ -708,6 +710,7 @@ export function mountRanked(ctx) {
     }
     if (!g.frozen) {
       const t = RK.rank(account.stats.rating);
+      LevelTheme.setOverride(t);
       view.style.setProperty('--rk-accent', TIER_COLOR[t]); view.style.setProperty('--rk-ink', TIER_INK[t]);
     }
     const s = screen, end = s.querySelector('.rk-end'), rc = s.querySelector('.rk-ratingcard');
@@ -837,6 +840,8 @@ export function mountRanked(ctx) {
     document.removeEventListener('keydown', onKey);
     document.removeEventListener('visibilitychange', onVis);
     cancelAnimationFrame(raf);
+    // .onDisappear: the page goes back to the stage's level colour.
+    LevelTheme.setOverride(null);
     popView(view);
   }
   function quit() { player.stop(); leave(); close(); }
