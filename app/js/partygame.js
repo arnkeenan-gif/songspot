@@ -127,6 +127,25 @@ class RealtimeTransport {
   }
 }
 
+/**
+ * A room with no network: every message comes straight back, as Realtime's
+ * self-echo does. The demo party (localhost only, -demoParty on the iPhone)
+ * plays on it, so every screen can be held and looked at without opening a
+ * real room anyone could see.
+ */
+class LoopbackTransport {
+  constructor() { this.channel = null; this.closed = false; this.onMessage = null; this.onPresence = null; this.onError = null; this.tap = null; }
+  join() { this.closed = false; this.channel = {}; return new Promise(r => setTimeout(r, 700)); }
+  async send(message) {
+    if (this.closed || !this.channel) return;
+    if (this.tap) this.tap('out', message);
+    const copy = JSON.parse(JSON.stringify(message));
+    setTimeout(() => { if (this.closed) return; if (this.tap) this.tap('in', copy); if (this.onMessage) this.onMessage(copy); }, 20);
+  }
+  async leave() { this.closed = true; this.channel = null; }
+}
+const DEMO_NAMES = ['Mia', 'Noah', 'Liv', 'Theo', 'Sofia', 'Eli', 'Aya', 'Max'];
+
 // ---------- the game ----------
 
 export const ROUND_OPTIONS = [5, 10, 15];
@@ -136,9 +155,13 @@ export const YEARS = [['all', 'Any'], ['80s', '80s'], ['90s', '90s'], ['2000s', 
 export const freshSettings = () => ({ category: 'all', era: 'all', artist: null, difficulty: 'mixed', easySearch: true, rounds: 10, guessWindow: 20, clipSeconds: 20 });
 
 export class PartyGame {
-  constructor(pool) {
+  /** loopback: no network (localhost demos). standIns: eight stand-ins fill a hosted room and answer at random (-demoParty). */
+  constructor(pool, { loopback = false, standIns = false } = {}) {
     this.pool = pool;
-    this.transport = new RealtimeTransport();
+    this.demo = standIns;
+    this.transport = loopback ? new LoopbackTransport() : new RealtimeTransport();
+    /** Seats in the room: 50 for a party, 2 for a friend's 1v1. */
+    this.seatLimit = MAX_PLAYERS;
     this.transport.onMessage = m => this.handle(m);
     this.transport.onError = e => { this.phase = 'error'; this.error = e; this.emit(); };
     this.transport.onPresence = ids => this.prune(ids);
@@ -182,9 +205,18 @@ export class PartyGame {
     try {
       await this.transport.join(this.code, this.myID, name);
       if (this.phase !== 'connecting') return;
-      this.phase = 'lobby'; this.emit();
+      this.phase = 'lobby';
+      // The demo: eight stand-ins fill the room so every screen can be seen with a full house.
+      if (this.demo) DEMO_NAMES.forEach((n, i) => this.players.push({ id: 'demo-' + i, name: n, isHost: false, score: 0, avatar: null, hue: i + 2 }));
+      this.emit();
       await this.broadcastLobby();
     } catch (e) { this.phase = 'error'; this.error = e.message; this.emit(); }
+  }
+  /** Host only: Songbot takes a seat. It answers from this device (see the round handler). */
+  async addBot(name) {
+    if (!this.isHost || this.players.some(p => p.id.startsWith('bot-'))) return;
+    this.players.push({ id: 'bot-songbot', name, isHost: false, score: 0, avatar: null, hue: 3 });
+    this.emit(); await this.broadcastLobby();
   }
   async join(raw, name, avatar) {
     this.myName = name; this.isHost = false; this.code = normaliseCode(raw);
@@ -325,7 +357,7 @@ export class PartyGame {
       case 'join': {
         if (!this.isHost) return;
         if (!this.players.some(p => p.id === m.player.id)) {
-          if (this.players.length >= MAX_PLAYERS) return;
+          if (this.players.length >= this.seatLimit) return;
           const hue = Math.max(-1, ...this.players.map(p => p.hue)) + 1;
           this.players.push({ ...m.player, isHost: false, score: 0, hue });
         }
@@ -357,6 +389,17 @@ export class PartyGame {
         this.phase = wait > 0 ? 'countdown' : 'playing';
         if (wait > 0) this.later(() => { if (this.phase === 'countdown' && this.round === i) { this.phase = 'playing'; this.emit(); } }, wait);
         if (this.isHost) {
+          // Songbot plays like a person: right about seven times in ten, at a human speed; a wrong tap costs it the round.
+          for (const p of this.players.filter(x => x.id.startsWith('bot-'))) {
+            const right = Math.random() < 0.7, delay = Math.max(0, wait) + 2.5 + Math.random() * (Math.max(3, m.window * 0.7) - 2.5);
+            const wrongs = (m.choices || []).filter(c => c.id !== m.songID), wrongPick = wrongs.length ? wrongs[Math.floor(Math.random() * wrongs.length)].id : null;
+            this.later(() => { if (this.round !== i) return; if (right) this.judge(p.id, m.songID, '', this.now); else if (wrongPick) this.judge(p.id, wrongPick, '', this.now); }, delay);
+          }
+          if (this.demo) for (const p of this.players.filter(x => x.id.startsWith('demo-'))) {
+            if (Math.random() >= 0.75) continue;
+            const delay = Math.max(0, wait) + 1.5 + Math.random() * (Math.max(2, m.window - 1) - 1.5);
+            this.later(() => { if (this.round === i) this.judge(p.id, m.songID, '', this.now); }, delay);
+          }
           this.roundOpen = true; clearTimeout(this.closer);
           this.closer = setTimeout(() => this.closeRound(), (Math.max(0, wait) + m.window + 0.5) * 1000);
         }
@@ -418,7 +461,7 @@ export class PartyGame {
   prune(ids) {
     if (!this.isHost || !ids.length) return;
     const before = this.players.length;
-    this.players = this.players.filter(p => ids.includes(p.id) || p.id === this.myID);
+    this.players = this.players.filter(p => ids.includes(p.id) || p.id === this.myID || p.id.startsWith('bot-'));
     if (this.players.length !== before) { this.broadcastLobby(); this.emit(); }
   }
   scoreMap() { return Object.fromEntries(this.players.map(p => [p.id, p.score])); }
