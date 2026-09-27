@@ -8,7 +8,9 @@
 .daily .d-bar .xbtn .i { stroke-width: 2.4; }
 
 /* ---- the round: the stage, centred in what is left under the bar ---- */
-.daily .d-round { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 16px; min-height: 0; animation: d-fade .28s var(--easeOut) both; }
+.daily .d-round { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 16px; min-height: 0; }
+/* round → result cross-fades (.easeOut .28): the leaving screen sits on top of the new one while it fades */
+.daily .screen.d-leaving { position: absolute; top: 0; left: 0; right: 0; pointer-events: none; }
 .daily .d-round > * { width: 100%; }
 .daily .d-round .wordmark { font-size: 48px; line-height: 48px; height: 48px; letter-spacing: -1.44px; color: rgba(255,255,255,.08); margin-bottom: 40px; text-align: center; user-select: none; white-space: nowrap; }
 .daily .timeline { margin-bottom: 53px; }
@@ -16,16 +18,31 @@
 .daily .marker .caret svg { display: block; width: 10px; height: 5px; }
 .daily .playrow { margin-bottom: 25px; }
 .daily .disc svg.sweep { inset: -2.56px; }
+/* the play row: the length 16pt right of the 120pt disc, 17pt mono */
+.daily .seconds { left: calc(50% + 60px + 16px); font-size: 17px; }
+
+/* DailyView's guess row: a 50pt field (no magnifier), the 50pt hint key, an 88pt Skip that fills when armed */
+.daily .field { height: 50px; border-radius: 12px; }
+.daily .field input { padding: 0 14px 0 16px; font-size: 15px; border-radius: 12px; }
+.daily .key { height: 50px; border-radius: 12px; }
+.daily .hintkey { width: 50px; height: 50px; font-size: 18px; }
+.daily .hintkey .i { width: 24px; height: 24px; }  /* the glyph sits inset in its box; this reads as the 18pt SF symbol */
+.daily .skip { width: 88px; font-size: 13.5px; gap: 6px; }
+.daily .skip.armed { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.daily .hits { bottom: calc(100% + 8px); border-radius: 14px; box-shadow: 0 18px 44px rgba(0,0,0,.6); max-height: none; }
+.daily .hit { height: 54px; padding: 0 14px; }
+.daily .hit b { font-size: 14.5px; font-weight: 600; }
+.daily .hit span { font-size: 12.5px; }
 
 /* the hint key's badge: how many are left, like an app badge */
 .daily .hintkey { position: relative; overflow: visible; }
 .daily .hintkey .i { filter: drop-shadow(0 0 6px rgba(247,200,35,.45)); }
 .daily .hintkey.used .i { filter: none; }
+.daily .hintkey .i.d-gone { position: absolute; }
 .d-badge { position: absolute; top: -5px; right: -5px; width: 17px; height: 17px; border-radius: 50%; background: var(--gold); color: #171004; font: 800 10px/17px ui-rounded, "SF Pro Rounded", Inter, system-ui, sans-serif; text-align: center; pointer-events: none; }
 
 /* the hints taken, a quiet line that always keeps its room */
 .d-hintline { height: 24px; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; overflow: hidden; }
-.d-hintline.in { animation: d-fade .25s var(--easeOut) both; }
 .d-hintline .bulb { color: var(--gold); font-size: 11px; display: inline-flex; }
 .d-hintline span { font-size: 12.5px; font-weight: 600; color: var(--muted); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .d-hintline .bulb { flex: none; }
@@ -34,16 +51,15 @@
 .d-err { margin-top: 10px; font-size: 12px; color: var(--expert); text-align: center; min-height: 15px; transition: opacity .2s; }
 
 /* a hint arrives as a toast at the top, then gets out of the way */
-.d-toast { position: fixed; left: 50%; top: calc(64px + var(--sat)); z-index: 6; height: 48px; max-width: calc(100vw - 32px); padding: 0 18px; display: flex; align-items: center; gap: 10px; background: #171717; border: 1px solid rgba(247,200,35,.35); border-radius: 14px; box-shadow: 0 8px 36px rgba(0,0,0,.5); pointer-events: none; opacity: 0; transform: translate(-50%, -24px); transition: opacity .3s var(--ease), transform .4s cubic-bezier(.3,1.3,.5,1); }
+.d-toast { position: fixed; left: 50%; top: calc(64px + var(--sat)); z-index: 6; height: 48px; max-width: calc(100vw - 32px); padding: 0 18px; display: flex; align-items: center; gap: 10px; background: #171717; border: 1px solid rgba(247,200,35,.35); border-radius: 14px; box-shadow: 0 8px 36px rgba(0,0,0,.5); pointer-events: none; opacity: 0; transform: translate(-50%, calc(-112px - var(--sat))); }
 .d-toast.on { opacity: 1; transform: translate(-50%, 0); }
 .d-toast .bulb { color: var(--gold); font-size: 15px; display: inline-flex; }
 .d-toast img { width: 32px; height: 32px; border-radius: 7px; object-fit: cover; border: 1.5px solid rgba(247,200,35,.6); flex: none; background: var(--surface2); }
 .d-toast b { font-size: 15px; font-weight: 800; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- the result ---- */
-.d-result { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0 24px; animation: d-fade .28s var(--easeOut) both; }
+.d-result { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0 24px; }
 .d-art { width: 132px; height: 132px; border-radius: 12px; object-fit: cover; margin-top: 18px; background: var(--surface); box-shadow: 0 12px 36px rgba(0,0,0,.6); }
-.d-result.fresh .d-art { animation: pop .31s cubic-bezier(.22,1,.36,1) both; }
 .d-result h2 { margin: 16px 0 0; font-size: 24px; font-weight: 800; font-style: italic; letter-spacing: -.7px; line-height: 1.15; color: var(--text); overflow-wrap: anywhere; }
 .d-artist { margin-top: 3px; font-size: 14.5px; color: var(--muted); }
 .d-stamp { margin-top: 14px; padding: 7px 12px; border-radius: 7px; font-size: 11px; font-weight: 800; letter-spacing: 2px; color: var(--s); background: color-mix(in srgb, var(--s) 14%, transparent); }
@@ -79,7 +95,6 @@
 .d-leave p { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
 .d-leave .d-leave-go { height: 48px; font-size: 15px; background: rgba(248,84,92,.14); color: var(--expert); }
 
-@keyframes d-fade { from { opacity: 0; } to { opacity: 1; } }
 
 /* wide screens: the stage's own 400pt column and desktop metrics */
 @media (min-width: 600px) {

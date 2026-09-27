@@ -9,6 +9,22 @@ import { el, esc, art, label, face, settings, shareText, pushView, popView, open
 import { I } from './icons.js';
 import { Haptics } from './haptics.js';
 import { supabase } from './supabase.js';
+import { spring, bezier, CURVE, still } from './motion.js';
+
+/** Shake: .easeInOut(duration: 0.42) over the piecewise offsets of WinSequence's Shake, on the whole round. */
+function shakeNode(p) {
+  if (!p || still()) return;
+  const f = x => (x < 0.2 ? -7 * x / 0.2 : x < 0.4 ? -7 + 13 * (x - 0.2) / 0.2 : x < 0.6 ? 6 - 10 * (x - 0.4) / 0.2 : x < 0.8 ? -4 + 7 * (x - 0.6) / 0.2 : 3 * (1 - (x - 0.8) / 0.2));
+  const ease = bezier(0.42, 0, 0.58, 1), frames = [];
+  for (let i = 0; i <= 30; i++) frames.push({ offset: i / 30, transform: `translateX(${f(ease(i / 30)).toFixed(2)}px)` });
+  frames[30].transform = 'none';
+  p.animate(frames, { duration: 420, easing: 'linear' });
+}
+/** An inserted view's default .transition(.opacity) under the given curve. */
+const fadeIn = (n, ms, easing = CURVE.easeOut) => { if (n && !still()) n.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ms, easing }); };
+const fadeOut = (n, ms, easing = CURVE.easeOut) => { if (!n) return; if (still()) return n.remove(); n.style.pointerEvents = 'none'; n.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, easing, fill: 'forwards' }).finished.then(() => n.remove(), () => n.remove()); };
+// The stage's bar curve: .timingCurve(0.32, 0.72, 0, 1, duration: 0.35).
+const BAR = 'cubic-bezier(.32,.72,0,1)';
 
 // ---------------------------------------------------------------- the rules
 
@@ -90,7 +106,8 @@ const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 export function mountDaily(ctx) {
   const { pool, player, sound, account } = ctx;
   const q = new URLSearchParams(location.search);
-  // Test knobs, this machine only: ?dailyReset=1 forgets today's go; ?dailyDemo=won|missed fakes a result without spending it.
+  // Test knobs, this machine only: ?dailyReset=1 forgets today's go; ?dailyDemo=won|missed fakes a result without spending it;
+  // ?dailyDemo=play plays today's round for real but saves, records and posts nothing.
   if (local && q.get('dailyReset') === '1') Daily.forgetToday();
   const demo = local ? q.get('dailyDemo') : null;
 
@@ -104,12 +121,14 @@ export function mountDaily(ctx) {
   let query = '', picked = null, hits = [], activeHit = -1, clipError = null;
   let board = { loading: true, failed: false, rows: [], players: 0, named: 0 };
   let raf = 0, tickTimer = 0, toastTimer = 0, closed = false;
-  const artwork = settings.get('artwork', true), glow = settings.get('glow', true);
+  // Glow is off unless switched on (Settings.glow).
+  const artwork = settings.get('artwork', true), glow = settings.get('glow', false);
 
   const node = el(`<div class="view daily" role="dialog" aria-modal="true" aria-label="Daily"><div class="screen"></div><div class="d-toast" aria-live="polite"></div></div>`);
   node.style.setProperty('--accent', ACCENT); node.style.setProperty('--accent-ink', INK);
   if (!glow) node.classList.add('noglow');
-  const scr = node.querySelector('.screen'), toastEl = node.querySelector('.d-toast');
+  let scr = node.querySelector('.screen');
+  const toastEl = node.querySelector('.d-toast');
 
   // ---- hints: the decade (when the song has a year), then the artist
   const hintKinds = song ? [...(song.year ? ['Decade'] : []), 'Artist'] : [];
@@ -123,6 +142,8 @@ export function mountDaily(ctx) {
 
   function showToast(text, image = null) {
     toastEl.innerHTML = `${image ? `<img src="${esc(image)}" alt="">` : `<span class="bulb">${I.bulb}</span>`}<b>${esc(text)}</b>`;
+    // .transition(.move(edge: .top).combined(with: .opacity)) on spring(response: 0.4, dampingFraction: 0.8)
+    toastEl.style.transition = `transform ${spring(0.4, 0.8).css}, opacity ${spring(0.4, 0.8).css}`;
     toastEl.classList.add('on');
     clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('on'), 3000);
   }
@@ -133,7 +154,7 @@ export function mountDaily(ctx) {
   function renderRound() {
     const st = game.stage, secs = game.duration;
     const k = Math.min(st, 3), scale = STAGE_POS[k] / STAGES[k];
-    const marks = STAGES.slice(0, 4).map((t, i) => { const at = Math.min(100, scale * t); return i !== st && at <= 45 ? `<div class="mark" style="left:${at}%"></div>` : ''; }).join('');
+    const marks = marksFor(st).map(([i, at]) => `<div class="mark" data-i="${i}" style="left:${at}%"></div>`).join('');
     const left = hints < hintTexts.length;
     scr.innerHTML = `${bar()}
       <div class="d-round">
@@ -149,7 +170,7 @@ export function mountDaily(ctx) {
         ${secondChance ? offerHTML() : `
         <div class="guessrow">
           <div class="keys">
-            <div class="field">${I.search}<input type="text" placeholder="Name that track" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="send" value="${esc(query)}" aria-label="Name that track"></div>
+            <div class="field"><input type="text" placeholder="Name that track" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="send" value="${esc(query)}" aria-label="Name that track"></div>
             <button class="key hintkey${left ? '' : ' used'}" data-press data-act="hint" aria-label="${left ? 'Hint, costs a quarter of the points' : 'Show the hints again'}">${left ? I.bulb : I.bulbOff}${left ? `<span class="d-badge">${hintTexts.length - hints}</span>` : ''}</button>
             <button class="key skip${armed() ? ' armed' : ''}" data-press data-act="skip">${skipInner()}</button>
           </div>
@@ -161,8 +182,51 @@ export function mountDaily(ctx) {
     if (!secondChance) refreshHits();
     if (player.playing) animate();
   }
+  /** The marks for the shorter clips, re-scaled at every stage (they slide left as the bar grows). */
+  function marksFor(st) {
+    const k = Math.min(st, 3), scale = STAGE_POS[k] / STAGES[k], out = [];
+    STAGES.slice(0, 4).forEach((t, i) => { const at = Math.min(100, scale * t); if (i !== st && at <= 45) out.push([i, at]); });
+    return out;
+  }
+  /**
+   * A skip or a wrong guess moves the bar on in place, as the stage does: the fill,
+   * the caret and the marks glide on the bar curve, a mark that comes or goes fades
+   * on the same curve. Nothing else on the screen is redrawn.
+   */
+  function updateRound() {
+    const st = game.stage, secs = game.duration;
+    const tl = scr.querySelector('.timeline'); if (!tl) return renderRound();
+    tl.setAttribute('aria-label', `Clip length ${label(secs)}`);
+    tl.querySelector('.fill').style.width = STAGE_POS[st] + '%';
+    const mk = tl.querySelector('.marker'); mk.style.left = STAGE_POS[st] + '%'; mk.querySelector('b').textContent = label(secs);
+    const track = tl.querySelector('.track'), want = new Map(marksFor(st));
+    track.querySelectorAll('.mark').forEach(m => {
+      const i = +m.dataset.i;
+      if (m.dataset.gone) return;
+      if (want.has(i)) { m.style.left = want.get(i) + '%'; want.delete(i); }
+      else { m.dataset.gone = '1'; fadeOut(m, 350, BAR); }
+    });
+    for (const [i, at] of want) { const m = el(`<div class="mark" data-i="${i}" style="left:${at}%"></div>`); track.append(m); fadeIn(m, 350, BAR); }
+    const sec = scr.querySelector('.playrow .seconds'); if (sec) sec.textContent = label(secs);
+    setSkip();
+  }
   const armed = () => !!picked || !!query.trim();
   const skipInner = () => armed() ? 'Guess' : `${game.isLastStage ? I.flag : I.skip}${game.isLastStage ? 'Give up' : 'Skip'}`;
+  /** The line gains its new hint: the new pieces fade in (.easeOut .25) while the line re-centres around them. */
+  function growHintLine() {
+    const line = scr.querySelector('.d-hintline'); if (!line) return;
+    const before = new Map([...line.children].map((c, k) => [k, c.getBoundingClientRect().left]));
+    const had = line.children.length;
+    line.innerHTML = hintLine();
+    if (still()) return;
+    const kids = [...line.children];
+    kids.forEach((c, k) => {
+      if (k < had && before.has(k)) {
+        const dx = before.get(k) - c.getBoundingClientRect().left;
+        if (dx) c.animate([{ transform: `translateX(${dx}px)` }, { transform: 'none' }], { duration: 250, easing: CURVE.easeOut });
+      } else fadeIn(c, 250);
+    });
+  }
   function hintLine() {
     return `<span class="bulb">${I.bulb}</span>` + hintTexts.slice(0, hints).map((t, i) =>
       `${i > 0 ? '<i>·</i>' : ''}${hintKinds[i] === 'Artist' && artistPicture ? `<img src="${esc(artistPicture)}" alt="">` : ''}<span>${esc(t)}</span>`).join('');
@@ -172,18 +236,42 @@ export function mountDaily(ctx) {
       <button class="watch" data-press data-act="watch">${I.adPlay}Watch an ad, hear 5 more seconds</button>
       <button class="key answer" data-press data-act="answer">Answer</button></div></div>`;
   }
+  function swapGuessRow(fade = true) {
+    const old = scr.querySelector('.guessrow, .offer'); if (!old) return renderRound();
+    const tmp = document.createElement('div');
+    tmp.innerHTML = secondChance ? offerHTML() : `<div class="guessrow"><div class="keys"><div class="field"><input type="text" placeholder="Name that track" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="send" aria-label="Name that track"></div>
+      <button class="key hintkey${hints < hintTexts.length ? '' : ' used'}" data-press data-act="hint">${hints < hintTexts.length ? I.bulb + `<span class="d-badge">${hintTexts.length - hints}</span>` : I.bulbOff}</button>
+      <button class="key skip${armed() ? ' armed' : ''}" data-press data-act="skip">${skipInner()}</button></div><div class="hits" hidden></div></div>`;
+    const nu = tmp.firstElementChild;
+    old.replaceWith(nu); if (fade) fadeIn(nu, 250);
+  }
   function setSkip() { const b = scr.querySelector('.skip'); if (!b) return; b.className = 'key skip' + (armed() ? ' armed' : ''); b.innerHTML = skipInner(); }
 
+  /** The list: .transition(.opacity.combined(with: .move(edge: .bottom))) under .easeOut(duration: 0.18). */
+  function showHits(box, on) {
+    if (on === !box.hidden && !box.dataset.leaving) return;
+    const drop = () => box.offsetHeight + 8 + (box.parentElement?.offsetHeight || 50);
+    box.getAnimations().forEach(a => a.cancel()); delete box.dataset.leaving;
+    if (on) {
+      box.hidden = false;
+      if (!still()) box.animate([{ opacity: 0, transform: `translateY(${drop()}px)` }, { opacity: 1, transform: 'none' }], { duration: 180, easing: CURVE.easeOut });
+    } else if (still()) box.hidden = true;
+    else {
+      box.dataset.leaving = '1';
+      box.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: `translateY(${drop()}px)` }], { duration: 180, easing: CURVE.easeOut })
+        .finished.then(() => { if (box.dataset.leaving) { box.hidden = true; delete box.dataset.leaving; } }, () => {});
+    }
+  }
   function refreshHits() {
     const box = scr.querySelector('.hits'); if (!box) return;
     const typed = query.trim();
-    if (typed.length < 2 || picked) { hits = []; box.hidden = true; return; }
+    if (typed.length < 2 || picked) { hits = []; showHits(box, false); return; }
     // The daily draws from Easy and Medium, so the answer is always in reach.
     let scope = [...pool.filter('easy', 'all', 'all'), ...pool.filter('medium', 'all', 'all')];
     if (song && !scope.some(s => s.id === song.id)) scope.push(song);
     hits = pool.search(typed, 5, scope); activeHit = -1;
     box.innerHTML = hits.map((h, i) => `<div class="hit" data-i="${i}"><b>${esc(h.title)}</b><span>${esc(h.artist)}</span></div>`).join('');
-    box.hidden = hits.length === 0;
+    showHits(box, hits.length > 0);
   }
 
   // The disc: the sounding slice on the bar, the ring round the disc, 60 fps while it plays.
@@ -239,8 +327,15 @@ export function mountDaily(ctx) {
       const i = hints - 1, artist = hintKinds[i] === 'Artist';
       showToast(artist ? hintTexts[i] : `${hintKinds[i]}: ${hintTexts[i]}`, artist ? artistPicture : null);
       const b = scr.querySelector('.hintkey'), left = hints < hintTexts.length;
-      b.className = 'key hintkey' + (left ? '' : ' used'); b.innerHTML = (left ? I.bulb : I.bulbOff) + (left ? `<span class="d-badge">${hintTexts.length - hints}</span>` : '');
-      const line = scr.querySelector('.d-hintline'); line.innerHTML = hintLine(); line.classList.remove('in'); void line.offsetWidth; line.classList.add('in');
+      b.className = 'key hintkey' + (left ? '' : ' used'); b.setAttribute('aria-label', left ? 'Hint, costs a quarter of the points' : 'Show the hints again');
+      // withAnimation(.easeOut(duration: 0.25)): the icon and the badge cross-fade.
+      const oldIcon = b.querySelector('.i'), oldBadge = b.querySelector('.d-badge');
+      if (left) { oldBadge.textContent = hintTexts.length - hints; }
+      else {
+        oldIcon.insertAdjacentHTML('afterend', I.bulbOff); const nu = oldIcon.nextElementSibling;
+        oldIcon.classList.add('d-gone'); fadeOut(oldIcon, 250); fadeIn(nu, 250); oldBadge && fadeOut(oldBadge, 250);
+      }
+      growHintLine();
     } else showToast(hintTexts.join(' · '), artistPicture);
   }
 
@@ -263,8 +358,10 @@ export function mountDaily(ctx) {
     Haptics.wrong();
     if (player.playing) player.extend(game.duration);
     if (game.status !== 'playing') return;
-    renderRound();
-    const f = scr.querySelector('.field'); if (f) { f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake'); }
+    updateRound();
+    const inp = scr.querySelector('.field input'); if (inp) inp.value = '';
+    refreshHits();
+    shakeNode(scr.querySelector('.d-round'));
   }
   function skip() {
     if (picked) return submit(picked);
@@ -275,7 +372,7 @@ export function mountDaily(ctx) {
       Haptics.press(0.55); game.skip();
       // Skipping never cuts the audio: the clip runs on to the new length.
       if (player.playing) player.extend(game.duration);
-      renderRound();
+      updateRound();
     }
     settle();
   }
@@ -288,7 +385,7 @@ export function mountDaily(ctx) {
       if (!ctx.premium && ads && ads.available && !secondChance && game.bonus === 0) {
         ads.rewarded('daily-five-more-seconds').then(offer => {
           if (finished || game.status !== 'lost') return;
-          if (offer) { secondChance = offer; renderRound(); } else finish(false, 5);
+          if (offer) { secondChance = offer; swapGuessRow(); } else finish(false, 5);
         });
       }
       else finish(false, 5);
@@ -299,15 +396,14 @@ export function mountDaily(ctx) {
     if (finished) return;
     finished = true; player.stop(); cancelAnimationFrame(raf);
     const ms = started ? Math.round(performance.now() - roundStart) : 0;
-    record = { day, won, stage, ms, hints };
-    Daily.save(record);
-    account.recordDaily(day, won);
+    record = { day, won, stage, ms, hints, demo: !!demo };
+    if (!demo) { Daily.save(record); account.recordDaily(day, won); }
     sound.reveal();
     if (won) Haptics.success(); else Haptics.loss();
     renderResult(true);
     // The whole song, as the stage does after a reveal.
     setTimeout(() => { if (!closed && song) player.play(song.id, song.preview, 20); }, 300);
-    post(record).then(() => loadBoard());
+    (demo ? Promise.resolve() : post(record)).then(() => loadBoard());
   }
 
   // ---------------------------------------------------------------- the board
@@ -388,8 +484,17 @@ export function mountDaily(ctx) {
     const streak = (() => { const s = account.stats || {}; return (s.lastDaily || 0) >= day - 1 ? (s.dailyStreak || 0) : 0; })();
     const pts = Daily.points(r.stage, r.won, r.hints);
     const state = r.won ? ACCENT : TIER_COLOR.expert;
+    // From the round: withAnimation(.easeOut(duration: 0.28)) { phase = .result } — the two cross-fade.
+    if (fresh && !still()) {
+      const old = scr;
+      scr = document.createElement('div'); scr.className = 'screen';
+      old.after(scr);
+      old.classList.add('d-leaving');
+      old.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 280, easing: CURVE.easeOut, fill: 'forwards' }).finished.then(() => old.remove(), () => old.remove());
+      scr.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 280, easing: CURVE.easeOut });
+    }
     scr.innerHTML = `${bar()}
-      <div class="d-result${fresh ? ' fresh' : ''}">
+      <div class="d-result">
         ${song && artwork ? `<img class="d-art" src="${esc(art(song.artwork, 400))}" alt="">` : ''}
         ${song ? `<h2>${esc(song.title)}</h2><div class="d-artist">${esc(song.artist)}</div>` : ''}
         <div class="d-stamp" style="--s:${state}">${r.won ? `NAMED AT ${Daily.stageLabel(r.stage).toUpperCase()}` : 'MISSED IT'}${r.hints > 0 ? ` · ${r.hints} HINT${r.hints === 1 ? '' : 'S'}` : ''}</div>
@@ -435,7 +540,7 @@ export function mountDaily(ctx) {
   node.addEventListener('click', e => {
     const t = e.target;
     const hit = t.closest('.hit');
-    if (hit) { picked = hits[+hit.dataset.i]; query = `${picked.title} — ${picked.artist}`; const inp = scr.querySelector('input'); inp.value = query; hits = []; scr.querySelector('.hits').hidden = true; setSkip(); return; }
+    if (hit) { picked = hits[+hit.dataset.i]; query = `${picked.title} — ${picked.artist}`; const inp = scr.querySelector('input'); inp.value = query; hits = []; showHits(scr.querySelector('.hits'), false); setSkip(); return; }
     const act = t.closest('[data-act]')?.dataset.act;
     if (act === 'close') return tryClose();
     if (act === 'play') return play();
@@ -449,7 +554,7 @@ export function mountDaily(ctx) {
       if (!offer || !offer.show) { secondChance = false; return finish(false, 5); }
       offer.show().then(rewarded => {
         secondChance = false;
-        if (rewarded && game.status === 'lost') { game.revive(5); renderRound(); showToast('Five more seconds. Same song.'); play(); }
+        if (rewarded && game.status === 'lost') { game.revive(5); updateRound(); swapGuessRow(false); showToast('Five more seconds. Same song.'); play(); }
         else if (game.status === 'lost') finish(false, 5);
       });
     }
