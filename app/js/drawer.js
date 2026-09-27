@@ -64,7 +64,7 @@ export async function openDrawer(ctx) {
       <p class="dlabel">Settings</p>
       <div class="group card">
         ${tline('easySearch', 'Easy search', I.search, true)}
-        ${tline('glow', 'Accent glow', I.sparkles, true)}
+        ${tline('glow', 'Accent glow', I.sparkles, false)}
         ${tline('artwork', 'Reveal artwork', I.photo, true)}
         ${tline('motion', 'Animations', I.wand, true)}
         ${canVibrate ? tline('haptics', 'Haptics', I.haptics, true) : ''}
@@ -107,17 +107,17 @@ export async function openDrawer(ctx) {
     if (b.tagName !== 'A') e.preventDefault();
     sound.click();
     if (act === 'close') close();
-    else if (act === 'profile') close(() => ctx.openProfile());
+    else if (act === 'profile') { close(); ctx.openProfile(); }
     else if (act === 'premium') ctx.openPremium(null);
-    else if (act === 'daily') close(() => ctx.openDaily());
-    else if (act === 'party') close(() => ctx.openParty());
-    else if (act === 'ranked') ctx.premium ? close(() => ctx.openRanked()) : ctx.openPremium('ranked');
+    else if (act === 'daily') { close(); ctx.openDaily(); }
+    else if (act === 'party') { close(); ctx.openParty(); }
+    else if (act === 'ranked') ctx.premium ? (close(), ctx.openRanked()) : ctx.openPremium('ranked');
     else if (act === 'reroll') { ctx.toast('New song.'); ctx.newRound(); }
     else if (act === 'anyera') { game.era = 'all'; ctx.newRound(); render(); }
     else if (act === 'noartist') { e.stopPropagation(); game.artist = null; game.setArtistSongs([]); ctx.newRound(); render(); }
-    else if (act === 'artist') close(() => ctx.openArtists());
+    else if (act === 'artist') { close(); ctx.openArtists(); }
     else if (act === 'lockedartist') ctx.openPremium('artist');
-    else if (act === 'genres') close(() => ctx.openGenres());
+    else if (act === 'genres') { close(); ctx.openGenres(); }
     else if (act === 'faq') ctx.openFAQ();
     else if (act === 'restore') restore();
   });

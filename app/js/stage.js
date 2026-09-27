@@ -4,7 +4,9 @@
 // metrics (a 400pt column) above.
 import { TIERS, ERAS, STAGES, eraLabel } from './pool.js';
 import { Game } from './game.js';
-import { el, toast, TIER_COLOR, TIER_INK, PILL_FILL, cap, label, esc, art, settings, sleep, viewsOpen } from './ui.js';
+import { el, toast, TIER_COLOR, TIER_INK, PILL_FILL, cap, label, esc, art, settings, sleep, viewsOpen, morph, mix } from './ui.js';
+import * as Win from './win.js';
+import { spring, springTo, still } from './motion.js';
 import { I } from './icons.js';
 import { confetti } from './confetti.js';
 import { Haptics } from './haptics.js';
@@ -20,8 +22,8 @@ export function mountStage(root, ctx) {
   let pendingPromotion = null, promotedAfterWin = false, rerolls = 3, failed = 0;
   let query = '', picked = null, hits = [], activeHit = -1;
   let phase = 'play';            // play | offer | winning | reveal
-  let hintUsed = false, secondChance = null, looking = false, lookUntil = 0, raf = 0, reelBusy = false;
-  const S = k => settings.get(k, { easySearch: true, glow: true, artwork: true, motion: true, haptics: true, hint: false, sounds: true, volume: 0.28, spotlight: 'off' }[k]);
+  let hintUsed = false, secondChance = null, looking = false, lookUntil = 0, raf = 0, spin = null, drag = null;
+  const S = k => settings.get(k, { easySearch: true, glow: false, artwork: true, motion: true, haptics: true, hint: false, sounds: true, volume: 0.28, spotlight: 'off' }[k]);
 
   root.innerHTML = `<div class="stage"><div class="col"></div></div>
     <button class="corner menu-btn" data-press aria-label="Menu">${I.menu}</button>
@@ -39,19 +41,23 @@ export function mountStage(root, ctx) {
     crownBtn.hidden = ctx.premium;
     sound.enabled = S('sounds'); player.setVolume(S('volume'));
     game.lastStageExtra = ctx.premium ? 5 : 0;
+    paintLight();
   }
+  addEventListener('resize', () => paintLight());
 
   // ---------- render ----------
   function render() {
     applyLook();
     const s = game.song;
-    if (phase === 'reveal' && s) { col.innerHTML = `<div class="wordmark">songspot</div>${revealHTML(s)}`; return; }
-    if (phase === 'winning') { col.innerHTML = `<div class="wordmark">songspot</div>`; return; }
+    // The 20fps capture cuts the controls in a single frame when the round
+    // ends — no fade — and the card only arrives at the payoff.
+    if (phase === 'reveal' && s) { morph(col, `<div class="wordmark">songspot</div>${revealHTML(s)}`); return; }
+    if (phase === 'winning') { morph(col, `<div class="wordmark">songspot</div>`); return; }
     const counts = game.artistSongs.length ? Object.fromEntries(TIERS.map(t => [t, Math.max(1, game.artistCounts()[t])])) : pool.counts(game.era, game.category, game.artist);
-    col.innerHTML = `
+    morph(col, `
       <div class="wordmark">songspot</div>
-      <div class="play-ui">
-        <div class="reel-wrap" style="${game.artist ? "opacity:.35;pointer-events:none" : ""}"><span class="caret">${I.caretDown}</span><div class="reel" data-act="reel" role="button" aria-label="Era: ${esc(eraLabel(game.era))}. Tap to spin"><div class="row">${reelRow(ERAS.indexOf(game.era), 0)}</div></div></div>
+      <div class="play-ui" data-k="play">
+        <div class="reel-wrap" style="${game.artist ? "opacity:.35;pointer-events:none" : ""}"><span class="caret">${I.caretDown}</span><div class="reel" data-act="reel" role="button" aria-label="Era: ${esc(eraLabel(game.era))}. Tap to spin"><div class="rs" data-keep><div class="row"></div></div></div></div>
         <div class="pills" role="radiogroup" aria-label="Difficulty">${TIERS.map(t => `<button class="pill ${t === game.difficulty ? 'on' : ''} ${counts[t] === 0 ? 'dead' : ''}" style="--c:${PILL_FILL[t]}" data-tier="${t}" role="radio" aria-checked="${t === game.difficulty}">${cap(t)}</button>`).join('')}</div>
         ${timelineHTML()}
         <div class="playrow ${looking ? 'playing' : ''}">
@@ -59,8 +65,8 @@ export function mountStage(root, ctx) {
           <span class="seconds">${label(game.duration)}</span>
         </div>
         ${phase === 'offer' ? offerHTML() : guessHTML()}
-      </div>`;
-    placeReel(ERAS.indexOf(game.era), 0);
+      </div>`);
+    if (!spin && !drag) placeReel(ERAS.indexOf(game.era), 0);
     if (phase === 'play') refreshHits();
   }
   const reelRow = (from, base) => { let h = ''; for (let o = -4; o <= 4; o++) { const i = (((from + base + o) % ERAS.length) + ERAS.length) % ERAS.length; h += `<span data-o="${o}">${eraLabel(ERAS[i])}</span>`; } return h; };
@@ -68,30 +74,30 @@ export function mountStage(root, ctx) {
   function placeReel(from, pos) {
     const row = col.querySelector('.reel .row'); if (!row) return;
     const base = Math.floor(pos), frac = pos - base;
-    if (row.dataset.k !== `${from}|${base}`) { row.innerHTML = reelRow(from, base); row.dataset.k = `${from}|${base}`; }
+    if (row.dataset.rk !== `${from}|${base}`) { row.innerHTML = reelRow(from, base); row.dataset.rk = `${from}|${base}`; }
     row.style.transform = `translateX(${-SLOT * 4.5 - frac * SLOT}px)`;
     row.querySelectorAll('span').forEach(sp => { const d = Math.min(1, Math.abs(+sp.dataset.o - frac)); sp.style.opacity = (0.26 + 0.36 * (1 - d)).toFixed(3); });
   }
   function timelineHTML() {
     const st = game.stage, scale = barRate(st);
-    const marks = STAGES.slice(0, 4).map((t, i) => { const at = Math.min(100, scale * t); return i !== st && at <= 45 ? `<div class="mark" style="left:${at}%"></div>` : ''; }).join('');
+    const marks = STAGES.slice(0, 4).map((t, i) => { const at = Math.min(100, scale * t); return i !== st && at <= 45 ? `<div class="mark" data-k="m${i}" style="left:${at}%"></div>` : ''; }).join('');
     return `<div class="timeline" aria-label="Clip length ${label(game.duration)}"><div class="track"><div class="fill" style="width:${STAGE_POS[st]}%"></div><div class="live"></div>${marks}</div>
       <div class="marker" style="left:${STAGE_POS[st]}%"><span class="caret">${I.caretUp}</span><b>${label(game.duration)}</b></div></div>`;
   }
   function guessHTML() {
     const armed = !!picked, last = game.isLastStage;
-    return `<div class="guessrow"><div class="keys">
+    return `<div class="guessrow" data-k="guess"><div class="keys">
         <label class="field">${I.search}<input type="text" placeholder="Name that track" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" value="${esc(query)}" aria-label="Name that track"></label>
         ${S('hint') && !game.isOver ? `<button class="key hintkey ${hintUsed ? 'used' : ''}" data-press data-act="hint" aria-label="${hintUsed ? 'Hint used' : 'Hint: the artist'}">${hintUsed ? I.bulbOff : I.bulb}</button>` : ''}
         <button class="key skip ${armed ? 'armed' : ''}" data-press data-act="skip">${armed ? 'Guess' : `${last ? I.flag : I.skip}${last ? 'Give up' : 'Skip'}`}</button>
       </div><div class="hits" hidden role="listbox"></div></div>`;
   }
-  const offerHTML = () => `<div class="offer"><div class="k">OUT OF GUESSES</div><div class="keys">
+  const offerHTML = () => `<div class="offer" data-k="offer"><div class="k">OUT OF GUESSES</div><div class="keys">
       <button class="watch" data-press data-act="watch">${I.adPlay}<span>Watch an ad, hear 5 more seconds</span></button>
       <button class="key answer" data-press data-act="answer">Answer</button></div></div>`;
   function revealHTML(s) {
     const won = game.status === 'won';
-    return `<div class="reveal" style="--state:${won ? accent() : TIER_COLOR.expert}">
+    return `<div class="reveal" data-k="reveal-${esc(s.id)}-${game.status}" style="--state:${won ? accent() : TIER_COLOR.expert}">
       ${S('artwork') && s.artwork ? `<div class="art"><img class="bloom" src="${esc(art(s.artwork, 60))}" alt=""><img class="cover" src="${esc(art(s.artwork, 400))}" alt=""></div>` : ''}
       ${won ? '' : '<div class="itwas rise" style="animation-delay:.035s">IT WAS_</div>'}
       <h2 class="rise" style="animation-delay:.05s">${esc(s.title)}</h2>
@@ -168,7 +174,7 @@ export function mountStage(root, ctx) {
     if (secondChance && game.status === 'lost') settle();
     secondChance = null; hintUsed = false; stopLook();
     query = ''; picked = null; hits = []; phase = 'play';
-    document.body.classList.remove('winning');
+    endLight();
     if (pendingPromotion) { game.difficulty = pendingPromotion; const name = cap(pendingPromotion); pendingPromotion = null; toast(promotedAfterWin ? `Nice — next round is ${name}.` : `Next round is ${name}.`); promotedAfterWin = false; }
     // The ad break, between rounds and never over a song: every five finished rounds, not before a new player's tenth.
     const since = settings.get('roundsSinceAd', 0), total = settings.get('roundsTotal', 0);
@@ -194,32 +200,76 @@ export function mountStage(root, ctx) {
     pendingPromotion = Game.nextTier(game.difficulty);
     promotedAfterWin = game.status === 'won';
   }
+  // ---------- the light ----------
+  // WinSequence: the win clock runs at Win.SPEED, holds at 2.0 (the beam keeps
+  // its last glow until the next round), and drives the cone's width, glow,
+  // sway and tilt plus the travelling light. With the spotlight off the light
+  // sweeps the full width as a soft band instead (StageView.bareWave).
+  const cone = document.querySelector('.cone'), coneI = cone?.querySelector('i');
+  let winRaf = 0, winT = null, lamp = 1, lampTimers = [];
+  const STAGE_RGB = [12, 17, 13];
+  function paintLight() {
+    const spot = S('spotlight') !== 'off', t = winT;
+    const narrow = innerWidth < 600, foot = narrow ? 0.52 : 0.5;
+    const r = t == null ? 1 : Win.ratio(t), gl = t == null ? 0 : Win.glow(t);
+    const w = t == null || !S('motion') ? null : Win.wave(t, Win.payoff(game.isLastStage));
+    const tint = mix(accent(), '#edf2ee', 0.64);
+    if (coneI) {
+      coneI.style.clipPath = `polygon(${(50 - 30 * r).toFixed(3)}% 0, ${(50 + 30 * r).toFixed(3)}% 0, ${(50 + foot * 100 * r).toFixed(3)}% 100%, ${(50 - foot * 100 * r).toFixed(3)}% 100%)`;
+      // SwiftUI .brightness() adds to every channel; the cone is one flat fill.
+      coneI.style.backgroundColor = gl ? `rgb(${STAGE_RGB.map(v => Math.min(255, Math.round(v + gl * 255))).join(',')})` : '';
+      cone.style.transform = t == null ? '' : `translateX(-50%) translateX(${Win.sway(t).toFixed(2)}px) rotate(${Win.tilt(t).toFixed(3)}deg)`;
+      cone.style.opacity = lamp === 1 ? '' : lamp;
+      let sw = coneI.querySelector('.sweep');
+      if (spot && w && w.opacity > 0) {
+        if (!sw) { sw = document.createElement('b'); sw.className = 'sweep'; coneI.appendChild(sw); }
+        const hSpot = innerHeight + 96, hSweep = hSpot * 1.2, band = hSweep * 0.42, top = -0.08 * hSpot + w.offset * (hSweep - band);
+        const c = a => `color-mix(in srgb, ${tint} ${(a * 100).toFixed(2)}%, transparent)`;
+        sw.style.cssText = `height:${band}px;top:${top}px;opacity:${w.opacity};transform:scaleX(${w.scaleX});background:linear-gradient(${c(0)},${c(0.28 * 0.17)} 16%,${c(0.17)} 42%,${c(0.17)} 58%,${c(0.30 * 0.17)} 82%,${c(0)})`;
+      } else if (sw) sw.remove();
+    }
+    let bw = document.querySelector('.bare-wave');
+    if (!spot && w && w.opacity > 0) {
+      if (!bw) { bw = document.createElement('div'); bw.className = 'bare-wave'; document.body.insertBefore(bw, document.getElementById('app')); }
+      const hSpot = innerHeight + 96, hSweep = hSpot * 1.2, band = hSweep * 0.42, top = -0.08 * hSpot + w.offset * (hSweep - band);
+      const c = a => `color-mix(in srgb, ${tint} ${(a * 100).toFixed(2)}%, transparent)`;
+      bw.style.cssText = `height:${band}px;top:${top}px;opacity:${w.opacity};background:linear-gradient(${c(0)},${c(0.048)} 16%,${c(0.17)} 50%,${c(0.048)} 84%,${c(0)})`;
+    } else if (bw) bw.remove();
+  }
+  function endLight() { cancelAnimationFrame(winRaf); winT = null; lampTimers.forEach(clearTimeout); lampTimers = []; lamp = 1; paintLight(); }
+
   function win() {
     stopLook(); settle();
-    Haptics.win();
-    phase = 'winning';
-    const ui = col.querySelector('.play-ui'); if (ui) ui.classList.add('leave');
-    document.body.classList.add('winning');
-    const payoff = (game.isLastStage ? 1.48 : 0.97) / 1.7 * 1000;
-    setTimeout(() => {
-      if (phase !== 'winning') return;
-      phase = 'reveal'; render();
-      sound.reveal(); Haptics.success();
-      const s = game.song; setTimeout(() => { if (phase === 'reveal' && game.song === s && !viewsOpen()) player.play(s.id, s.preview, 20).catch?.(() => {}); }, 60);
-      if (S('motion')) { const c = col.querySelector('.cover'); const r = c ? c.getBoundingClientRect() : { left: innerWidth / 2, top: innerHeight / 2, width: 0, height: 0 }; confetti(r.left + r.width / 2, r.top + r.height / 2, [accent(), '#ffffff', accent()]); }
-      setTimeout(() => document.body.classList.remove('winning'), 700);
-    }, S('motion') ? payoff : 0);
+    phase = 'winning'; render();                   // the controls go in one frame
+    const payoff = S('motion') ? Win.payoff(game.isLastStage) : 0, s = game.song, t0 = performance.now();
+    // The buzz runs with the light: rumble as the beam closes, a sweep, a tap at the flare.
+    if (S('motion')) Haptics.winSweep(Win.payoff(game.isLastStage), Win.SPEED);
+    let revealed = false;
+    const f = now => {
+      const t = (now - t0) / 1000 * Win.SPEED;
+      winT = Math.min(t, 2.0); paintLight();
+      if (!revealed && t >= payoff) {
+        revealed = true;
+        if (phase !== 'winning' || game.song !== s) return;
+        phase = 'reveal'; render();
+        sound.reveal(); Haptics.success();
+        setTimeout(() => { if (phase === 'reveal' && game.song === s && !viewsOpen()) player.play(s.id, s.preview, 20).catch?.(() => {}); }, 60);
+        if (S('motion')) { const c = col.querySelector('.reveal .art'); const r = c ? c.getBoundingClientRect() : { left: innerWidth / 2, top: innerHeight / 2, width: 0, height: 0 }; confetti(r.left + r.width / 2, r.top + r.height / 2, [accent(), '#ffffff', accent()]); }
+      }
+      if (t <= 2.6 && S('motion')) winRaf = requestAnimationFrame(f);
+    };
+    cancelAnimationFrame(winRaf); winRaf = requestAnimationFrame(f);
   }
   function lose() {
     phase = 'reveal'; render();
     Haptics.loss(); sound.reveal(); player.stop();
     const s = game.song;
     setTimeout(() => { if (phase === 'reveal' && game.song === s && !viewsOpen()) player.play(s.id, s.preview, 20); }, 320);
-    if (S('motion')) {
-      const lamp = el('<div class="lamp"></div>'); document.body.appendChild(lamp);
-      for (const [t, o] of [[0, .95], [120, .97], [500, .54], [600, .93], [700, .22], [1080, 0]]) setTimeout(() => lamp.style.opacity = o, t);
-      setTimeout(() => lamp.remove(), 1500);
-    }
+    // loseSequence: the light blinks out like a blown bulb, stutters, and comes
+    // back as the answer rises — the cone's opacity, each step eased over 0.1 s.
+    // With the spotlight off there is no cone, so there is no blink.
+    lampTimers.forEach(clearTimeout);
+    lampTimers = [[0, 0.05], [0.12, 0.03], [0.5, 0.46], [0.6, 0.07], [0.7, 0.78], [1.08, 1]].map(([at, lv]) => setTimeout(() => { lamp = lv; paintLight(); }, at * 1000));
   }
   /** Out of guesses: offer the rewarded ad if one is ready, else the reveal. */
   async function roundOver() {
@@ -253,7 +303,8 @@ export function mountStage(root, ctx) {
     Haptics.wrong();
     if (game.status === 'lost') return roundOver();
     render();
-    const f = col.querySelector('.field'); if (f) { f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake'); }
+    const f = col.querySelector('.field');
+    if (f && !still()) f.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-7px)', offset: 0.2 }, { transform: 'translateX(6px)', offset: 0.4 }, { transform: 'translateX(-4px)', offset: 0.6 }, { transform: 'translateX(3px)', offset: 0.8 }, { transform: 'translateX(0)' }], { duration: 420, easing: 'cubic-bezier(.42,0,.58,1)' });
   }
   function skip() {
     sound.click();
@@ -267,39 +318,82 @@ export function mountStage(root, ctx) {
   }
 
   // ---------- the reel ----------
-  async function spinReel() {
-    if (reelBusy || game.artist) return;
-    reelBusy = true; sound.click();
-    const n = ERAS.length, from = ERAS.indexOf(game.era);
-    const target = Math.floor(Math.random() * n);
-    const steps = n * 2 + ((target - from + n) % n) || n;
-    const wrap = col.querySelector('.reel-wrap'); wrap?.classList.add('spinning');
-    const dur = 2400, t0 = performance.now(); let lastSlot = 0;
-    await new Promise(done => {
-      const f = now => {
-        const t = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - t, 3), pos = e * steps;
-        if (Math.floor(pos) !== lastSlot) { lastSlot = Math.floor(pos); sound.tick(); }
-        placeReel(from, pos);
-        if (t < 1) requestAnimationFrame(f); else done();
-      };
-      requestAnimationFrame(f);
-    });
-    game.era = ERAS[target]; reelBusy = false;
-    Haptics.press(0.6);
-    newRound().then(() => { const w = col.querySelector('.reel-wrap'); if (w && S('motion')) { w.classList.add('land'); setTimeout(() => w.classList.remove('land'), 520); } });
+  // StageView's startSpin/advanceSpin: two full loops plus the distance to a
+  // uniformly random era (which may be the one it started on), eased out
+  // cubic over min(2.9, 0.38 × steps) s, a tick per slot with a 34 ms floor,
+  // and a blur that follows the speed. A drag still on the reel is taken over.
+  const reelWrap = () => col.querySelector('.reel-wrap');
+  const caret = on => reelWrap()?.classList.toggle('spinning', on);
+  function landBump() {
+    if (still()) return;
+    const rs = col.querySelector('.reel .rs'); if (!rs) return;
+    const sp = spring(0.34, 0.5);
+    rs.animate([{ transform: 'scale(1.14)' }, { transform: 'scale(1)' }], { duration: sp.ms, easing: sp.easing });
   }
-  // Drag to pick: the reel follows the finger and snaps to the nearest era.
-  let drag = null;
-  col.addEventListener('pointerdown', e => { const r = e.target.closest('.reel'); if (!r || reelBusy || game.artist) return; drag = { x: e.clientX, dx: 0, moved: false, from: ERAS.indexOf(game.era), id: e.pointerId }; });
-  addEventListener('pointermove', e => { if (!drag || e.pointerId !== drag.id) return; drag.dx = e.clientX - drag.x; if (Math.abs(drag.dx) > 10) drag.moved = true; if (drag.moved) { col.querySelector('.reel-wrap')?.classList.add('spinning'); placeReel(drag.from, -drag.dx / SLOT); } });
-  addEventListener('pointerup', e => {
-    if (!drag || e.pointerId !== drag.id) return; const d = drag; drag = null;
-    if (!d.moved) return;
-    const slot = Math.round(-d.dx / SLOT), n = ERAS.length;
-    game.era = ERAS[(((d.from + slot) % n) + n) % n];
-    col._suppressClick = true; setTimeout(() => col._suppressClick = false, 50);
-    sound.tick(); Haptics.press(0.6); newRound();
+  function startSpin() {
+    if (spin || game.artist) return;
+    sound.click();
+    const n = ERAS.length;
+    let from = ERAS.indexOf(game.era), frac = 0;
+    if (drag && drag.started) {
+      const exact = -drag.dx / SLOT, slot = Math.round(exact);
+      from = drag.landing ?? (((drag.from + slot) % n) + n) % n;
+      frac = drag.landing == null ? exact - slot : 0;
+      drag = null; game.era = ERAS[from];
+    }
+    const landOn = Math.floor(Math.random() * n), steps = n * 2 + ((landOn - from + n) % n);
+    spin = { target: landOn, steps, from, frac, index: 0, lastTick: -1, t0: performance.now() };
+    caret(true);
+    const row = () => col.querySelector('.reel .row');
+    const f = now => {
+      if (!spin) return;
+      const e = (now - spin.t0) / 1000, dur = Win.reelDuration(steps), done = e >= dur;
+      placeReel(from, Win.reelPosition(e, steps) + frac * Math.max(0, 1 - e / 0.3));
+      const r = row(); if (r) r.style.filter = still() || done ? '' : `blur(${Win.reelBlur(e, steps).toFixed(2)}px)`;
+      const i = Math.min(steps, Math.floor(Win.reelPosition(e, steps) + 1e-9));
+      if (i > spin.index) { spin.index = i; game.era = ERAS[(from + i) % n]; if (e - spin.lastTick >= 0.034) { sound.tick(); spin.lastTick = e; } }
+      if (!done) { requestAnimationFrame(f); return; }
+      game.era = ERAS[landOn]; spin = null; caret(false);
+      Haptics.press(0.6);
+      newRound(); landBump();
+    };
+    requestAnimationFrame(f);
+  }
+  // Drag to pick: the reel follows the finger one to one (no blur) past a
+  // 10pt minimum, ticks each era it passes, and on release glides 0.2 s
+  // (ease-out cubic) to the nearest era, so it never rests between two.
+  col.addEventListener('pointerdown', e => {
+    const r = e.target.closest('.reel'); if (!r || spin || game.artist || (drag && drag.landing != null)) return;
+    drag = { x: e.clientX, id: e.pointerId, started: false, from: ERAS.indexOf(game.era), origin: 0, dx: 0, slot: 0, landing: null };
   });
+  addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id || drag.landing != null) return;
+    const raw = e.clientX - drag.x;
+    if (!drag.started) { if (Math.abs(raw) < 10) return; drag.started = true; drag.origin = raw; caret(true); }
+    drag.dx = raw - drag.origin;
+    const slot = Math.round(-drag.dx / SLOT);
+    if (slot !== drag.slot) { drag.slot = slot; sound.tick(); }
+    placeReel(drag.from, -drag.dx / SLOT);
+  });
+  const release = e => {
+    if (!drag || e.pointerId !== drag.id || drag.landing != null) return;
+    if (!drag.started) { drag = null; return; }
+    col._suppressClick = true; setTimeout(() => col._suppressClick = false, 50);
+    const d = drag, n = ERAS.length, slot = Math.round(-d.dx / SLOT);
+    d.landing = (((d.from + slot) % n) + n) % n;
+    const fromDx = d.dx, toDx = -slot * SLOT;
+    const finish = () => { if (drag !== d) return; drag = null; caret(false); game.era = ERAS[d.landing]; Haptics.press(0.6); newRound(); landBump(); };
+    if (still()) return finish();
+    const t0 = performance.now();
+    const f = now => {
+      if (drag !== d) return;
+      const t = Math.min(1, (now - t0) / 200), k = 1 - Math.pow(1 - t, 3);
+      d.dx = fromDx + (toDx - fromDx) * k; placeReel(d.from, -d.dx / SLOT);
+      if (t < 1) requestAnimationFrame(f); else finish();
+    };
+    requestAnimationFrame(f);
+  };
+  addEventListener('pointerup', release); addEventListener('pointercancel', release);
 
   // ---------- events ----------
   menuBtn.addEventListener('click', () => { sound.click(); Haptics.press(0.5); ctx.openDrawer(); });
@@ -313,7 +407,7 @@ export function mountStage(root, ctx) {
     const act = t.closest('[data-act]')?.dataset.act;
     if (act === 'play') { sound.click(); return play(); }
     if (act === 'skip') return skip();
-    if (act === 'reel') return spinReel();
+    if (act === 'reel') return startSpin();
     if (act === 'hint') { sound.click(); if (!game.song) return; if (!hintUsed) { hintUsed = true; Haptics.success(); const k = col.querySelector('.hintkey'); if (k) { k.classList.add('used'); k.innerHTML = I.bulbOff; } } return toast(`It's by ${game.song.artist}.`, 4); }
     if (act === 'next') { sound.click(); Haptics.press(0.7); return newRound(); }
     if (act === 'watch') { sound.click(); return watch(); }

@@ -40,7 +40,7 @@ export function toast(msg, seconds = 3.6) {
 /** A stack of full-screen views over the stage: push to open, pop to close. */
 const stack = [];
 export function pushView(node) { const host = document.getElementById('views'); host.appendChild(node); stack.push(node); requestAnimationFrame(() => requestAnimationFrame(() => node.classList.add('in'))); return node; }
-export function popView(node) { const i = stack.indexOf(node); if (i >= 0) stack.splice(i, 1); node.classList.remove('in'); setTimeout(() => node.remove(), 300); }
+export function popView(node) { const i = stack.indexOf(node); if (i >= 0) stack.splice(i, 1); node.classList.remove('in'); setTimeout(() => node.remove(), 500); }
 export const viewsOpen = () => stack.length > 0;
 
 /**
@@ -85,3 +85,33 @@ export async function shareText(text, done = 'Copied. Send it to someone.') {
 }
 
 export const LINKS = { get: 'https://songspotapp.com/get', go: 'https://songspotapp.com/go', appStore: 'https://apps.apple.com/app/id6808657554', privacy: '/privacy', support: '/support' };
+
+/**
+ * Redraw `parent` from an HTML string, keeping the nodes that are still there
+ * so their CSS transitions run — SwiftUI animates a changed value on the same
+ * view; replacing the DOM would only ever jump. A node is kept when its tag
+ * and its data-k key match; anything else is replaced (and so re-enters, with
+ * its entrance animation). A focused input keeps its caret.
+ */
+export function morph(parent, html) {
+  const t = document.createElement('template'); t.innerHTML = html.trim();
+  morphChildren(parent, t.content);
+}
+function same(a, b) { return a.nodeType === b.nodeType && a.nodeName === b.nodeName && (a.nodeType !== 1 || a.getAttribute('data-k') === b.getAttribute('data-k')); }
+function morphChildren(from, to) {
+  const next = Array.from(to.childNodes);
+  let cur = from.firstChild;
+  for (const n of next) {
+    if (cur && same(cur, n)) { morphNode(cur, n); cur = cur.nextSibling; }
+    else from.insertBefore(n, cur);
+  }
+  while (cur) { const x = cur.nextSibling; cur.remove(); cur = x; }
+}
+function morphNode(a, b) {
+  if (a.nodeType === 3 || a.nodeType === 8) { if (a.nodeValue !== b.nodeValue) a.nodeValue = b.nodeValue; return; }
+  for (const { name, value } of Array.from(b.attributes)) if (a.getAttribute(name) !== value) a.setAttribute(name, value);
+  for (const { name } of Array.from(a.attributes)) if (!b.hasAttribute(name)) a.removeAttribute(name);
+  if (a.tagName === 'INPUT') { const v = b.getAttribute('value') ?? ''; if (a.value !== v && document.activeElement !== a) a.value = v; return; }
+  if (a.hasAttribute('data-keep')) return;
+  morphChildren(a, b);
+}

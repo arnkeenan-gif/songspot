@@ -36,13 +36,15 @@ input { font: inherit; color: var(--text); }
 #views > * { pointer-events: auto; }
 
 /* ---------- the spotlight: a flat cone of the stage colour on the page ---------- */
-.cone { position: fixed; top: 0; left: 50%; height: calc(100% + 96px); width: 100vw; transform: translateX(-50%); pointer-events: none; z-index: 0; display: none; }
+.cone { position: fixed; top: 0; left: 50%; height: calc(100% + 96px); width: 100vw; transform: translateX(-50%); pointer-events: none; z-index: 0; display: none; transition: opacity .1s cubic-bezier(.42,0,.58,1); }
 body.spot .cone { display: block; }
-.cone i { position: absolute; inset: 0; background: var(--stage); clip-path: polygon(20% 0, 80% 0, 101% 100%, -1% 100%);
-  -webkit-mask: linear-gradient(rgba(0,0,0,.88), #000 42%, rgba(0,0,0,.94)); mask: linear-gradient(rgba(0,0,0,.88), #000 42%, rgba(0,0,0,.94));
-  transition: clip-path .5s var(--ease), filter .5s; }
+.cone i { position: absolute; inset: 0; background: var(--stage); clip-path: polygon(20% 0, 80% 0, 102% 100%, -2% 100%); overflow: hidden;
+  -webkit-mask: linear-gradient(rgba(0,0,0,.88), #000 42%, rgba(0,0,0,.94)); mask: linear-gradient(rgba(0,0,0,.88), #000 42%, rgba(0,0,0,.94));}
+/* the travelling light: a band 42% of a box 1.2× the cone, clipped to the beam (win.js drives it) */
+.cone i .sweep { position: absolute; left: 0; right: 0; filter: blur(1.5px); mix-blend-mode: screen; pointer-events: none; }
+/* with the cone off it sweeps the full width as a soft band (StageView.bareWave) */
+.bare-wave { position: fixed; left: 0; right: 0; filter: blur(26px); mix-blend-mode: screen; pointer-events: none; z-index: 0; }
 @media (min-width: 600px) { .cone { width: min(1000px, calc(100vw + 96px)); } .cone i { clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%); } }
-body.spot.winning .cone i { clip-path: polygon(34% 0, 66% 0, 77% 100%, 23% 100%); filter: brightness(1.16); }
 
 /* ---------- the stage ---------- */
 .stage { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 16px 74px; z-index: 1; }
@@ -54,24 +56,20 @@ body.spot.winning .cone i { clip-path: polygon(34% 0, 66% 0, 77% 100%, 23% 100%)
 .crown-btn { right: 18px; padding: 0 14px; gap: 6px; color: var(--gold); font-size: 12.5px; font-weight: 700; }
 .crown-btn .i { font-size: 11px; }
 .play-ui { display: flex; flex-direction: column; align-items: center; width: 100%; }
-.play-ui.leave { animation: fadeout .18s forwards; }
-@keyframes fadeout { to { opacity: 0; } }
 
 /* era reel: nine uniform 58pt slots, the chosen one bright */
 .reel { width: 230px; height: 14.69px; position: relative; overflow: hidden; cursor: pointer; margin-bottom: 14px; touch-action: pan-y;
   -webkit-mask: linear-gradient(90deg, transparent, #000 30%, #000 70%, transparent); mask: linear-gradient(90deg, transparent, #000 30%, #000 70%, transparent); }
 .reel .row { position: absolute; top: 0; left: 50%; display: flex; will-change: transform; }
 .reel .row span { width: 58px; flex: none; text-align: center; font-size: 10.5px; font-weight: 600; line-height: 14.69px; color: #fff; white-space: nowrap; }
-.reel.spinning .row { filter: blur(.6px); }
+.reel .rs { position: absolute; inset: 0; }
 .reel-wrap { position: relative; }
-.reel-wrap .caret { position: absolute; left: 50%; top: -7px; width: 8px; height: 4px; margin-left: -4px; color: var(--muted); opacity: 0; transition: opacity .16s; }
+.reel-wrap .caret { position: absolute; left: 50%; top: -7px; width: 8px; height: 4px; margin-left: -4px; color: var(--muted); opacity: 0; transition: opacity .16s var(--easeOut); }
 .reel-wrap.spinning .caret { opacity: 1; }
-.reel-wrap.land .reel { animation: land .5s cubic-bezier(.3,1.6,.5,1); }
-@keyframes land { 0% { transform: scale(1.14); } 100% { transform: scale(1); } }
 
 /* difficulty pills */
 .pills { display: flex; gap: 8px; width: 100%; margin-bottom: 20px; }
-.pill { flex: 1; text-align: center; height: 33px; border-radius: 999px; font-size: 10.5px; font-weight: 600; letter-spacing: -.105px; padding: 0 4px; color: var(--c); background: color-mix(in srgb, #0d0d0d 87%, var(--c)); white-space: nowrap; transition: background .26s, color .26s; }
+.pill { flex: 1; text-align: center; height: 33px; border-radius: 999px; font-size: 10.5px; font-weight: 600; letter-spacing: -.105px; padding: 0 4px; color: var(--c); background: color-mix(in srgb, #0d0d0d 87%, var(--c)); white-space: nowrap; transition: background-color .26s var(--easeOut), color .26s var(--easeOut), box-shadow .26s var(--easeOut); }
 .pill.on { background: var(--c); color: #08120c; box-shadow: 0 0 5px color-mix(in srgb, var(--c) 42%, transparent); }
 .noglow .pill.on { box-shadow: none; }
 .pill.dead { opacity: .34; pointer-events: none; }
@@ -79,27 +77,27 @@ body.spot.winning .cone i { clip-path: polygon(34% 0, 66% 0, 77% 100%, 23% 100%)
 /* the clip timeline: 25pt track, radius 12, the fill cut on the right */
 .timeline { width: 100%; position: relative; margin-bottom: 53px; }
 .track { height: 25px; border-radius: 12px; background: var(--track); position: relative; overflow: hidden; }
-.track .fill, .track .live { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); transition: width .35s var(--ease); }
+.track .fill, .track .live { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); transition: width .35s var(--ease), background-color .26s var(--easeOut); }
 .track .live { background: color-mix(in srgb, var(--accent) 65%, #fff); transition: none; width: 0; }
 .track .mark { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,.6); transition: left .35s var(--ease); }
-.marker { position: absolute; top: 25px; width: 96px; margin-left: -48px; display: flex; flex-direction: column; align-items: center; color: var(--accent); transition: left .35s var(--ease); pointer-events: none; }
+.marker { position: absolute; top: 25px; width: 96px; margin-left: -48px; display: flex; flex-direction: column; align-items: center; color: var(--accent); transition: left .35s var(--ease), color .26s var(--easeOut); pointer-events: none; }
 .marker .caret { width: 10px; height: 5px; margin-top: 1px; display: block; }
 .caret svg { width: 100%; height: 100%; display: block; }
 .marker b { font: 600 11px/1 var(--mono); margin-top: 2px; }
 
 /* play row: the 120pt disc, the length hanging off its right */
 .playrow { position: relative; display: flex; justify-content: center; align-items: center; margin-bottom: 25px; width: 100%; }
-.disc { width: 120px; height: 120px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; position: relative; box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 30%, transparent); transition: background .26s; }
+.disc { width: 120px; height: 120px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; position: relative; box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 30%, transparent); transition: background-color .26s var(--easeOut), color .26s var(--easeOut), box-shadow .26s var(--easeOut); }
 .noglow .disc { box-shadow: none; }
 .disc .i { width: 40px; height: 40px; }
 .disc .play-g { display: grid; }
-.disc .ring { position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--accent); opacity: 0; pointer-events: none; }
+.disc .ring { position: absolute; inset: -7px; border-radius: 50%; border: 2px solid var(--accent); opacity: 0; pointer-events: none; }
 .playing .disc .ring { animation: ring 1.5s linear infinite; }
 @keyframes ring { 0% { opacity: .55; transform: scale(1); } 100% { opacity: 0; transform: scale(1.18); } }
 .disc svg.sweep { position: absolute; inset: -2.56px; width: 125.12px; height: 125.12px; transform: rotate(-90deg); pointer-events: none; opacity: 0; }
 .playing .disc svg.sweep { opacity: 1; }
-.disc svg.sweep circle { fill: none; stroke: var(--accent); stroke-opacity: .55; stroke-width: 2.176; stroke-linecap: round; }
-.seconds { position: absolute; left: calc(50% + 60px + 22px); font: 600 16px/1 var(--mono); color: var(--accent); white-space: nowrap; }
+.disc svg.sweep circle { fill: none; stroke: var(--accent); stroke-opacity: .55; stroke-width: 2.176; stroke-linecap: round; transition: stroke .26s var(--easeOut); }
+.seconds { position: absolute; left: calc(50% + 60px + 22px); font: 600 16px/1 var(--mono); color: var(--accent); white-space: nowrap; transition: color .26s var(--easeOut); }
 
 /* guess row */
 .guessrow { width: 100%; position: relative; }
@@ -108,8 +106,6 @@ body.spot.winning .cone i { clip-path: polygon(34% 0, 66% 0, 77% 100%, 23% 100%)
 .field .i { position: absolute; left: 14px; width: 15px; height: 15px; color: var(--muted); pointer-events: none; }
 .field input { width: 100%; height: 100%; border: 0; background: transparent; outline: 0; padding: 0 14px 0 37px; font-size: 14px; color: var(--text); border-radius: 14px; }
 .field input::placeholder { color: var(--muted); opacity: 1; }
-.field.shake { animation: shake .42s var(--easeInOut); }
-@keyframes shake { 20% { transform: translateX(-7px);} 40% { transform: translateX(6px);} 60% { transform: translateX(-4px);} 80% { transform: translateX(3px);} }
 .key { height: 40px; align-self: center; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); display: inline-flex; align-items: center; justify-content: center; gap: 9px; font-size: 13px; font-weight: 700; color: var(--accent-text); white-space: nowrap; }
 .skip { width: 88px; }
 .skip .i { font-size: 12px; }
@@ -135,7 +131,6 @@ body.spot.winning .cone i { clip-path: polygon(34% 0, 66% 0, 77% 100%, 23% 100%)
 .reveal .art { width: 147px; height: 147px; position: relative; margin-bottom: 24px; animation: pop .31s cubic-bezier(.22,1,.36,1) both; }
 .reveal .art .cover { width: 147px; height: 147px; border-radius: 10px; object-fit: cover; position: relative; z-index: 1; box-shadow: 0 12px 32px rgba(0,0,0,.62); background: var(--surface); display: block; }
 .reveal .art .bloom { position: absolute; left: 50%; top: 50%; width: 426px; height: 426px; margin: -213px 0 0 -213px; filter: blur(40px) saturate(1.5); opacity: 0; animation: bloom .53s cubic-bezier(.22,1,.36,1) forwards; pointer-events: none; }
-.noglow .reveal .art .bloom { display: none; }
 @keyframes pop { 0% { opacity: 0; transform: scale(.82) translateY(14px); } 60% { transform: scale(1.03); } 100% { opacity: 1; transform: none; } }
 @keyframes bloom { 0% { opacity: 0; transform: scale(1.18); } 100% { opacity: .3; transform: scale(1); } }
 .reveal .itwas { font-size: 9.5px; font-weight: 700; letter-spacing: 3.99px; color: var(--state); margin-bottom: 3px; }
@@ -155,8 +150,8 @@ body.spot.winning .cone i { clip-path: polygon(34% 0, 66% 0, 77% 100%, 23% 100%)
 .lamp { position: fixed; inset: 0; background: #000; pointer-events: none; z-index: 25; opacity: 0; transition: opacity .1s; }
 
 /* toast */
-.toast { position: fixed; left: 50%; bottom: calc(28px + var(--sab)); transform: translate(-50%, 8px); width: max-content; max-width: min(400px, calc(100vw - 40px)); padding: 10px 18px; border-radius: 14px; background: rgba(24,24,24,.97); border: 1px solid var(--line); font-size: 12.5px; line-height: 1.35; text-align: center; color: var(--text); opacity: 0; pointer-events: none; z-index: 80; transition: opacity .2s, transform .2s; }
-.toast.on { opacity: 1; transform: translate(-50%, 0); }
+.toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); width: max-content; max-width: min(400px, calc(100vw - 40px)); padding: 10px 18px; border-radius: 14px; background: rgba(24,24,24,.97); border: 1px solid var(--line); font-size: 12.5px; line-height: 1.35; text-align: center; color: var(--text); opacity: 0; pointer-events: none; z-index: 80; }
+.toast.on { opacity: 1; }
 .confetti { position: fixed; inset: 0; pointer-events: none; z-index: 24; }
 
 /* ---------- the drawer ---------- */
@@ -241,11 +236,13 @@ body.spot.winning .cone i { clip-path: polygon(34% 0, 66% 0, 77% 100%, 23% 100%)
 .getapp .i { font-size: 13px; }
 
 /* ---------- views and sheets ---------- */
-.view { position: absolute; inset: 0; background: var(--page); overflow-y: auto; overscroll-behavior: contain; opacity: 0; transform: translateY(14px); transition: opacity .28s var(--easeOut), transform .28s var(--easeOut); }
-.view.in { opacity: 1; transform: none; }
+/* fullScreenCover: the whole screen slides up from the bottom edge, and back down */
+.view { position: absolute; inset: 0; background: var(--page); overflow-y: auto; overscroll-behavior: contain; transform: translateY(100%); transition: transform .5s var(--ease); }
+.view.in { transform: none; }
 .view.sheet { background: transparent; transform: none; overflow: hidden; }
-.view.sheet .scrim { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
-.view.sheet .sheet-body { position: absolute; left: 0; right: 0; bottom: 0; max-height: calc(100% - 44px - var(--sat)); background: var(--stage); border-radius: 18px 18px 0 0; overflow-y: auto; overscroll-behavior: contain; transform: translateY(100%); transition: transform .32s var(--ease); padding-bottom: var(--sab); }
+.view.sheet .scrim { position: absolute; inset: 0; background: rgba(0,0,0,.55); opacity: 0; transition: opacity .5s var(--ease); }
+.view.sheet.in .scrim { opacity: 1; }
+.view.sheet .sheet-body { position: absolute; left: 0; right: 0; bottom: 0; max-height: calc(100% - 44px - var(--sat)); background: var(--stage); border-radius: 18px 18px 0 0; overflow-y: auto; overscroll-behavior: contain; transform: translateY(100%); transition: transform .5s var(--ease); padding-bottom: var(--sab); }
 .view.sheet.in .sheet-body { transform: none; }
 .view.sheet.tall .sheet-body { height: calc(100% - 44px - var(--sat)); }
 @media (min-width: 600px) {
@@ -270,17 +267,29 @@ body.spot.winning .cone i { clip-path: polygon(34% 0, 66% 0, 77% 100%, 23% 100%)
 @keyframes turn { to { transform: rotate(360deg); } }
 
 /* the four answers (ranked, party) */
+/* Engine/Choices.swift ChoiceGrid: rows 8pt apart, 8/16/8/8 padding, a 46pt cover, 15pt semibold title.
+   The button is the Pressable; .cb is the label with the fill, the stroke (centred on the edge, as
+   SwiftUI strokes it) and the fade. A pick moves on spring(.3,.75), the reveal on easeOut .25. */
 .choices { display: flex; flex-direction: column; gap: 8px; width: 100%; }
-.choice { display: flex; align-items: center; gap: 12px; padding: 8px 16px 8px 8px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); width: 100%; min-height: 64px; transition: opacity .25s, background .25s, border-color .25s; }
+.choice { display: block; width: 100%; padding: 0; text-align: left; border-radius: 14px; }
+.choice .cb { display: flex; align-items: center; gap: 12px; padding: 8px 16px 8px 8px; min-height: 62px; border-radius: 14px; background-color: var(--surface); outline: 1px solid var(--line); outline-offset: -.5px;
+  transition: background-color var(--choice-pick, .3s ease-out), outline-color var(--choice-pick, .3s ease-out), outline-width var(--choice-pick, .3s ease-out), outline-offset var(--choice-pick, .3s ease-out), opacity var(--choice-pick, .3s ease-out); }
+.choices.revealed .choice .cb { transition-duration: .25s; transition-timing-function: cubic-bezier(0,0,.58,1); }
 .choice .cover { width: 46px; height: 46px; border-radius: 9px; overflow: hidden; flex: none; background: var(--surface2); display: grid; place-items: center; color: var(--dim); }
 .choice .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .choice .t { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; color: var(--text); line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.choice .mark { font-size: 20px; display: inline-flex; animation: pop .3s cubic-bezier(.3,1.4,.5,1) both; }
+.choice .mark { font-size: 20px; width: 20px; height: 20px; flex: none; display: inline-flex; animation: choice-mark .25s cubic-bezier(0,0,.58,1) both; }
+.choice .mark .i { width: 20px; height: 20px; }
+@keyframes choice-mark { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: none; } }
 .choice .mark.ok { color: var(--easy); } .choice .mark.no { color: var(--expert); }
-.choice.picked { background: var(--surface2); border: 1.5px solid rgba(242,242,242,.7); }
-.choice.right { background: rgba(25,223,112,.12); border: 1.5px solid var(--easy); opacity: 1; }
-.choice.wrong { background: rgba(248,84,92,.12); border-color: var(--expert); }
-.choice.faded { opacity: .4; } .choice.gone { opacity: .12; }
+.choice.picked .cb { background-color: var(--surface2); outline: 1.5px solid rgba(242,242,242,.7); outline-offset: -.75px; }
+.choice.right .cb { background-color: rgba(25,223,112,.12); outline: 1.5px solid var(--easy); outline-offset: -.75px; }
+.choice.wrong .cb { background-color: rgba(248,84,92,.12); outline: 1px solid var(--expert); outline-offset: -.5px; }
+.choice.wrong.picked .cb { outline-width: 1.5px; outline-offset: -.75px; }
+.choice.faded .cb { opacity: .4; } .choice.gone .cb { opacity: .12; }
+.choice:disabled { cursor: default; }
+.choice:disabled.pressed { transform: none; opacity: 1; }
+@media (hover: hover) { .choice:disabled:hover { filter: none; } }
 
 /* login */
 .login { position: fixed; inset: 0; z-index: 50; background: var(--stage); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
