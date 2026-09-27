@@ -1,8 +1,9 @@
 // Ranked on the web: one song, two people, the faster right answer takes it.
-// Five rounds up the tiers, a rating that moves, a badge that wears the tier
-// colours. A port of Ranked/Ranked.swift, RankedGame.swift, RankedView.swift,
+// Five rounds, harder the higher you climb, rank points on a ladder of
+// Bronze to Legend (ladder.js), each rank in its own colour. A port of
+// Ranked/Ranked.swift, RankedGame.swift, RankedView.swift, Ladder.swift,
 // Leaderboard(View).swift and EraReel.swift — same rules, same numbers, same
-// screens. Until live matchmaking lands the opponent is a stand-in: rated
+// screens, in front of the drifting album wall (coverwall.js). Until live matchmaking lands the opponent is a stand-in: rated
 // near you, answering on its own clock, right about as often as that rating
 // says (scaled by app_config.ranked_bot_skill). No hint: the app's ranked
 // board has none (its hint key sits on the old typed-guess row, unused).
@@ -15,6 +16,8 @@ import { Ranked as Elo } from './account.js';
 import { supabase, config } from './supabase.js';
 import { confetti } from './confetti.js';
 import { spring, bezier, CURVE, still } from './motion.js';
+import { Ladder } from './ladder.js';
+import { CoverWall } from './coverwall.js';
 
 const TIERS = ['easy', 'medium', 'hard', 'expert', 'impossible'];
 const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
@@ -35,22 +38,6 @@ export const RK = {
     const penalty = Math.max(0.5, 1 - 0.1 * wrongGuesses);
     return Math.round(RK.base(tier) * speed * penalty);
   },
-  rank: r => (r < 1100 ? 'easy' : r < 1300 ? 'medium' : r < 1500 ? 'hard' : r < 1700 ? 'expert' : 'impossible'),
-  rankName: r => cap(RK.rank(r)),
-  progress(r) {
-    for (const [lo, hi] of [[900, 1100], [1100, 1300], [1300, 1500], [1500, 1700]]) if (r < hi) return { next: hi, fraction: clamp((r - lo) / (hi - lo)) };
-    return { next: null, fraction: 1 };
-  },
-  /** The Monday this season ends on, local time. */
-  seasonEnd(d = new Date()) { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() + 7 - ((x.getDay() + 6) % 7)); return x; },
-  seasonCountdown(d = new Date()) {
-    const left = (RK.seasonEnd(d) - d) / 1000;
-    if (left <= 0) return 'Resetting now';
-    const hours = Math.floor(left / 3600);
-    if (hours < 24) return hours <= 1 ? 'Resets within the hour' : `Resets in ${hours} hours`;
-    const days = Math.ceil(left / 86400);
-    return days <= 1 ? 'Resets tomorrow' : `Resets in ${days} days`;
-  },
   opponentRating: mine => Math.max(600, mine + randInt(-80, 80)),
   opponentForm(rating) { const p = Math.min(0.78, Math.max(0.28, 0.5 + (rating - RK.startRating) / 900)); return Array.from({ length: 5 }, () => (Math.random() < p ? 1 : 0)); },
   /** How the stand-in plays one round: does it get it, and how long it takes. */
@@ -64,18 +51,29 @@ export const RK = {
     const at = Math.min(window * 0.98, raw / Math.max(0.5, k));
     return { correct: true, at: Math.max(1.2, at) };
   },
-  /** Climbs like a party: Easy first, Impossible last. */
-  tierFor: r => TIERS[Math.min(Math.floor(r * TIERS.length / Math.max(1, RK.rounds)), TIERS.length - 1)],
+  /** Harder songs the higher you are on the ladder (Ladder.roundTiers). */
+  tierFor: (r, ladderIndex = 0) => { const t = Ladder.roundTiers(ladderIndex); return t[Math.min(Math.max(0, r), t.length - 1)]; },
   /** Leaderboard.points: what was scored, plus a bonus for taking it. */
   boardPoints: (score, outcome) => score + (outcome > 0.6 ? 300 : outcome > 0.4 ? 100 : 0),
 };
 
-// The EraReel's slots and motion (EraReel.swift, WinSequence.reelPosition/reelBlur).
-const SLOTS = ['60s', '70s', '80s', '90s', '2000s', '2010s', '2020s'];
-const SLOT_H = 78;
-const reelDuration = steps => Math.min(2.9, 0.380 * steps);
-const reelPosition = (t, steps) => steps * (1 - Math.pow(1 - Math.min(1, t / reelDuration(steps)), 3));
-const reelBlur = (t, steps) => { const d = reelDuration(steps), f = Math.min(1, t / d); return Math.min(2.6, steps * 3 * Math.pow(1 - f, 2) / d * 0.055); };
+// CoverEraReel (EraReel.swift): one simple record sleeve per decade in a
+// coverflow row, racing and easing to a stop on the song's decade in 2.7 s.
+const DECADES = ['80s', '90s', '2000s', '2010s', '2020s'];
+const REEL = { laps: 4, duration: 2.7, side: 132, spacing: 104 };
+/** The index of the sleeve the reel stops on. */
+const reelTarget = era => { const d = DECADES.indexOf(era); return REEL.laps * DECADES.length + (d < 0 ? 2 : d); };
+/** Where the reel is, in sleeves, `t` seconds in: fast, then a long ease into the stop. */
+const reelPosition = (t, era) => reelTarget(era) * (1 - Math.pow(1 - clamp(t / REEL.duration), 3.2));
+const decadeAt = i => DECADES[((i % DECADES.length) + DECADES.length) % DECADES.length];
+/** DecadeSleeve's colours: the difficulty colours, 80s easy through 2020s impossible. */
+const SLEEVE = { '80s': [TIER_COLOR.easy, '#0a7a3c'], '90s': [TIER_COLOR.medium, '#c27a00'], '2000s': [TIER_COLOR.hard, '#b4400a'], '2010s': [TIER_COLOR.expert, '#9e1830'], '2020s': [TIER_COLOR.impossible, '#5a1fb0'] };
+/** A record sleeve for a decade: its gradient, the vinyl half out, the decade across the front. No album art. */
+function sleeveHTML(era) {
+  const [a, b] = SLEEVE[era] || SLEEVE['80s'];
+  const rings = [40, 35, 30, 25].map(r => `<circle cx="92" cy="40" r="${r}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width=".76"/>`).join('');
+  return `<div class="rk-sleeve" style="background:linear-gradient(135deg, ${a}, ${b})"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="92" cy="40" r="45" fill="rgba(0,0,0,.85)"/>${rings}<circle cx="92" cy="40" r="12" fill="${a}"/><circle cx="92" cy="40" r="2" fill="#000"/></svg><b class="${era.length > 3 ? 'long' : ''}">${esc(era)}</b></div>`;
+}
 
 const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
@@ -127,21 +125,26 @@ export function mountRanked(ctx) {
   const glowOn = () => store.get('glow', false);
   const artOn = () => store.get('artwork', true);
 
+  // The album wall behind the waiting screens: one of its ten cover sets, picked each time ranked opens.
+  const wallCovers = CoverWall.covers(pool, { preset: CoverWall.randomPreset() });
   const view = el(`<div class="view ranked" role="dialog" aria-modal="true" aria-label="Ranked">
-    <div class="rk-lit"><i class="l"></i><i class="r"></i></div>
+    ${CoverWall.html(wallCovers, 0.8, 'fixed')}
     <div class="screen rk-screen"></div>
   </div>`);
+  const wall = view.querySelector('.cwall');
   let screen = view.querySelector('.rk-screen');
   // The springs this file animates with, as CSS (motion.js turns each SwiftUI spring into a linear() curve).
   for (const [k, r, d] of [['card', 0.4, 0.6], ['vs', 0.34, 0.5], ['intro', 0.45, 0.72], ['side', 0.4, 0.6], ['verdict', 0.5, 0.55],
-    ['face', 0.45, 0.6], ['rounds', 0.45, 0.8], ['row', 0.4, 0.75], ['rating', 0.42, 0.7]]) view.style.setProperty('--sp-' + k, spring(r, d).css);
+    ['face', 0.45, 0.6], ['rating', 0.4, 0.7], ['badge', 0.55, 0.7], ['plate', 0.45, 0.8], ['pop', 0.3, 0.45]]) view.style.setProperty('--sp-' + k, spring(r, d).css);
 
   // ---------- the match (RankedGame.swift) ----------
   const g = {
     phase: 'idle', n: 0, error: '', round: 0, queue: [], choices: [], plan: [], cur: null, era: 'all', board: [],
     startedAt: 0, my: 0, their: 0, myPts: null, theirPts: null, iAns: false, theyAns: false, myPick: null,
     myCorrect: 0, perfect: false, history: [], last: null, preparing: false, forfeited: false, practice: false,
-    opp: { name: 'Mia', rating: RK.startRating, hue: 1, form: [] }, myRating: RK.startRating, before: 0, after: 0, token: 0, frozen: false,
+    opp: { name: 'Mia', rating: RK.startRating, rp: 0, hue: 1, form: [] }, myRating: RK.startRating, before: 0, after: 0, token: 0, frozen: false,
+    // The ladder: RP at the start of the match, the tier it is played at (it sets how hard the songs are), and what it did.
+    myRP: 0, ladderIndex: 0, rpBefore: 0, rpAfter: 0,
   };
   let closed = false, confirmOpen = false, boardOpen = false;
   const timers = new Set();
@@ -151,7 +154,15 @@ export function mountRanked(ctx) {
   let anim = 0;
   const wait = async (ms, token) => { await sleep(ms); return !closed && token === anim; };
 
-  const tier = () => (['countdown', 'playing', 'roundResult'].includes(g.phase) ? RK.tierFor(g.round) : RK.rank(account.stats.rating));
+  /** Round r's difficulty at the tier this match is played at. */
+  const roundTier = r => RK.tierFor(r, g.ladderIndex);
+  const inRound = () => ['countdown', 'playing', 'roundResult'].includes(g.phase);
+  /** Inside a round, the round's difficulty; outside, Easy (only the page colour uses it — the colour out of a round is the rank's). */
+  const tier = () => (inRound() ? roundTier(g.round) : 'easy');
+  /** Where the player stands on the ladder right now. */
+  const place = () => Ladder.place(account.stats.rp);
+  const accent = () => (inRound() ? TIER_COLOR[tier()] : place().tier.color);
+  const accentInk = () => (inRound() ? TIER_INK[tier()] : place().tier.ink);
   const iWon = () => !g.forfeited && g.my > g.their;
   const drawn = () => !g.forfeited && g.my === g.their;
   const outcome = () => (g.forfeited ? 0 : g.my > g.their ? 1 : g.my === g.their ? 0.5 : 0);
@@ -186,8 +197,10 @@ export function mountRanked(ctx) {
   async function start() {
     cancelTimers();
     const token = ++g.token, live = () => token === g.token && !closed;
-    Object.assign(g, { myRating: account.stats.rating, before: account.stats.rating, my: 0, their: 0, round: 0, forfeited: false, myCorrect: 0, perfect: false, history: [], frozen: false });
+    const rp = account.stats.rp || 0;
+    Object.assign(g, { myRating: account.stats.rating, before: account.stats.rating, myRP: rp, ladderIndex: Ladder.place(rp).tier.index, my: 0, their: 0, round: 0, forfeited: false, myCorrect: 0, perfect: false, history: [], frozen: false });
     g.opp = { rating: RK.opponentRating(g.myRating), name: RK.names[randInt(0, RK.names.length - 1)], hue: randInt(1, 6) };
+    g.opp.rp = Ladder.opponentRP(rp, g.myRating, g.opp.rating);
     g.opp.form = RK.opponentForm(g.opp.rating);
     setPhase('searching');
     const skillP = botSkill();
@@ -199,7 +212,7 @@ export function mountRanked(ctx) {
     g.preparing = true; updateSearchLabel();
     const picked = [], seen = new Set();
     for (let r = 0; r < RK.rounds; r++) {
-      const t = RK.tierFor(r);
+      const t = roundTier(r);
       for (let i = 0; i < 40 && picked.length === r; i++) {
         const s = pool.pick(t, 'all', 'all');
         if (!s || seen.has(s.id)) continue;
@@ -211,7 +224,7 @@ export function mountRanked(ctx) {
     g.preparing = false;
     if (picked.length !== RK.rounds) { g.error = 'Not enough songs are available here right now.'; setPhase('error'); return; }
     g.queue = picked;
-    g.choices = picked.map((s, r) => deal(s, RK.tierFor(r), pool).map(toChoice));
+    g.choices = picked.map((s, r) => deal(s, roundTier(r), pool).map(toChoice));
     setPhase('found');
     await sleep(3200);
     if (!live() || g.phase !== 'found') return;
@@ -235,7 +248,7 @@ export function mountRanked(ctx) {
       if (plan.correct) later(plan.at * 1000, () => {
         if (g.phase !== 'playing' || g.theyAns) return;
         g.theyAns = true;
-        const pts = RK.points(plan.at, RK.tierFor(g.round));
+        const pts = RK.points(plan.at, roundTier(g.round));
         g.theirPts = pts; g.their += pts;
         updatePlaying();
         if (g.iAns) closeRound();
@@ -255,7 +268,7 @@ export function mountRanked(ctx) {
     g.iAns = true;
     if (right) {
       g.myCorrect++;
-      const pts = RK.points((performance.now() - g.startedAt) / 1000, RK.tierFor(g.round), 0);
+      const pts = RK.points((performance.now() - g.startedAt) / 1000, roundTier(g.round), 0);
       g.myPts = pts; g.my += pts;
     } else g.myPts = 0;
     updatePlaying();
@@ -290,6 +303,7 @@ export function mountRanked(ctx) {
   // ---------- screens ----------
   let clip = { started: false, muted: false, error: null };
   let reelStartedAt = null, reelSlot = -1, reelLanded = false, wentAwayAt = 0, lastSecs = -1, shown = false;
+  let searchStarted = 0, searchSecs = -1;
 
   // Every phase is its own view, cross-faded: .transition(.opacity) under
   // .animation(.easeOut(duration: 0.28), value: phaseKey).
@@ -307,28 +321,30 @@ export function mountRanked(ctx) {
     setTimeout(() => old.remove(), 300);
   }
 
+  /** How dark the veil is over the album wall on each screen; no wall while a song plays. */
+  const VEIL = { idle: 0.8, searching: 0.7, found: 0.84, countdown: 0.86, roundResult: 0.84, finished: 0.76 };
   function setPhase(p, n = 0) {
     const same = g.phase === p;
     g.phase = p; g.n = n;
     if (same && p === 'countdown') return updateCountdown();
     anim++;
-    const t = tier();
     // RankedView .onChange(of: tier): the page wears a whisper of this round's colour.
-    LevelTheme.setOverride(t);
-    view.style.setProperty('--rk-accent', TIER_COLOR[t]);
-    view.style.setProperty('--rk-ink', TIER_INK[t]);
+    LevelTheme.setOverride(tier());
+    view.style.setProperty('--rk-accent', accent());
+    view.style.setProperty('--rk-ink', accentInk());
     view.classList.toggle('glow', glowOn());
     view.classList.toggle('artless', !artOn());
-    if (p !== 'found') view.querySelector('.rk-lit').classList.remove('on');
+    wall.classList.toggle('off', !(p in VEIL));
+    if (p in VEIL) wall.style.setProperty('--veil', VEIL[p]);
     swap(p);
     switch (p) {
       case 'idle': screen.innerHTML = entryHTML(); if (!shown) { shown = true; screen.querySelector('.rk-entry-all').classList.add('fadein'); } break;
-      case 'searching': screen.innerHTML = searchHTML(); break;
+      case 'searching': searchStarted = performance.now(); searchSecs = -1; screen.innerHTML = searchHTML(); tickSearch(searchStarted); break;
       case 'found': screen.innerHTML = foundHTML(); runCard(); break;
       case 'countdown':
         screen.innerHTML = countdownHTML();
         reelSlot = -1; reelLanded = false;
-        lastCount = null; updateCountdown(); drawSlot(performance.now());
+        lastCount = null; updateCountdown(); drawReel(performance.now());
         Haptics.press(0.8);
         // withAnimation(.spring(response: 0.45, dampingFraction: 0.72)) { introIn = true }
         requestAnimationFrame(() => requestAnimationFrame(() => screen.classList.add('in')));
@@ -342,15 +358,17 @@ export function mountRanked(ctx) {
   }
 
   const bar = (title = 'Ranked') => `<div class="rk-bar"><h1>${esc(title)}</h1><button class="xbtn rk-x" data-press data-act="quit" aria-label="Close">${I.x}</button></div>`;
+  const myFace = size => face(account.initial || 'Y', account.avatar, alpha(hueColor(0), 0.9), size, PILL_INK);
+  const theirFace = size => face(g.opp.name, null, alpha(hueColor(g.opp.hue), 0.9), size, PILL_INK);
 
   /** Your own face inside a ring that fills as your rank does. The ring's colour is the rank. */
-  function badge(rating, size) {
-    const t = RK.rank(rating), ring = Math.max(3, size * 0.055), r = size / 2, frac = Math.max(0.03, RK.progress(rating).fraction);
+  function badge(rp, size) {
+    const p = Ladder.place(rp), c = p.tier.color, ring = Math.max(3, size * 0.055), r = size / 2, frac = Math.max(0.03, p.fraction);
     const inner = size - ring * 3.2;
-    return `<div class="rk-badge" style="width:${size}px;height:${size}px;--glow:${alpha(TIER_COLOR[t], 0.35)}">
+    return `<div class="rk-badge" style="width:${size}px;height:${size}px;--glow:${alpha(c, 0.35)}">
       <svg viewBox="0 0 ${size} ${size}" overflow="visible" aria-hidden="true"><circle cx="${r}" cy="${r}" r="${r}" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="${ring}"/>
-      <circle cx="${r}" cy="${r}" r="${r}" fill="none" stroke="${TIER_COLOR[t]}" stroke-width="${ring}" stroke-linecap="round" pathLength="1" stroke-dasharray="${frac} 1" transform="rotate(-90 ${r} ${r})"/></svg>
-      ${face(account.initial || '?', account.avatar, alpha(TIER_COLOR[t], 0.9), Math.round(inner), PILL_INK)}</div>`;
+      <circle cx="${r}" cy="${r}" r="${r}" fill="none" stroke="${c}" stroke-width="${ring}" stroke-linecap="round" pathLength="1" stroke-dasharray="${frac} 1" transform="rotate(-90 ${r} ${r})"/></svg>
+      ${face(account.initial || '?', account.avatar, alpha(c, 0.9), Math.round(inner), PILL_INK)}</div>`;
   }
   /** Recent form: the last five, oldest first. A tick, a cross, a dash where there is no game yet. */
   function formRow(form) {
@@ -358,67 +376,86 @@ export function mountRanked(ctx) {
     const m = r => (r === 1 ? [MARK.check, TIER_COLOR.easy] : r === 0 ? [MARK.x, TIER_COLOR.expert] : r === 2 ? [MARK.minus, MUTED] : [MARK.minus, DIM]);
     return `<div class="rk-form">${padded.map(r => { const [icon, c] = m(r); return `<span style="color:${c};background:${alpha(c, r < 0 ? 0.08 : 0.18)}">${icon}</span>`; }).join('')}</div>`;
   }
+  const eqBars = () => '<span class="rk-eq on"><i></i><i></i><i></i><i></i><i></i></span>';
 
-  // entry — fades in once, .easeOut(duration: 0.4), the first time the screen opens
+  // entry — the ranked home: your rank in its colour in front of the album wall, the season
+  // and your record on glass, and one big button. Fades in once, .easeOut(duration: 0.4).
   function entryHTML() {
-    const s = account.stats, p = RK.progress(s.rating);
+    const s = account.stats, p = place(), tint = p.tier.color;
+    const streak = (s.winStreak || 0) >= 2 ? `<span class="rk-hot">${I.flame}<b>${s.winStreak} win streak</b></span>` : '';
     return `<div class="rk-entry-all">${bar()}<div class="rk-fill"></div>
-      <div class="rk-entry">
-        ${badge(s.rating, 128)}
-        <div class="rk-rankname">${RK.rankName(s.rating)}</div>
-        <div class="rk-rating">${s.rating}</div>
-        <div class="rk-progress"><div class="rk-track"><i style="width:max(4px, ${p.fraction * 100}%)"></i></div>
-          <div class="rk-to">${p.next ? `${p.next - s.rating} to ${RK.rankName(p.next)}` : 'Top rank'}</div></div>
-        <div class="rk-season">${RK.seasonCountdown()}</div>
-        <div class="rk-record">${[['Played', s.rankedPlayed], ['Won', s.rankedWon], ['Points', s.rankedPoints]].map(([l, v]) => `<div><b>${v || 0}</b><span>${l}</span></div>`).join('')}</div>
-        ${formRow(s.recentRanked)}
+      <div class="rk-entry" style="--tint:${tint}">
+        <div class="rk-hbadge">${badge(s.rp, 136)}</div>
+        <div class="rk-rankname">${esc(p.name)}</div>
+        <div class="rk-rp">${s.rp || 0} RP</div>
+        ${rankProgress(s.rp || 0)}
+        <div class="rk-glass">
+          <div class="rk-gtop">${I.calendar}<span>${esc(Ladder.seasonCountdown())}</span><div class="rk-fill"></div>${streak}</div>
+          <div class="rk-record">${[['Played', s.rankedPlayed || 0], ['Won', s.rankedWon || 0], ['Best', Ladder.place(s.bestRP || 0).tier.name]].map(([l, v]) => `<div><b>${esc(v)}</b><span>${l}</span></div>`).join('')}</div>
+          ${formRow(s.recentRanked)}
+        </div>
       </div>
       <div class="rk-fill"></div>
-      <button class="rk-btn2 rk-lb" data-press data-act="board">${LIST}<span>Leaderboard</span></button>
+      <button class="rk-btn2 rk-lb rk-glassbtn" data-press data-act="board">${LIST}<span>Leaderboard</span></button>
       <button class="rk-go" data-press data-act="find">${rankedOpen() ? (freeMatch() ? 'Play your free match' : 'Find a match') : 'Unlock ranked with Premium'}</button></div>`;
   }
+  function rankProgress(rp) {
+    const p = Ladder.place(rp);
+    return `<div class="rk-progress"><div class="rk-track"><i style="width:max(4px, ${p.fraction * 100}%)"></i></div>
+      <div class="rk-to">${p.nextAt != null ? `${p.nextAt - rp} RP to ${esc(Ladder.place(p.nextAt).name)}` : 'Top rank'}</div></div>`;
+  }
 
-  // matchmaking: the pulse ring and one line, nothing else
-  const searchLabel = () => (g.preparing ? 'Getting the songs ready…' : 'Looking for an opponent…');
-  function updateSearchLabel() { const l = screen.querySelector('.rk-looking'); if (l) l.textContent = searchLabel(); }
-  const searchHTML = () => `${bar()}<div class="rk-fill"></div>
-    <div class="rk-pulse"><i></i><b></b></div>
-    <div class="rk-looking">${searchLabel()}</div>
-    <div class="rk-fill"></div>
-    <button class="rk-cancel" data-press data-act="cancel">Cancel</button>`;
+  // matchmaking: you, in your rank's ring, in front of the wall, with the clock running
+  const searchLabel = () => (g.preparing ? 'Getting the songs ready' : 'Finding an opponent');
+  function updateSearchLabel() { const l = screen.querySelector('.rk-find'); if (l && l.textContent !== searchLabel()) l.textContent = searchLabel(); }
+  function searchHTML() {
+    const p = place();
+    return `${bar()}<div class="rk-fill"></div>
+      <div class="rk-hbadge breathe">${badge(account.stats.rp, 118)}</div>
+      <div class="rk-find">${searchLabel()}</div>
+      <div class="rk-findsub" style="color:${p.tier.color}">${esc(p.name)} · ${account.stats.rp || 0} RP</div>
+      <div class="rk-clock" style="--rk-accent:${p.tier.color}">${eqBars()}<b class="rk-clockt">0:00</b></div>
+      <div class="rk-fill"></div>
+      <button class="rk-cancel" data-press data-act="cancel">Cancel</button>`;
+  }
+  function tickSearch(now) {
+    const secs = Math.max(0, Math.floor((now - searchStarted) / 1000));
+    if (secs === searchSecs) return;
+    searchSecs = secs;
+    const t = screen.querySelector('.rk-clockt'); if (!t) return;
+    numText(t, `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`, spring(0.55, 0.825));
+  }
 
   // the fight card
-  function fighter({ name, rating, avatar, hue, form, me }) {
-    const c = hueColor(hue), rk = RK.rank(rating);
+  function fighter({ name, rp, avatar, hue, form, me }) {
+    const c = hueColor(hue), p = Ladder.place(rp);
     return `<div class="rk-fighter ${me ? 'me' : 'them'}" style="--c:${c};--glow:${alpha(c, 0.45)}">
       <div class="rk-fface">${face(name, avatar, alpha(c, 0.9), 96, PILL_INK)}</div>
       <div class="rk-fname">${esc(name)}</div>
-      <div class="rk-pill" style="background:${PILL_FILL[rk]}">${RK.rankName(rating).toUpperCase()}</div>
-      <div class="rk-frating">${rating}</div>
+      <div class="rk-pill" style="background:${p.tier.color};color:${p.tier.ink}">${esc(p.name.toUpperCase())}</div>
+      <div class="rk-frating">${rp} RP</div>
       <div class="rk-fform">${formRow(form)}</div>
     </div>`;
   }
   function foundHTML() {
-    const t = tier();
+    const hardest = Ladder.roundTiers(g.ladderIndex).slice(-1)[0] || 'hard';
     return `${bar()}<div class="rk-fill"></div>
       <div class="rk-mf">MATCH FOUND</div>
       <div class="rk-versus">
-        ${fighter({ name: myName(), rating: g.myRating, avatar: account.avatar, hue: 0, form: account.stats.recentRanked, me: true })}
-        ${fighter({ name: g.opp.name, rating: g.opp.rating, avatar: null, hue: g.opp.hue, form: g.opp.form })}
+        ${fighter({ name: myName(), rp: g.myRP, avatar: account.avatar, hue: 0, form: account.stats.recentRanked, me: true })}
+        ${fighter({ name: g.opp.name, rp: g.opp.rp, avatar: null, hue: g.opp.hue, form: g.opp.form })}
         <div class="rk-vs">VS</div>
       </div>
-      <div class="rk-terms"><div><b>${RK.rounds}</b><span>rounds</span></div><i></i><div><b>${RK.window}s</b><span>a song</span></div><i></i><div><b>${cap(t)}</b><span>tier</span></div></div>
+      <div class="rk-terms"><div><b>${RK.rounds}</b><span>rounds</span></div><i></i><div><b>${RK.window}s</b><span>a song</span></div><i></i><div><b>${cap(hardest)}</b><span>hardest song</span></div></div>
       <div class="rk-fill"></div>
       <div class="rk-coming">First song coming up</div>`;
   }
   /** runCardAnimation: spring(.4,.6) in, +420 ms the VS on spring(.34,.5), +380 ms the terms on easeOut .3. */
   async function runCard() {
-    const token = anim, s = screen, l = view.querySelector('.rk-lit');
-    l.style.setProperty('--mine', alpha(hueColor(0), 0.22));
-    l.style.setProperty('--theirs', alpha(hueColor(g.opp.hue), 0.22));
+    const token = anim, s = screen;
     Haptics.press(0.9);
     await frame(); if (token !== anim) return;
-    s.classList.add('s1'); l.classList.add('on');
+    s.classList.add('s1');
     if (!(await wait(420, token))) return;
     Haptics.success(); sound.reveal();
     s.classList.add('s2');
@@ -426,88 +463,72 @@ export function mountRanked(ctx) {
     s.classList.add('s3');
   }
 
-  // the round intro: a broadcast title card
+  // the round bar: ROUND n / 5, the tier, the X
   function roundBar() {
-    const t = RK.tierFor(g.round);
+    const t = roundTier(g.round);
     const era = g.phase === 'playing' && g.era !== 'all' ? `<span class="rk-era">${esc(g.era)}</span>` : '';
     return `<div class="rk-roundbar"><div class="rk-rno"><span>ROUND</span><div><b>${g.round + 1}</b><em>/ ${RK.rounds}</em></div></div>
       <div class="rk-fill"></div>${era}<span class="rk-tier" style="background:${PILL_FILL[t]}">${cap(t)}</span>
       <button class="rk-rx" data-press data-act="roundx" aria-label="Leave the match">${I.x}</button></div>`;
   }
-  /** Both faces and scores, the round between: the broadcast scoreboard. */
-  function scoreboard() {
-    return `<div class="rk-sb">${face(account.initial || 'Y', account.avatar, alpha(hueColor(0), 0.9), 28, PILL_INK)}<b>${g.my}</b>
-      <span class="rk-fill"></span><span class="rk-sbr">${Math.min(g.round + 1, RK.rounds)} / ${RK.rounds}</span><span class="rk-fill"></span>
-      <b>${g.their}</b>${face(g.opp.name, null, alpha(hueColor(g.opp.hue), 0.9), 28, PILL_INK)}</div>`;
-  }
-  /** Five marks for the five rounds: won, lost, this one, still to come. */
-  function roundPips() {
-    let h = '';
-    for (let i = 0; i < RK.rounds; i++) {
-      let c = 'var(--track)';
-      if (i === g.round) c = 'var(--rk-accent)';
-      else { const r = g.history.find(x => x.id === i); if (r) c = (r.mine || 0) > (r.theirs || 0) ? TIER_COLOR.easy : alpha(TIER_COLOR.expert, 0.8); }
-      h += `<i style="background:${c};width:${i === g.round ? 30 : 18}px"></i>`;
-    }
-    return `<div class="rk-pips">${h}</div>`;
-  }
+  // the round intro: the round and its level slam in, the decade reel races to the song's decade, one number pops
   function countdownHTML() {
-    const n = g.round + 1, t = RK.tierFor(g.round);
-    let rows = ''; for (let i = 0; i < 5; i++) rows += '<b></b>';
-    return `<div class="rk-band" aria-hidden="true"></div><div class="rk-bignum" aria-hidden="true">${n}</div>
-      <div class="rk-introtop">${scoreboard()}<button class="rk-ix" data-press data-act="roundx" aria-label="Leave the match">${I.x}</button></div>
-      <div class="rk-fill"></div>
+    const n = g.round + 1, t = roundTier(g.round);
+    const sleeves = Array.from({ length: 9 }, () => '<div class="rk-cv"><div class="rk-cvin"></div><i class="rk-cvshade"></i></div>').join('');
+    return `${roundBar()}<div class="rk-fill"></div>
       <div class="rk-title"><b>${n === RK.rounds ? 'FINAL' : `ROUND ${n}`}</b><span>${t.toUpperCase()}</span></div>
-      ${roundPips()}
       <div class="rk-fill"></div>
       <div class="rk-reelwrap"><span>THIS SONG IS FROM THE</span>
-        <div class="rk-slot" role="img" aria-label="This song is from the ${esc(g.era)}"><i class="rk-drum"></i><div class="rk-drum-mask"><div class="rk-drum-in">${rows}</div></div>
-          <i class="rk-payline"></i><i class="rk-tri l"></i><i class="rk-tri r"></i></div></div>
+        <div class="rk-cf" role="img" aria-label="This song is from the ${esc(g.era)}">${sleeves}</div></div>
       <div class="rk-fill"></div>
-      <div class="rk-cnt"><div class="rk-cnum-slot"></div><div class="rk-segs"><i></i><i></i><i></i></div></div>`;
+      <div class="rk-cnum-slot"></div>`;
   }
-  /** 3 · 2 · 1 as three segments that light in turn, then GO; the figure pops on spring(.28,.5). */
+  /** One number that pops each second (.id(secondsLeft), spring(.32,.55) from 1.4× at 0.3), then GO. */
   let lastCount = null;
   function updateCountdown() {
     const slot = screen.querySelector('.rk-cnum-slot'); if (!slot) return;
     const n = g.n;
     if (n === lastCount) return;
     lastCount = n;
-    slot.innerHTML = `<div class="rk-cnum${n > 0 ? '' : ' go'}">${n > 0 ? n : 'GO'}</div>`;
-    if (!still()) { const sp = spring(0.28, 0.5); slot.firstChild.animate([{ transform: 'scale(1.5)', opacity: 0.2 }, { transform: 'none', opacity: 1 }], { duration: sp.ms, easing: sp.easing }); }
-    screen.querySelectorAll('.rk-segs i').forEach((s, i) => s.classList.toggle('lit', (3 - n) >= i));
+    slot.innerHTML = `<div class="rk-cnum">${n > 0 ? n : 'GO'}</div>`;
+    if (!still()) { const sp = spring(0.32, 0.55); slot.firstChild.animate([{ transform: 'scale(1.4)', opacity: 0.3 }, { transform: 'none', opacity: 1 }], { duration: sp.ms, easing: sp.easing }); }
     if (n > 0) sound.tick();
   }
-  /** SlotEraReel: decades roll vertically behind a lit payline and land with a flash. */
-  function drawSlot(now) {
-    const host = screen.querySelector('.rk-drum-in'); if (!host) return;
-    const n = SLOTS.length, target = Math.max(0, SLOTS.indexOf(g.era));
-    const from = (target + 1 + (Math.abs(g.round) % (n - 1))) % n;
-    const steps = n * 2 + ((target - from + n) % n);
-    const e = reelStartedAt == null ? 99 : Math.max(0, (now - reelStartedAt) / 1000);
-    const dur = reelDuration(steps), landed = e >= dur;
-    const pos = landed ? steps : reelPosition(e, steps), base = Math.floor(pos), frac = pos - base;
-    const since = landed ? e - dur : 0;
-    const flash = landed ? Math.max(0, 1 - since / 0.45) : 0;
-    const bounce = landed ? Math.sin(Math.min(1, since / 0.3) * Math.PI) * 0.05 : 0;
-    const rows = host.children, tint = TIER_COLOR[RK.tierFor(g.round)];
-    for (let o = -2; o <= 2; o++) {
-      const i = (((from + base + o) % n) + n) % n, d = Math.min(1, Math.abs(o - frac)), r = rows[o + 2];
-      if (r.textContent !== SLOTS[i]) r.textContent = SLOTS[i];
-      r.style.color = landed && o === 0 ? tint : `rgba(255,255,255,${(0.25 + 0.75 * (1 - d)).toFixed(3)})`;
-      r.style.transform = `scale(${(0.8 + 0.2 * (1 - d)).toFixed(4)})`;
+  /**
+   * CoverEraReel: nine sleeves in a coverflow row, the one in the middle large and
+   * the ones beside it turned away, racing and easing onto the song's decade. Each
+   * sleeve keeps its node while it is on screen (index mod 9), so a frame is only
+   * transforms and opacities; a sleeve is redrawn only as it wraps round the ends.
+   */
+  function drawReel(now) {
+    const host = screen.querySelector('.rk-cf'); if (!host) return;
+    const t = reelStartedAt == null ? 99 : Math.max(0, (now - reelStartedAt) / 1000);
+    const p = reelPosition(t, g.era), landed = t >= REEL.duration;
+    const settle = landed ? Math.min(1, (t - REEL.duration) / 0.35) : 0, pulse = Math.sin(settle * Math.PI);
+    const centre = Math.round(p), nodes = host.children;
+    for (let i = centre - 4; i <= centre + 4; i++) {
+      const node = nodes[((i % 9) + 9) % 9], d = i - p, a = Math.min(1, Math.abs(d));
+      if (node.dataset.i !== String(i)) {
+        node.dataset.i = String(i);
+        const era = decadeAt(i);
+        if (node.dataset.era !== era) { node.dataset.era = era; node.firstElementChild.innerHTML = sleeveHTML(era); }
+      }
+      const lit = landed && i === centre;
+      const angle = Math.max(-50, Math.min(50, d * 38));
+      const scale = 1.15 - 0.35 * a + (lit ? 0.06 * pulse : 0);
+      // Neighbours sit a little further out than the rest, clear of the big one.
+      const push = Math.abs(d) < 1 ? d * 0.25 : d < 0 ? -0.25 : 0.25;
+      node.style.transform = `translateX(${((d + push) * REEL.spacing).toFixed(2)}px) scale(${scale.toFixed(4)}) perspective(${Math.round(REEL.side / 0.6)}px) rotateY(${angle.toFixed(2)}deg)`;
+      node.style.opacity = (1 - Math.min(0.9, Math.abs(d) * 0.22)).toFixed(3);
+      node.style.zIndex = String(100 - Math.round(Math.abs(d) * 10));
+      node.lastElementChild.style.opacity = (0.35 * a).toFixed(3);
+      if (node.classList.contains('lit') !== lit) node.classList.toggle('lit', lit);
     }
-    host.style.transform = `translateY(${(-frac * SLOT_H).toFixed(2)}px)`;
-    host.style.filter = still() || landed ? '' : `blur(${(reelBlur(e, steps) * 1.8).toFixed(2)}px)`;
-    const pay = screen.querySelector('.rk-payline');
-    pay.style.background = alpha(tint, 0.10 + 0.35 * flash);
-    pay.style.setProperty('--edge', alpha(tint, landed ? 0.95 : 0.45));
-    pay.style.setProperty('--lw', (landed ? 2 : 1.2) / 2 + 'px');
-    pay.style.transform = `scale(${1 + bounce})`;
-    // Haptics: a click per decade, a thump on landing.
-    const slot = Math.floor(pos);
-    if (slot !== reelSlot) { if (reelSlot >= 0 && !landed) Haptics.select(); reelSlot = slot; }
-    if (landed && !reelLanded && reelStartedAt != null) { reelLanded = true; Haptics.press(0.9); }
+    // Haptics: a click per sleeve, a thump on landing.
+    if (reelStartedAt != null) {
+      if (centre !== reelSlot) { if (reelSlot >= 0) Haptics.select(); reelSlot = centre; }
+      if (landed && !reelLanded) { reelLanded = true; Haptics.press(0.9); }
+    }
   }
 
   // playing
@@ -618,113 +639,100 @@ export function mountRanked(ctx) {
     if (ok) clip.error = null; else if (g.cur === c) clip.error = player.lastError || "Couldn't load the clip.";
   }
 
-  // between rounds
-  function gained(name, points, colour, wrong = false) {
-    const v = wrong ? 'Wrong' : points != null ? `+${points}` : '—';
+  // between rounds: the song it was, big, over the album wall; what each of you took from it
+  // (no running totals); and the count to the next round.
+  function gained(faceHTML, points, colour, wrong = false) {
+    const v = wrong ? 'Wrong' : points != null ? `+${points}` : 'No answer';
     const c = wrong ? TIER_COLOR.expert : points == null ? DIM : colour;
-    return `<div class="rk-gain" style="background:${alpha(points == null ? MUTED : colour, 0.10)}"><span>${esc(name)}</span><b style="color:${c}">${v}</b></div>`;
+    const edge = wrong ? alpha(TIER_COLOR.expert, 0.35) : points == null ? 'rgba(255,255,255,.08)' : alpha(colour, 0.35);
+    return `<div class="rk-gain" style="border-color:${edge}">${faceHTML}<b class="${wrong || points == null ? 'sm' : ''}" style="color:${c}">${v}</b></div>`;
   }
   function resultHTML() {
-    const a = g.last || {}, acc = TIER_COLOR[tier()];
-    const cover = artOn() && a.artwork ? `<div class="rk-hero-art">${glowOn() ? `<img class="bloom" src="${esc(a.artwork)}" alt="">` : ''}<img class="cov" src="${esc(a.artwork)}" alt=""></div>` : '';
-    return `${roundBar()}
-      <div class="rk-hero">${cover}<div class="rk-hero-t"><span>IT WAS_</span><b>${esc(a.title || '')}</b><em>${esc(a.artist || '')}</em></div></div>
-      <div class="rk-gains">${gained(myName(), g.myPts, acc, g.myPick != null && !pickedRight())}${gained(g.opp.name, g.theirPts, hueColor(g.opp.hue))}</div>
+    const a = g.last || {};
+    const cover = artOn() && a.artwork ? `<div class="rk-bigart"><img class="glow" src="${esc(a.artwork)}" alt=""><img class="cov" src="${esc(a.artwork)}" alt=""></div>` : '';
+    return `${roundBar()}<div class="rk-fill"></div>
+      <div class="rk-answer">${cover}<span class="rk-itwas">IT WAS</span><b>${esc(a.title || '')}</b><em>${esc(a.artist || '')}</em></div>
+      <div class="rk-gains">${gained(myFace(26), g.myPts, hueColor(0), g.myPick != null && !pickedRight())}${gained(theirFace(26), g.theirPts, hueColor(g.opp.hue))}</div>
       <div class="rk-fill"></div>
-      <div class="rk-hold"><div class="rk-hold-t"></div><div class="rk-track h6"><i></i></div></div>`;
+      <div class="rk-next"><span>${g.round + 1 >= RK.rounds ? 'FULL TIME IN' : 'NEXT ROUND IN'}</span><b class="n">${RK.resultHold}</b></div>`;
   }
-  /** The bar drains linearly over resultHold; the count rolls (withAnimation, the default spring). */
+  /** The count falls a second at a time, rolling down (.numericText(countsDown: true)). */
   async function runHold() {
     const token = anim, total = RK.resultHold;
-    const t = screen.querySelector('.rk-hold-t'), fill = screen.querySelector('.rk-hold i');
-    t.innerHTML = `${g.round + 1 >= RK.rounds ? 'Full time in' : 'Next round in'} <span class="n">${total}</span>`;
-    const num = t.querySelector('.n');
-    if (g.frozen) { fill.style.width = '55%'; return; }
-    fill.style.width = '100%';
-    requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.transition = `width ${total}s linear`; fill.style.width = '0%'; }));
-    for (let i = 1; i < total; i++) { if (!(await wait(1000, token))) return; numText(num, total - i, spring(0.55, 1)); }
+    const num = screen.querySelector('.rk-next .n');
+    if (g.frozen) return;
+    for (let i = 1; i < total; i++) { if (!(await wait(1000, token))) return; numText(num, total - i, spring(0.55, 0.825), true); }
   }
 
-  // the end
+  // the end: the result, and nothing else — who won, the score, what it did to your rank, one button
   const myColour = hueColor(0);
-  function resultFace(side) {
+  function scoreSide(side) {
     const mine = side === 'me';
-    const name = mine ? myName() : g.opp.name, initial = mine ? (account.initial || 'Y') : g.opp.name[0].toUpperCase();
-    const c = mine ? myColour : hueColor(g.opp.hue);
-    return `<div class="rk-rface ${side}" style="--c:${c};--glow:${alpha(c, 0.5)}">
-      <div class="rk-rpic"><div class="rk-rimg">${face(initial, mine ? account.avatar : null, alpha(c, 0.9), 56, PILL_INK)}</div><i class="rk-crown">${I.crown}</i></div>
-      <div class="rk-rname">${esc(name)}</div><b class="rk-rscore">0</b></div>`;
-  }
-  function pointsCell(pts, took, wrong, colour) {
-    const inner = wrong ? `<i class="x">${MARK.x}</i>` : pts != null ? `<b>${pts}</b>` : '<em>—</em>';
-    return `<span class="rk-cell"><span class="${took ? 'took' : ''}" style="${took ? `background:${colour}` : ''}">${inner}</span></span>`;
-  }
-  function roundRow(r) {
-    const mine = r.mine || 0, theirs = r.theirs || 0;
-    const artwork = r.artwork || (() => { const s = pool.songs.find(x => x.title === r.title && x.artist === r.artist); return s?.artwork ? art(s.artwork, 120) : null; })();
-    return `<div class="rk-rrow"><span class="rk-rart">${artwork ? `<img src="${esc(artwork)}" alt="">` : ''}</span>
-      <span class="rk-rt"><b>${esc(r.title)}</b><em>${esc(r.artist)}</em></span>
-      ${pointsCell(r.mine, mine > theirs, r.myWrong, myColour)}${pointsCell(r.theirs, theirs > mine, false, hueColor(g.opp.hue))}</div>`;
+    const name = mine ? myName() : g.opp.name, c = mine ? myColour : hueColor(g.opp.hue);
+    return `<div class="rk-sside ${side}" style="--c:${c}"><div class="rk-sface">${mine ? myFace(44) : theirFace(44)}</div><span>${esc(name)}</span></div>`;
   }
   function finishedHTML() {
     const won = iWon(), drew = drawn();
     const colour = won ? TIER_COLOR.easy : drew ? MUTED : TIER_COLOR.expert;
-    const sub = won ? `${g.opp.name} couldn't keep up` : drew ? 'Dead level after five' : `${g.opp.name} took it this time`;
-    return `<i class="rk-bloom" style="background:${alpha(colour, won ? 0.26 : 0.1)}"></i>${bar()}
-      <div class="rk-endscroll"><div class="rk-end">
+    const sub = g.forfeited ? `You left the match · ${g.opp.name} wins` : won ? `${g.opp.name} couldn't keep up` : drew ? 'Dead level after five' : `${g.opp.name} took it this time`;
+    return `<i class="rk-bloom" style="background:${alpha(colour, won ? 0.22 : 0.1)}"></i>${bar()}
+      <div class="rk-fill"></div>
+      <div class="rk-end">
         <div class="rk-verdict ${won ? 'won' : ''}" style="--c:${colour};--glow:${alpha(colour, 0.45)}">
           <div class="rk-ft">FULL TIME</div>
           <div class="rk-vd"><b>${drew ? 'Draw' : won ? 'Victory' : 'Defeat'}</b><span>${esc(sub)}</span></div>
         </div>
-        <div class="rk-faceoff">${resultFace('me')}<span class="rk-sep">–</span>${resultFace('them')}</div>
-        <div class="rk-rounds rk-card">
-          <div class="rk-rhead"><span>ROUND BY ROUND</span><div class="rk-fill"></div>
-            <span class="rk-mini">${face(account.initial || 'Y', account.avatar, alpha(myColour, 0.9), 22, PILL_INK)}</span>
-            <span class="rk-mini">${face(g.opp.name, null, alpha(hueColor(g.opp.hue), 0.9), 22, PILL_INK)}</span></div>
-          ${g.history.map(r => `<i class="rk-div"></i><div class="rk-rline">${roundRow(r)}</div>`).join('')}
+        <div class="rk-final">${scoreSide('me')}<div class="rk-fscore"><b class="m">0</b><i>–</i><b class="t">0</b></div>${scoreSide('them')}</div>
+        <div class="rk-plate">
+          <div class="rk-ptop"><div class="rk-emb"><svg viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="26" class="bg"/><circle cx="28" cy="28" r="26" class="trk"/><circle cx="28" cy="28" r="26" class="arc" pathLength="1" stroke-dasharray="0.03 1" transform="rotate(-90 28 28)"/></svg><i>${I.crown}</i></div>
+            <div class="rk-pt"><small>YOUR RANK</small><b></b><span></span></div><div class="rk-fill"></div>
+            <span class="rk-chip"><i></i><b></b></span></div>
+          <div class="rk-pbar"><i></i></div>
         </div>
-        <div class="rk-ratingcard rk-card"></div>
-      </div></div>
-      <div class="rk-endbtns"><button class="rk-go green" data-press data-act="again">Play again</button>
-        <div class="rk-row2"><button class="rk-btn2" data-press data-act="board">${LIST}<span>Leaderboard</span></button><button class="rk-btn2 muted" data-press data-act="quit">Leave</button></div></div>`;
+      </div>
+      <div class="rk-fill"></div>
+      <div class="rk-endbtns"><button class="rk-go" data-press data-act="again">Play again</button>
+        <button class="rk-leave" data-press data-act="quit">Leave</button></div>`;
   }
-  /** Where the rating landed, on one line so it does not compete with the points above it. */
-  function ratingCardHTML() {
-    const delta = g.after - g.before;
-    return `<div class="rk-rtop"><b class="rk-rname2"></b><span class="rk-rnum">${g.before}</span><div class="rk-fill"></div><strong class="rk-delta" style="color:${delta >= 0 ? TIER_COLOR.easy : TIER_COLOR.expert}">${delta >= 0 ? '+' + delta : delta}</strong></div>
-      <div class="rk-track"><i></i></div>
-      <div class="rk-rbot"><span class="rk-promo"></span><div class="rk-fill"></div><span class="rk-banked">+<span class="n">0</span> points</span></div>`;
-  }
-  /** ratingShown: the name, the bar and the "N to" line follow it; the numbers roll to it once. */
-  function setRating(rc, shown, instant) {
-    const promoted = RK.rank(g.after) !== RK.rank(g.before);
-    const t = RK.rank(shown), p = RK.progress(shown);
-    const name = rc.querySelector('.rk-rname2'), bar = rc.querySelector('.rk-track i'), promo = rc.querySelector('.rk-promo');
-    name.textContent = RK.rankName(shown); name.style.color = TIER_COLOR[t];
-    bar.style.width = `max(5px, ${p.fraction * 100}%)`; bar.style.background = TIER_COLOR[t];
-    promo.textContent = promoted ? (g.after > g.before ? `Promoted to ${RK.rankName(g.after)}` : `Down to ${RK.rankName(g.after)}`) : (p.next ? `${p.next - shown} to ${RK.rankName(p.next)}` : 'Top rank');
-    promo.classList.toggle('up', promoted);
-    promo.style.color = promoted ? TIER_COLOR[RK.rank(g.after)] : '';
-    if (instant) bar.style.transition = 'none';
+  /** The rank plate at `shown` RP: the emblem ring, the name in its colour, the RP, the bar. */
+  function setPlate(plate, shown) {
+    const p = Ladder.place(shown), c = p.tier.color, before = Ladder.place(g.rpBefore), after = Ladder.place(g.rpAfter);
+    const up = g.rpAfter > g.rpBefore && after.name !== before.name, reached = shown === g.rpAfter;
+    plate.style.setProperty('--pc', c);
+    plate.classList.toggle('promoted', reached && up);
+    plate.querySelector('.rk-pt small').textContent = reached && up ? 'PROMOTED' : 'YOUR RANK';
+    const name = plate.querySelector('.rk-pt b');
+    if (name.textContent !== p.name) name.textContent = p.name;
+    numText(plate.querySelector('.rk-pt span'), `${shown} RP`, { ms: 40, easing: 'linear' });
+    plate.querySelector('.arc').setAttribute('stroke-dasharray', `${Math.max(0.03, p.fraction).toFixed(4)} 1`);
+    plate.querySelector('.rk-pbar i').style.width = `max(6px, ${(p.fraction * 100).toFixed(2)}%)`;
   }
   /** Bank the result once, then let the screen tell it a beat at a time (runEndSequence). */
   async function runEnd() {
     const token = anim;
     const earned = RK.boardPoints(g.my, outcome());
+    // What the ladder makes of it: the real before and after, read around recordRanked.
+    g.rpBefore = account.stats.rp || 0;
     if (!g.frozen && !g.practice) {
-      account.recordRanked(outcome(), g.opp.rating, g.my);
+      account.recordRanked(outcome(), g.opp.rating, g.my, g.perfect);
       clearPending();
       post(earned);
+      g.rpAfter = account.stats.rp || 0;
+    } else {
+      const s = account.stats, next = outcome() > 0.6 ? (s.winStreak || 0) + 1 : outcome() < 0.4 ? 0 : (s.winStreak || 0);
+      g.rpAfter = Math.max(Ladder.tierFloor(g.rpBefore), g.rpBefore + Ladder.change(outcome(), s.rating, g.opp.rating, next, g.perfect).delta);
     }
-    if (!g.frozen) {
-      const t = RK.rank(account.stats.rating);
-      LevelTheme.setOverride(t);
-      view.style.setProperty('--rk-accent', TIER_COLOR[t]); view.style.setProperty('--rk-ink', TIER_INK[t]);
-    }
-    const s = screen, end = s.querySelector('.rk-end'), rc = s.querySelector('.rk-ratingcard');
-    const [me, them] = s.querySelectorAll('.rk-rscore');
-    rc.innerHTML = ratingCardHTML();
-    setRating(rc, g.before, true);
+    // Out of the match the colour is the rank's: Play again wears where you are now.
+    const now = Ladder.place(g.rpAfter);
+    LevelTheme.setOverride('easy');
+    view.style.setProperty('--rk-accent', now.tier.color); view.style.setProperty('--rk-ink', now.tier.ink);
+    const s = screen, end = s.querySelector('.rk-end'), plate = s.querySelector('.rk-plate');
+    const me = s.querySelector('.rk-fscore .m'), them = s.querySelector('.rk-fscore .t');
+    const delta = g.rpAfter - g.rpBefore, chip = plate.querySelector('.rk-chip');
+    chip.classList.toggle('down', delta < 0);
+    chip.querySelector('i').innerHTML = delta >= 0 ? '▲' : '▼';
+    chip.querySelector('b').textContent = Math.abs(delta);
+    setPlate(plate, g.rpBefore);
     if (!(await wait(450, token))) return;
     // Full time: both scores count up together, ticking as they go (.linear(duration: 0.05) a step).
     const steps = 24, lin = { ms: 50, easing: 'linear' };
@@ -740,23 +748,38 @@ export function mountRanked(ctx) {
     const won = iWon(), theyWon = !won && !drawn();
     end.classList.add('pop');
     s.querySelector('.rk-bloom').classList.add('on');
-    s.querySelector('.rk-rface.me').classList.add(won ? 'winner' : theyWon ? 'loser' : 'even');
-    s.querySelector('.rk-rface.them').classList.add(theyWon ? 'winner' : won ? 'loser' : 'even');
+    s.querySelector('.rk-sside.me').classList.add(won ? 'winner' : theyWon ? 'loser' : 'even');
+    s.querySelector('.rk-sside.them').classList.add(theyWon ? 'winner' : won ? 'loser' : 'even');
     Haptics.success(); sound.reveal();
-    if (won) confetti(innerWidth / 2, innerHeight * 0.30, [TIER_COLOR.easy, '#ffffff', view.style.getPropertyValue('--rk-accent') || TIER_COLOR.easy], 150);
-    // The match, round by round.
-    if (!(await wait(700, token))) return;
+    if (won) confetti(innerWidth / 2, innerHeight * 0.30, [TIER_COLOR.easy, '#ffffff', TIER_COLOR[roundTier(RK.rounds - 1)]], 150);
+    // Where it leaves you on the ladder: the plate on spring(.45,.8), then the RP counts across and a new division lands with a pop.
+    if (!(await wait(650, token))) return;
     end.classList.add('s2');
-    const rows = s.querySelectorAll('.rk-rline');
-    for (let i = 0; i < Math.max(1, rows.length); i++) { if (!(await wait(110, token))) return; rows[i]?.classList.add('in'); Haptics.tap(); }
-    // Where it leaves you: endStep = 3 on spring(.42,.7); the rating and the points on .easeOut(duration: 0.9).
     if (!(await wait(350, token))) return;
+    const from = g.rpBefore, to = g.rpAfter, n = 22;
+    let lastName = Ladder.place(from).name;
+    for (let i = 1; i <= n; i++) {
+      const k = 1 - Math.pow(1 - i / n, 2), shown = from + Math.round((to - from) * k);
+      setPlate(plate, shown);
+      const nowName = Ladder.place(shown).name;
+      if (nowName !== lastName) {
+        lastName = nowName;
+        if (to > from) {
+          Haptics.success(); sound.reveal();
+          const emb = plate.querySelector('.rk-emb');
+          emb.classList.add('pop');
+          const c = Ladder.place(shown).tier.color, r = emb.getBoundingClientRect();
+          confetti(r.left + r.width / 2, r.top + r.height / 2, [c, '#ffffff', c], 90);
+          if (!(await wait(260, token))) return;
+          emb.classList.remove('pop');
+        } else Haptics.wrong();
+      } else if (i % 5 === 0) Haptics.press(0.3);
+      if (!(await wait(45, token))) return;
+    }
+    setPlate(plate, to);
+    // The buttons.
+    if (!(await wait(450, token))) return;
     end.classList.add('s3'); s.querySelector('.rk-endbtns').classList.add('in');
-    const slow = { ms: 900, easing: CURVE.easeOut };
-    rc.querySelector('.rk-track i').style.transition = '';
-    setRating(rc, g.after);
-    numText(rc.querySelector('.rk-rnum'), g.after, slow);
-    numText(rc.querySelector('.rk-banked .n'), earned, slow);
     Haptics.tap();
   }
 
@@ -775,8 +798,8 @@ export function mountRanked(ctx) {
   function openBoard() {
     sound.click();
     boardOpen = true;
-    const rt = RK.rank(account.stats.rating);
-    const sh = openSheet(`<div class="rk-lbv" style="--rk-accent:${TIER_COLOR[rt]};--rk-ink:${TIER_INK[rt]}">
+    const rt = place().tier;
+    const sh = openSheet(`<div class="rk-lbv" style="--rk-accent:${rt.color};--rk-ink:${rt.ink}">
       <div class="rk-lbhead"><h1>Leaderboard</h1><button class="xbtn" data-press data-close aria-label="Close">${I.x}</button></div>
       <div class="rk-period"><button data-press data-p="1" class="on">Today</button><button data-press data-p="7">This week</button></div>
       <div class="rk-lbbody"></div><div class="rk-lbmine"></div></div>`, { cls: 'tall rk-board', label: 'Leaderboard', onClose: () => { boardOpen = false; } });
@@ -886,31 +909,38 @@ export function mountRanked(ctx) {
   const loop = now => {
     if (closed) return;
     raf = requestAnimationFrame(loop);
-    if (g.phase === 'countdown') drawSlot(now);
+    if (g.phase === 'countdown') drawReel(now);
+    else if (g.phase === 'searching') tickSearch(now);
     else if (g.phase === 'playing' && !g.frozen) tickPlaying(now);
   };
   raf = requestAnimationFrame(loop);
 
   account.rolloverSeasonIfNeeded();
   settlePending();
+  // -setRP: ?setRP=640 puts this browser at that many rank points (localhost only).
+  const setRP = local ? parseInt(new URLSearchParams(location.search).get('setRP') ?? '', 10) : NaN;
+  if (Number.isFinite(setRP) && setRP >= 0) account.record(s => { s.rp = setRP; s.bestRP = Math.max(s.bestRP || 0, setRP); });
   pushView(view);
   setPhase('idle');
   if (demo) runDemo(demo);
 
   // ---------- localhost-only test knobs, mirroring the app's DEBUG flags ----------
+  // ?setRP=N sets your rank points first (-setRP), so every rank's colours can be seen.
   // ?rankedDemo=search (-showSearch) | versus (-showVersus) | intro (-showIntro: the round-2 intro held on 2)
   //   | round | result | final (-fakeResult) | lose | board (-fakeBoard)
   //   | play: a whole match against the stand-in that banks nothing (no rating, no board post).
   function demoQueue() {
     const picked = [];
-    for (let r = 0; r < RK.rounds; r++) { let s; for (let i = 0; i < 40; i++) { s = pool.pick(RK.tierFor(r), 'all', 'all'); if (s?.preview && s.artwork) break; } picked.push(s); }
-    g.queue = picked; g.choices = picked.map((s, r) => deal(s, RK.tierFor(r), pool).map(toChoice));
+    for (let r = 0; r < RK.rounds; r++) { let s; for (let i = 0; i < 40; i++) { s = pool.pick(roundTier(r), 'all', 'all'); if (s?.preview && s.artwork) break; } picked.push(s); }
+    g.queue = picked; g.choices = picked.map((s, r) => deal(s, roundTier(r), pool).map(toChoice));
   }
   function runDemo(kind) {
     if (kind === 'play') { g.practice = true; return; }
     g.frozen = true; g.token++;
-    Object.assign(g, { myRating: account.stats.rating, before: account.stats.rating });
+    const rp = account.stats.rp || 0;
+    Object.assign(g, { myRating: account.stats.rating, before: account.stats.rating, myRP: rp, ladderIndex: Ladder.place(rp).tier.index });
     g.opp = { name: 'Mia', rating: RK.opponentRating(g.myRating), hue: 3, form: [1, 1, 0, 1, 1] };
+    g.opp.rp = Ladder.opponentRP(rp, g.myRating, g.opp.rating);
     if (kind === 'search') { setPhase('searching'); return; }
     if (kind === 'versus') { setPhase('found'); return; }
     if (kind === 'board') { openBoard(); return; }

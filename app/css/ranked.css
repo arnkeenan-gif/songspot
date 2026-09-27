@@ -2,7 +2,7 @@
    1pt = 1px; Inter stands in for SF, var(--mono) for SF Mono, ui-rounded for SF Rounded.
    Tokens, .view/.screen/.xbtn/.choices come from app.css. */
 .ranked { --rk-accent: var(--easy); --rk-ink: #04160b; --rounded: ui-rounded, "SF Pro Rounded", Inter, system-ui, sans-serif; overflow-x: hidden; }
-.ranked .rk-screen { padding: calc(14px + var(--sat)) 24px calc(18px + var(--sab)); line-height: 1.2; isolation: isolate; }
+.ranked .rk-screen { padding: calc(14px + var(--sat)) 24px calc(18px + var(--sab)); line-height: 1.2; isolation: isolate; z-index: 1; }
 .rk-fill { flex: 1 1 0; min-height: 0; min-width: 0; }
 .ranked .i { width: 1em; height: 1em; }
 
@@ -16,32 +16,35 @@
 .ranked .rk-screen.rk-leaving { position: absolute; top: 0; left: 0; right: 0; pointer-events: none; }
 .nt { display: inline-grid; } .nt > span { grid-area: 1 / 1; } .nt > .nt-o { justify-self: center; }
 
-/* each half lit in its colour, behind the fight card (the two RadialGradients) */
-.rk-lit { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .28s var(--easeOut); --W: min(100vw, 440px); }
-.rk-lit.on { opacity: 1; transition: opacity var(--sp-card); }
-.rk-lit i { position: absolute; top: 0; bottom: 0; }
-.rk-lit .l { left: 0; right: 50%; background: radial-gradient(circle 320px at calc(100% - var(--W) * .325) 42%, var(--mine, transparent), transparent); }
-.rk-lit .r { left: 50%; right: 0; background: radial-gradient(circle 320px at calc(var(--W) * .325) 42%, var(--theirs, transparent), transparent); }
-
-/* ---------- entry ---------- */
+/* ---------- entry: the ranked home on the album wall ---------- */
 .rk-entry { display: flex; flex-direction: column; align-items: center; flex: none; }
-.rk-badge { position: relative; display: grid; place-items: center; flex: none; margin-bottom: 18px; }
+.rk-badge { position: relative; display: grid; place-items: center; flex: none; }
 .rk-badge svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .ranked.glow .rk-badge svg { filter: drop-shadow(0 0 11px var(--glow)); }
 .rk-badge .face { position: relative; }
-.rk-rankname { font-size: 34px; font-weight: 800; font-style: italic; letter-spacing: -1px; color: var(--text); line-height: 1.15; }
-.rk-rating { font: 800 15px/1.2 var(--mono); color: var(--rk-accent); margin-top: 2px; font-variant-numeric: tabular-nums; }
-.rk-progress { align-self: stretch; margin: 18px 40px 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+/* the badge springs in (.55/.7) and wears its rank's glow */
+.rk-hbadge { align-self: center; flex: none; filter: drop-shadow(0 0 24px color-mix(in srgb, var(--tint, var(--rk-accent)) 45%, transparent)); }
+.rk-entry-all.fadein .rk-hbadge { animation: rk-badgein var(--sp-badge) both; }
+@keyframes rk-badgein { from { transform: scale(.85); opacity: 0; } }
+.rk-hbadge.breathe { animation: rk-breathe 1.3s var(--easeInOut) infinite alternate; filter: none; }
+@keyframes rk-breathe { from { transform: scale(.97); } to { transform: scale(1.03); } }
+.rk-rankname { margin-top: 18px; font-size: 42px; font-weight: 800; font-style: italic; letter-spacing: -1.6px; line-height: 1.19; color: var(--tint); text-shadow: 0 0 28px color-mix(in srgb, var(--tint) 35%, transparent); white-space: nowrap; }
+.rk-rp { font: 800 15px/1.2 var(--mono); color: rgba(242,242,242,.85); font-variant-numeric: tabular-nums; }
+.rk-progress { align-self: stretch; margin: 16px 36px 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .rk-track { position: relative; width: 100%; height: 5px; border-radius: 3px; background: var(--track); overflow: hidden; }
-.rk-track.h6 { height: 6px; }
 .rk-track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--rk-accent); }
 .rk-to { font-size: 11px; color: var(--dim); }
-.rk-season { font-size: 10.5px; font-weight: 600; letter-spacing: .6px; color: var(--dim); margin-top: 8px; }
-.rk-record { display: flex; align-self: stretch; margin-top: 30px; }
+/* the season and your record, on glass */
+.rk-glass { align-self: stretch; margin-top: 22px; padding: 14px; display: flex; flex-direction: column; gap: 12px; border-radius: 18px; background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.08); }
+.rk-gtop { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.rk-gtop > .i { font-size: 11px; }
+.rk-gtop > span { font-size: 12px; font-weight: 600; }
+.rk-hot { display: inline-flex; align-items: center; gap: 6px; color: var(--hard); }
+.rk-hot .i { font-size: 11px; } .rk-hot b { font-size: 12px; font-weight: 700; }
+.rk-record { display: flex; align-self: stretch; }
 .rk-record div { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .rk-record b { font: 800 20px/1.2 var(--mono); color: var(--text); font-variant-numeric: tabular-nums; }
 .rk-record span { font-size: 9px; font-weight: 600; letter-spacing: 1.6px; color: var(--muted); text-transform: uppercase; }
-.rk-entry > .rk-form { margin-top: 18px; }
 .rk-form { display: flex; gap: 5px; justify-content: center; }
 .rk-form span { width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; }
 .rk-form svg { width: 8px; height: 8px; }
@@ -51,15 +54,19 @@
 .rk-btn2 .i { font-size: 11.5px; }
 .rk-btn2.muted { color: var(--muted); }
 .rk-lb { margin-bottom: 12px; }
+.rk-btn2.rk-glassbtn { background: rgba(0,0,0,.5); border-color: rgba(255,255,255,.08); }
 .rk-go { display: flex; align-items: center; justify-content: center; width: 100%; height: 54px; flex: none; border-radius: 16px; background: var(--rk-accent); color: var(--rk-ink); font-size: 16px; font-weight: 800; margin-bottom: 24px; }
-.ranked.glow .rk-go { box-shadow: 0 6px 18px color-mix(in srgb, var(--rk-accent) 35%, transparent); }
-.ranked .rk-go.green { background: var(--easy); color: #04160b; box-shadow: none; margin-bottom: 0; }
+.rk-go { box-shadow: 0 6px 36px color-mix(in srgb, var(--rk-accent) 45%, transparent); transition: background .3s var(--easeOut), color .3s var(--easeOut), transform .16s var(--easeOut), opacity .16s var(--easeOut); }
 
-/* ---------- matchmaking: PulseRing + one line ---------- */
-.rk-screen.rk-searching { gap: 18px; }
-.rk-searching .rk-pulse { margin: 0 auto; flex: none; }
-.rk-looking { font-size: 15px; font-weight: 600; color: var(--muted); text-align: center; flex: none; }
-.rk-cancel { align-self: center; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 12px; flex: none; line-height: 1.2; }
+/* ---------- matchmaking: you in your rank's ring, the clock running ---------- */
+.rk-find { margin-top: 26px; text-align: center; font-size: 28px; font-weight: 800; font-style: italic; letter-spacing: -1px; line-height: 1.2; color: var(--text); flex: none; }
+.rk-findsub { margin-top: 6px; text-align: center; font-size: 14px; font-weight: 600; flex: none; }
+.rk-clock { margin-top: 22px; align-self: center; height: 38px; padding: 0 16px; display: flex; align-items: center; gap: 8px; border-radius: 19px; background: rgba(0,0,0,.45); border: 1px solid var(--line); flex: none; }
+.rk-clock .rk-eq { width: 30px; height: 14px; opacity: 1; gap: 2px; }
+.rk-clock .rk-eq i { width: 4px; animation: rk-eq14 .34s var(--easeInOut) infinite alternate; }
+@keyframes rk-eq14 { from { height: 3px; } to { height: calc(14px * var(--p)); } }
+.rk-clockt { font: 800 15px/1 var(--mono); color: var(--text); font-variant-numeric: tabular-nums; min-width: 34px; }
+.rk-cancel { width: 100%; height: 48px; margin-bottom: 24px; border-radius: 14px; background: rgba(0,0,0,.45); border: 1px solid var(--line); color: var(--text); font-size: 14.5px; font-weight: 700; text-align: center; flex: none; }
 
 /* ---------- the fight card (runCardAnimation) ---------- */
 .rk-mf { align-self: center; font-size: 11px; font-weight: 800; letter-spacing: 4px; color: var(--rk-accent); margin-bottom: 30px; flex: none; opacity: 0; transform: scale(.8); transition: opacity var(--sp-card), transform var(--sp-card); }
@@ -74,7 +81,7 @@
 .rk-fface::after { content: ""; position: absolute; inset: -6.5px; border: 3px solid var(--c); border-radius: 50%; }
 .ranked.glow .rk-fface { filter: drop-shadow(0 0 18px var(--glow)); }
 .rk-fname { font-size: 16px; font-weight: 800; color: var(--text); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rk-pill { font-size: 9px; font-weight: 800; letter-spacing: 1.4px; color: #08120c; padding: 4px 8px; border-radius: 5px; line-height: 11px; }
+.rk-pill { font-size: 9px; font-weight: 800; letter-spacing: 1.4px; color: #08120c; padding: 4px 8px; border-radius: 5px; line-height: 11px; white-space: nowrap; }
 .rk-frating { font-size: 22px; font-weight: 800; font-style: italic; letter-spacing: -.8px; color: var(--text); line-height: 26px; }
 .rk-fform { opacity: 0; transform: translateY(6px); transition: opacity .3s var(--easeOut), transform .3s var(--easeOut); }
 .rk-found.s3 .rk-fform { opacity: 1; transform: none; }
@@ -88,7 +95,7 @@
 .rk-terms b { font-size: 17px; font-weight: 800; font-style: italic; color: var(--text); }
 .rk-terms span { font-size: 8.5px; font-weight: 800; letter-spacing: 1.4px; color: var(--muted); text-transform: uppercase; }
 .rk-terms > i { width: 1px; height: 26px; background: var(--line); flex: none; }
-.rk-coming { align-self: center; font-size: 12.5px; color: var(--dim); margin-bottom: 8px; flex: none; opacity: 0; transition: opacity .3s var(--easeOut); }
+.rk-coming { align-self: center; font-size: 12.5px; color: var(--dim); margin-bottom: 26px; flex: none; opacity: 0; transition: opacity .3s var(--easeOut); }
 .rk-found.s3 .rk-coming { opacity: 1; }
 
 /* ---------- the round bar ---------- */
@@ -101,48 +108,30 @@
 .rk-tier { font-size: 11px; font-weight: 700; color: #08120c; padding: 0 12px; height: 28px; display: inline-flex; align-items: center; border-radius: 14px; }
 .rk-rx { width: 34px; height: 34px; border-radius: 50%; background: var(--surface); color: var(--muted); display: grid; place-items: center; font-size: 12px; margin-left: 6px; flex: none; }
 
-/* ---------- the round intro: a broadcast title card ---------- */
-.rk-screen.rk-countdown { overflow: visible; }  /* the band runs off the column; .ranked clips it at the screen edge */
-.rk-band { position: absolute; left: 0; right: 0; top: 50%; height: 230px; margin-top: -115px; z-index: -1; pointer-events: none;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--rk-accent) 0%, transparent), color-mix(in srgb, var(--rk-accent) 16%, transparent), color-mix(in srgb, var(--rk-accent) 0%, transparent));
-  opacity: 0; transform: scaleX(.2) translateY(-150px) rotate(-9deg); transition: transform var(--sp-intro), opacity var(--sp-intro); }
-.rk-countdown.in .rk-band { opacity: 1; transform: scaleX(1.4) translateY(-150px) rotate(-9deg); }
-.rk-bignum { position: absolute; left: 50%; top: 50%; z-index: -1; pointer-events: none; font: italic 800 400px/1.2 Inter, system-ui, sans-serif; letter-spacing: -20px; white-space: nowrap;
-  color: color-mix(in srgb, var(--rk-accent) 6%, transparent); transform: translate(-50%, -50%) scale(1.3) translate(90px, -120px); transition: transform var(--sp-intro); }
-.rk-countdown.in .rk-bignum { transform: translate(-50%, -50%) scale(1) translate(90px, -120px); }
-.rk-introtop { display: flex; align-items: center; gap: 10px; flex: none; }
-.rk-sb { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 10px; border-radius: 23px; background: rgba(0,0,0,.45); border: 1px solid var(--line); }
-.rk-sb > b { font: 800 17px/1 var(--mono); color: var(--text); font-variant-numeric: tabular-nums; }
-.rk-sbr { font: 800 11px/1 var(--mono); color: #08120c; padding: 0 10px; height: 22px; display: inline-flex; align-items: center; border-radius: 11px; background: var(--rk-accent); flex: none; white-space: nowrap; }
-.rk-ix { width: 40px; height: 40px; border-radius: 50%; background: var(--surface); color: var(--muted); display: grid; place-items: center; font-size: 12px; flex: none; }
+/* ---------- the round intro: the round slams in, the decade reel, one popping count ---------- */
+.rk-screen.rk-countdown { overflow: visible; }  /* the reel runs to the screen edge; .ranked clips it */
 .rk-title { display: flex; flex-direction: column; align-items: center; flex: none; }
 .rk-title b { font-size: 58px; font-weight: 800; font-style: italic; letter-spacing: -2.5px; line-height: 1.19; color: var(--text); white-space: nowrap; transform: translateX(-420px); transition: transform var(--sp-intro); }
 .rk-title span { font-size: 26px; font-weight: 800; font-style: italic; letter-spacing: 4px; line-height: 1.19; color: var(--rk-accent); margin-top: -4px; transform: translateX(420px); transition: transform var(--sp-intro); }
 .rk-countdown.in .rk-title b, .rk-countdown.in .rk-title span { transform: none; }
-.rk-pips { display: flex; gap: 6px; justify-content: center; margin-top: 14px; flex: none; opacity: 0; transition: opacity var(--sp-intro); }
-.rk-pips i { height: 6px; border-radius: 3px; }
-.rk-countdown.in .rk-pips { opacity: 1; }
-.rk-reelwrap { display: flex; flex-direction: column; align-items: center; gap: 12px; flex: none; opacity: 0; transform: translateY(30px); transition: opacity var(--sp-intro), transform var(--sp-intro); }
+.rk-reelwrap { display: flex; flex-direction: column; align-items: center; gap: 12px; flex: none; margin: 0 -24px; opacity: 0; transform: translateY(30px); transition: opacity var(--sp-intro), transform var(--sp-intro); }
 .rk-countdown.in .rk-reelwrap { opacity: 1; transform: none; }
 .rk-reelwrap > span { font-size: 10.5px; font-weight: 800; letter-spacing: 3.5px; color: var(--muted); }
-/* SlotEraReel: the drum, the rolling decades, the payline and its two notches */
-.rk-slot { position: relative; align-self: stretch; height: 179.4px; }
-.rk-drum { position: absolute; inset: 0; border-radius: 20px; border: 1px solid transparent;
-  background: linear-gradient(rgba(0,0,0,.7), transparent 33.33%, transparent 66.67%, rgba(0,0,0,.7)) padding-box, linear-gradient(rgba(0,0,0,.55), rgba(0,0,0,.55)) padding-box, linear-gradient(rgba(255,255,255,.16), rgba(255,255,255,.03)) border-box; }
-.rk-drum-mask { position: absolute; inset: 0; overflow: hidden; -webkit-mask-image: linear-gradient(transparent 0, #000 28%, #000 72%, transparent 100%); mask-image: linear-gradient(transparent 0, #000 28%, #000 72%, transparent 100%); }
-.rk-drum-in { position: absolute; left: 0; right: 0; top: calc(50% - 195px); will-change: transform; }
-.rk-drum-in b { display: block; height: 78px; line-height: 78px; text-align: center; font-size: 50px; font-weight: 800; font-style: italic; letter-spacing: -2px; white-space: nowrap; }
-.rk-payline { position: absolute; left: 22px; right: 22px; top: 50%; height: 78px; margin-top: -39px; border-radius: 14px; pointer-events: none; box-shadow: 0 0 0 var(--lw, .6px) var(--edge, transparent), inset 0 0 0 var(--lw, .6px) var(--edge, transparent); }
-.rk-tri { position: absolute; top: 50%; width: 10px; height: 14px; margin-top: -7px; background: var(--rk-accent); clip-path: polygon(0 0, 100% 50%, 0 100%); }
-.rk-tri.l { left: 6px; } .rk-tri.r { right: 6px; transform: rotate(180deg); }
-/* 3 · 2 · 1 */
-.rk-cnt { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 12px; flex: none; }
-.rk-cnum-slot { height: 50px; display: grid; place-items: center; }
-.rk-cnum { font: 800 44px/1 var(--rounded); color: var(--text); }
-.rk-cnum.go { font-size: 38px; color: var(--rk-accent); }
-.rk-segs { display: flex; gap: 6px; }
-.rk-segs i { width: 54px; height: 6px; border-radius: 3px; background: var(--track); transition: background .2s var(--easeOut); }
-.rk-segs i.lit { background: var(--rk-accent); }
+/* CoverEraReel: nine sleeves, coverflow; drawReel moves them (transform + opacity only) */
+.rk-cf { position: relative; align-self: stretch; height: 190px; }
+.rk-cv { position: absolute; left: 50%; top: 50%; width: 132px; height: 132px; margin: -66px 0 0 -66px; will-change: transform, opacity; }
+.rk-cvin { position: absolute; inset: 0; border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.5); transition: box-shadow .2s var(--easeOut); }
+.rk-cvshade { position: absolute; inset: 0; border-radius: 14px; background: #000; opacity: 0; pointer-events: none; }
+.rk-cv.lit .rk-cvin { box-shadow: 0 6px 44px color-mix(in srgb, var(--rk-accent) 55%, transparent), 0 0 0 1.5px rgba(255,255,255,.9); }
+.rk-cv.lit .rk-sleeve { box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.9); }
+/* DecadeSleeve: the gradient, the record half out, the decade bottom-left */
+.rk-sleeve { position: absolute; inset: 0; border-radius: 14px; overflow: hidden; }
+.rk-sleeve svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.rk-sleeve b { position: absolute; left: 10.5px; bottom: 6px; font-size: 45px; font-weight: 800; font-style: italic; letter-spacing: -1.6px; line-height: 1.19; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.35); white-space: nowrap; }
+.rk-sleeve b.long { font-size: 35.6px; }
+/* one number that pops each second */
+.rk-cnum-slot { height: 80px; margin-bottom: 30px; display: grid; place-items: center; flex: none; }
+.rk-cnum { font: 800 64px/1 var(--rounded); color: var(--rk-accent); }
 
 /* ---------- playing ---------- */
 .rk-play { display: flex; flex-direction: column; flex: 1; min-height: 0; }
@@ -184,32 +173,31 @@
 .rk-got b { font-size: 13.5px; font-weight: 800; }
 .rk-got em { font-style: normal; font-size: 12.5px; color: var(--muted); }
 
-/* ---------- the round result ---------- */
-.rk-hero { display: flex; align-items: center; gap: 16px; margin-top: 16px; flex: none; }
-.rk-hero-art { position: relative; width: 88px; height: 88px; flex: none; }
-.rk-hero-art .cov { position: relative; width: 88px; height: 88px; border-radius: 12px; object-fit: cover; display: block; box-shadow: 0 8px 14px rgba(0,0,0,.6); background: var(--surface); }
-.rk-hero-art .bloom { position: absolute; z-index: -1; left: 50%; top: 50%; width: 200px; height: 200px; margin: -100px 0 0 -100px; object-fit: cover; filter: blur(46px) saturate(1.5); opacity: .55; pointer-events: none; }
-.rk-hero-t { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.rk-hero-t span { font-size: 9.5px; font-weight: 700; letter-spacing: 3px; color: var(--rk-accent); }
-.rk-hero-t b { font-size: 20px; font-weight: 700; letter-spacing: -.4px; color: var(--text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.rk-hero-t em { font-style: normal; font-size: 13.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rk-gains { display: flex; gap: 12px; margin-top: 18px; flex: none; }
-.rk-gain { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 0; border-radius: 14px; }
-.rk-gain span { font-size: 12px; color: var(--muted); max-width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rk-gain b { font: 800 20px/1.2 var(--mono); }
-.rk-hold { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 12px; flex: none; }
-.rk-hold-t { font-size: 14px; font-weight: 800; color: var(--muted); }
-.rk-hold .rk-track i { width: 100%; }
+/* ---------- between rounds: the song big over the wall, what each of you took, the count ---------- */
+.rk-answer { display: flex; flex-direction: column; align-items: center; text-align: center; flex: none; }
+.rk-bigart { position: relative; width: 190px; height: 190px; margin-bottom: 22px; flex: none; }
+.rk-bigart img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 20px; object-fit: cover; display: block; background: var(--surface2); }
+.rk-bigart .cov { box-shadow: 0 10px 36px rgba(0,0,0,.55); }
+.rk-bigart .glow { filter: blur(40px) saturate(1.6); opacity: .7; transform: scale(1.15); pointer-events: none; }
+.rk-itwas { font-size: 10.5px; font-weight: 800; letter-spacing: 3px; color: var(--rk-accent); }
+.rk-answer > b { margin-top: 4px; font-size: 26px; font-weight: 800; font-style: italic; letter-spacing: -.8px; line-height: 1.19; color: var(--text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.rk-answer > em { margin-top: 2px; font-style: normal; font-size: 15px; font-weight: 600; color: var(--muted); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rk-gains { display: flex; gap: 10px; margin-top: 26px; flex: none; }
+.rk-gain { flex: 1 1 0; min-width: 0; height: 54px; padding: 0 12px; display: flex; align-items: center; gap: 10px; border-radius: 16px; background: rgba(0,0,0,.5); border: 1px solid; }
+.rk-gain .face { width: 26px; height: 26px; font-size: 10px !important; }
+.rk-gain b { font: 800 19px/1 var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.rk-gain b.sm { font-size: 15px; }
+.rk-next { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 26px; flex: none; }
+.rk-next > span { font-size: 10.5px; font-weight: 800; letter-spacing: 3px; color: var(--muted); }
+.rk-next > b { font: 800 52px/1.2 var(--rounded); color: var(--rk-accent); font-variant-numeric: tabular-nums; }
 
-/* ---------- the end: a short show ---------- */
-.rk-screen.rk-finished { height: 100%; min-height: 0; }
-.rk-endscroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; margin: 0 -24px; padding: 0 24px 12px; scrollbar-width: none; }
-.rk-endscroll::-webkit-scrollbar { display: none; }
-/* the verdict's colour opens behind the top of the screen: .easeOut(duration: 0.8) */
-.rk-bloom { position: absolute; z-index: -1; left: 50%; top: -40px; width: 520px; height: 360px; margin-left: -260px; border-radius: 50%; filter: blur(70px); pointer-events: none;
+/* ---------- the end: verdict, one score line, the rank plate, one button ---------- */
+/* the verdict's colour opens behind it, over the wall: .easeOut(duration: 0.8) */
+.rk-bloom { position: absolute; z-index: -1; left: 50%; top: 50%; width: 520px; height: 360px; margin: -270px 0 0 -260px; border-radius: 50%; filter: blur(80px); pointer-events: none;
   transform: scale(.2); opacity: 0; transition: transform .8s var(--easeOut), opacity .8s var(--easeOut); }
 .rk-bloom.on { transform: none; opacity: 1; }
-.rk-verdict { position: relative; height: 70px; margin-top: 2px; display: grid; place-items: center; }
+.rk-end { display: flex; flex-direction: column; flex: none; }
+.rk-verdict { position: relative; height: 80px; display: grid; place-items: center; }
 .rk-ft { grid-area: 1/1; font-size: 13px; font-weight: 800; letter-spacing: 6px; color: var(--muted); transition: opacity var(--sp-verdict), transform var(--sp-verdict); }
 .rk-vd { grid-area: 1/1; display: flex; flex-direction: column; align-items: center; gap: 4px; opacity: 0; transform: scale(.85); transition: opacity var(--sp-verdict), transform var(--sp-verdict); }
 .rk-verdict.won .rk-vd { transform: scale(.5); }
@@ -218,68 +206,51 @@
 .rk-vd b { font-size: 46px; font-weight: 800; font-style: italic; letter-spacing: -2px; line-height: 1.19; color: var(--text); white-space: nowrap; }
 .rk-verdict.won .rk-vd b { color: var(--c); }
 .ranked.glow .rk-verdict.won .rk-vd b { text-shadow: 0 0 48px var(--glow); }
-.rk-vd span { font-size: 13px; color: var(--dim); }
-/* the two of you, the scores counting between you; then the winner lights: spring(.45,.6) */
-.rk-faceoff { display: flex; align-items: flex-start; gap: 8px; margin-top: 4px; }
-.rk-sep { font-size: 20px; font-weight: 800; line-height: 1.2; color: var(--dim); padding-top: 107px; flex: none; }
-.rk-rface { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.rk-rpic { position: relative; width: 56px; height: 56px; margin-top: 14px; flex: none; }
-.rk-rimg { position: relative; width: 56px; height: 56px; transition: transform var(--sp-face), opacity var(--sp-face), filter var(--sp-face); }
-.rk-rimg .face { width: 56px; height: 56px; }
-.rk-rimg::after { content: ""; position: absolute; inset: -5.75px; border-radius: 50%; border: 1.5px solid var(--line); transition: inset var(--sp-face), border-width var(--sp-face), border-color var(--sp-face); }
-.rk-rface.winner .rk-rimg { transform: scale(1.06); }
-.rk-rface.winner .rk-rimg::after { inset: -6.5px; border-width: 3px; border-color: var(--c); }
-.ranked.glow .rk-rface.winner .rk-rimg { filter: drop-shadow(0 0 20px var(--glow)); }
-.rk-rface.loser .rk-rimg { opacity: .55; filter: saturate(.4); }
-.rk-crown { position: absolute; left: 50%; top: -20px; width: 17px; height: 17px; margin-left: -8.5px; font-size: 17px; line-height: 0; color: #ffd166; display: block; opacity: 0; transform: scale(.2); transition: opacity var(--sp-face), transform var(--sp-face); }
-.rk-rface.winner .rk-crown { opacity: 1; transform: none; }
-.rk-rname { font-size: 13.5px; font-weight: 600; line-height: 1.2; color: var(--text); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color var(--sp-face); }
-.rk-rface.winner .rk-rname { font-weight: 800; }
-.rk-rface.loser .rk-rname { color: var(--muted); }
-.rk-rscore { font: 800 28px/1.2 var(--mono); color: var(--text); font-variant-numeric: tabular-nums; transition: color var(--sp-face); }
-.rk-rface.winner .rk-rscore { color: var(--c); }
-.rk-rface.loser .rk-rscore { color: var(--muted); }
-.rk-card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
-/* round by round: the card on spring(.45,.8), then a row every 110 ms on spring(.4,.75) */
-.rk-rounds { margin-top: 12px; padding: 12px 14px; opacity: 0; transform: translateY(16px); transition: opacity var(--sp-rounds), transform var(--sp-rounds); }
-.rk-end.s2 .rk-rounds { opacity: 1; transform: none; }
-.rk-rhead { display: flex; align-items: center; gap: 8px; padding-bottom: 6px; }
-.rk-rhead > span:first-child { font-size: 9.5px; font-weight: 800; letter-spacing: 2px; color: var(--muted); }
-.rk-mini { width: 58px; display: grid; place-items: center; flex: none; }
-.rk-mini .face { width: 22px; height: 22px; font-size: 9px; }
-.rk-div { display: block; height: 1px; background: var(--line); }
-.rk-rline { opacity: 0; transform: translateX(18px); transition: opacity var(--sp-row), transform var(--sp-row); }
-.rk-rline.in { opacity: 1; transform: none; }
-.rk-rrow { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
-.rk-rart { width: 30px; height: 30px; border-radius: 6px; overflow: hidden; background: var(--surface2); flex: none; }
-.rk-rart img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.rk-rt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; margin-right: 14px; }
-.rk-rt b { font-size: 13.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rk-rt em { font-style: normal; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rk-cell { width: 58px; display: grid; place-items: center; flex: none; }
-.rk-cell > span { width: 52px; height: 24px; border-radius: 12px; display: grid; place-items: center; }
-.rk-cell b { font: 800 13px/1 var(--mono); color: var(--muted); }
-.rk-cell .took b { color: #08120c; }
-.rk-cell em { font-style: normal; font-size: 13px; font-weight: 800; color: var(--dim); }
-.rk-cell .x { color: var(--expert); display: grid; } .rk-cell .x svg { width: 12px; height: 12px; }
-/* the rating: endStep 3 on spring(.42,.7); the numbers on .easeOut(duration: 0.9) */
-.rk-ratingcard { margin-top: 10px; padding: 12px 16px; display: flex; flex-direction: column; gap: 9px; opacity: 0; transform: translateY(16px); transition: opacity var(--sp-rating), transform var(--sp-rating); }
-.rk-end.s3 .rk-ratingcard { opacity: 1; transform: none; }
-.rk-rtop { display: flex; align-items: baseline; gap: 8px; }
-.rk-rtop > b { font-size: 17px; font-weight: 800; font-style: italic; letter-spacing: -.4px; transition: color .9s var(--easeOut); }
-.rk-rnum { font: 700 14px/1 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
-.rk-delta { font: 800 20px/1 var(--mono); transform: scale(1.8); transition: transform var(--sp-rating); }
-.rk-end.s3 .rk-delta { transform: none; }
-.rk-ratingcard .rk-track i { transition: width .9s var(--easeOut), background .9s var(--easeOut); }
-.rk-rbot { display: flex; align-items: center; gap: 8px; }
-.rk-promo { font-size: 11.5px; color: var(--dim); }
-.rk-promo.up { font-weight: 700; }
-.rk-banked { font: 700 11.5px/1.2 var(--mono); color: rgba(242,242,242,.8); white-space: nowrap; }
-.rk-endbtns { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; flex: none; opacity: 0; transform: translateY(16px); transition: opacity var(--sp-rating), transform var(--sp-rating); }
+.rk-vd span { font-size: 13px; color: var(--dim); text-align: center; }
+/* you and them on one line, the scores counting up; the winner lit: spring(.45,.6) */
+.rk-final { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
+.rk-sside { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.rk-sface { position: relative; width: 44px; height: 44px; transition: opacity var(--sp-face), filter var(--sp-face); }
+.rk-sface .face { width: 44px; height: 44px; font-size: 17.6px !important; }
+.rk-sface::after { content: ""; position: absolute; inset: -5.25px; border-radius: 50%; border: 2.5px solid transparent; transition: border-color var(--sp-face); }
+.rk-sside.winner .rk-sface::after { border-color: var(--c); }
+.rk-sside.loser .rk-sface { opacity: .55; filter: saturate(.4); }
+.rk-sside > span { font-size: 12px; font-weight: 700; color: var(--muted); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color var(--sp-face); }
+.rk-sside.loser > span { color: var(--dim); }
+.rk-fscore { display: flex; align-items: baseline; gap: 8px; font: 800 26px/1.2 var(--mono); color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; flex: none; }
+.rk-fscore i { font-style: normal; color: var(--dim); }
+.rk-fscore b { transition: color var(--sp-face); }
+.rk-final:has(.them.winner) .rk-fscore .m, .rk-final:has(.me.winner) .rk-fscore .t { color: var(--muted); }
+/* the rank plate: endStep 2 on spring(.45,.8) */
+.rk-plate { --pc: var(--rk-accent); margin-top: 40px; padding: 18px; display: flex; flex-direction: column; gap: 14px; border-radius: 22px; background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.08);
+  opacity: 0; transform: translateY(16px); transition: opacity var(--sp-plate), transform var(--sp-plate), border-color var(--sp-rating), box-shadow var(--sp-rating); }
+.rk-end.s2 .rk-plate { opacity: 1; transform: none; }
+.rk-plate.promoted { border-color: color-mix(in srgb, var(--pc) 70%, transparent); box-shadow: inset 0 0 0 .5px color-mix(in srgb, var(--pc) 70%, transparent); }
+.rk-ptop { display: flex; align-items: center; gap: 14px; }
+.rk-emb { position: relative; width: 56px; height: 56px; flex: none; display: grid; place-items: center; color: var(--pc); transition: transform var(--sp-pop); }
+.rk-emb.pop { transform: scale(1.15); }
+.rk-emb svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.rk-emb circle { fill: none; stroke-width: 4; }
+.rk-emb .bg { fill: color-mix(in srgb, var(--pc) 16%, transparent); stroke: none; }
+.rk-emb .trk { stroke: rgba(255,255,255,.1); }
+.rk-emb .arc { stroke: var(--pc); stroke-linecap: round; }
+.rk-emb > i { position: relative; display: grid; font-size: 20px; }
+.rk-pt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.rk-pt small { font-size: 10px; font-weight: 800; letter-spacing: 1.6px; color: var(--dim); }
+.rk-plate.promoted .rk-pt small { color: var(--pc); }
+.rk-pt b { font-size: 24px; font-weight: 800; font-style: italic; letter-spacing: -.8px; line-height: 1.19; color: var(--pc); white-space: nowrap; }
+.rk-pt span { font: 600 12px/1.2 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.rk-chip { height: 32px; padding: 0 12px; display: inline-flex; align-items: center; gap: 3px; border-radius: 16px; background: var(--pc); color: var(--rk-ink); flex: none; transform: scale(1.4); transition: transform var(--sp-plate); }
+.rk-end.s2 .rk-chip { transform: none; }
+.rk-chip.down { background: var(--expert); color: #fff; }
+.rk-chip i { font-style: normal; font-size: 9px; }
+.rk-chip b { font: 800 17px/1 var(--rounded); }
+.rk-pbar { position: relative; height: 6px; border-radius: 3px; background: rgba(255,255,255,.1); }
+.rk-pbar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--pc); box-shadow: 0 0 12px color-mix(in srgb, var(--pc) 60%, transparent); transition: width .04s linear; }
+.rk-endbtns { display: flex; flex-direction: column; gap: 14px; flex: none; opacity: 0; transform: translateY(16px); transition: opacity var(--sp-plate), transform var(--sp-plate); }
 .rk-endbtns.in { opacity: 1; transform: none; }
-.rk-row2 { display: flex; gap: 10px; }
-.rk-row2 .rk-btn2 { flex: 1 1 0; min-width: 0; height: 42px; font-size: 14.5px; }
-.rk-row2 .rk-btn2 .i { font-size: 12px; }
+.rk-endbtns .rk-go { margin-bottom: 0; }
+.rk-leave { align-self: center; height: 44px; padding: 0 16px; font-size: 14px; font-weight: 700; color: var(--muted); }
 
 /* error */
 .rk-error { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 0 8px; }

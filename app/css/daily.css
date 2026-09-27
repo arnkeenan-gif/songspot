@@ -87,6 +87,40 @@
 .pill-t { flex: none; height: 28px; padding: 0 12px; border-radius: 999px; display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; color: var(--muted); background: var(--surface2); }
 .pill-t.won { color: #08120c; background: #1ed760; box-shadow: 0 0 3px rgba(30,215,96,.42); }
 .noglow .pill-t.won { box-shadow: none; }
+.d-row .pts { flex: none; font: 800 12.5px var(--mono); color: var(--text); }
+.d-row.me .pts { color: var(--accent); }
+.d-noface { width: 30px; height: 30px; background: var(--surface2); color: var(--muted); font-size: 12px; }
+.d-bmsg { margin: 0; padding: 18px 0; font-size: 12.5px; color: var(--muted); }
+/* Friends / Everyone */
+.d-tabs { display: flex; gap: 6px; }
+.d-bhead:has(.d-tabs) { align-items: center; }
+.d-tab { height: 30px; padding: 0 12px; border-radius: 15px; background: var(--surface2); color: var(--muted); font-size: 12.5px; font-weight: 800; letter-spacing: 0; transition: background .2s var(--easeOut), color .2s var(--easeOut), transform .16s var(--easeOut), opacity .16s var(--easeOut); }
+.d-tab.on { background: var(--accent); color: var(--accent-ink); }
+.d-friend .nm { flex: 0 1 auto; }
+.d-friend .fs { display: inline-flex; align-items: center; gap: 2px; color: var(--hard); flex: none; }
+.d-friend .fs .i { font-size: 10px; } .d-friend .fs b { font: 800 11.5px var(--mono); }
+.d-friend .rk-fill { flex: 1; min-width: 8px; }
+.pill-t.yet { opacity: .7; }
+/* the skeleton rows while the board loads, with a sweep of light */
+.d-skel > div { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
+.d-skel i { display: block; background: var(--surface2); border-radius: 4px; }
+.d-skel .c { width: 36px; height: 36px; border-radius: 50%; flex: none; }
+.d-skel span { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+.d-skel span i { height: 10px; } .d-skel span i + i { height: 8px; opacity: .6; }
+.d-skel .v { width: 44px; height: 12px; flex: none; }
+.d-skel { -webkit-mask-image: linear-gradient(90deg, #000 35%, rgba(0,0,0,.55) 50%, #000 65%); mask-image: linear-gradient(90deg, #000 35%, rgba(0,0,0,.55) 50%, #000 65%); -webkit-mask-size: 250% 100%; mask-size: 250% 100%; animation: d-shimmer 1.25s linear infinite; }
+@keyframes d-shimmer { from { -webkit-mask-position: 100% 0; mask-position: 100% 0; } to { -webkit-mask-position: 0 0; mask-position: 0 0; } }
+/* the streak restore card (premium, once a week) */
+.d-restore { margin-top: 14px; width: 100%; height: 62px; padding: 0 12px; display: flex; align-items: center; gap: 12px; border-radius: 14px; background: var(--surface); border: 1px solid color-mix(in srgb, var(--hard) 35%, transparent); text-align: left; }
+.d-restore .fl { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; flex: none; color: var(--hard); background: color-mix(in srgb, var(--hard) 16%, transparent); font-size: 18px; }
+.d-restore .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.d-restore .tx b { font-size: 14.5px; font-weight: 800; color: var(--text); }
+.d-restore .tx small { font-size: 12px; color: var(--muted); }
+.d-restore .go { height: 34px; padding: 0 14px; border-radius: 17px; display: inline-flex; align-items: center; gap: 5px; flex: none; font-size: 13px; font-weight: 800; color: var(--medium); background: var(--surface2); }
+.d-restore .go .i { font-size: 11px; }
+.d-restore .go.on { color: #180b02; background: var(--hard); }
+.d-restore.done { height: 52px; padding: 0 16px; gap: 10px; border: 0; background: color-mix(in srgb, var(--hard) 14%, transparent); color: var(--hard); }
+.d-restore.done b { font-size: 14px; font-weight: 800; color: var(--text); }
 .d-next { margin-top: 18px; margin-bottom: 30px; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
 
 /* leaving mid-round: the app's confirmationDialog, an action sheet */

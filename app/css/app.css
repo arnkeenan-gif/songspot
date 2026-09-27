@@ -435,3 +435,28 @@ body.phone-shell { background: #050505; overflow: hidden; }
 .phoneframe { position: fixed; inset: 0; display: grid; place-items: center; }
 .phoneframe iframe { height: min(932px, calc(100vh - 40px)); aspect-ratio: 430 / 932; width: auto; border: 0; border-radius: 44px; background: #0b0f0c;
   box-shadow: 0 0 0 10px #161616, 0 0 0 11px #2a2a2a, 0 40px 120px rgba(0,0,0,.7); }
+
+/* ---------- the album wall (Loading.swift CoverWall) ----------
+   Four tilted columns of real covers, alternately drifting up and down, a slight blur,
+   under a dark veil with top and bottom fades and a pool of shade in the middle.
+   Each column is one composited layer moved by a transform animation; its blur is
+   painted once on the inner layer. */
+.cwall { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; contain: strict; --veil: .7; }
+.cwall.fixed { position: fixed; }
+.cw-tilt { position: absolute; top: -60px; left: -17.5%; width: 135%; height: 100%; display: flex; align-items: flex-start; gap: 10px; transform: rotate(-10deg); }
+.cw-col { flex: 1 1 0; min-width: 0; will-change: transform; animation: cw-up 40s linear infinite; }
+.cw-col.down { animation-name: cw-down; }
+.cw-in { display: flex; flex-direction: column; gap: 10px; padding-bottom: 10px; filter: blur(1.2px) saturate(.85); }
+.cw-in > i { display: block; aspect-ratio: 1; border-radius: 12px; overflow: hidden; background: var(--surface2); }
+.cw-in img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.cw-veil { position: absolute; inset: 0; background: var(--page); opacity: var(--veil); transition: opacity .28s var(--easeOut); }
+.cw-shade { position: absolute; inset: 0;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--page) 95%, transparent) 0%, transparent 28%, transparent 70%, color-mix(in srgb, var(--page) 95%, transparent) 100%),
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--page) 70%, transparent) 60px, transparent 300px); }
+.cwall { transition: opacity .28s var(--easeOut); }
+.cwall.off { opacity: 0; visibility: hidden; transition: opacity .28s var(--easeOut), visibility 0s linear .28s; }
+.cwall.off .cw-col { animation-play-state: paused; }
+@keyframes cw-up { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+@keyframes cw-down { from { transform: translateY(-50%); } to { transform: translateY(0); } }
+.nomotion .cw-col { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) { .cw-col { animation-play-state: paused !important; } }

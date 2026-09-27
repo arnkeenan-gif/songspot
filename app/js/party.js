@@ -10,6 +10,7 @@ import { Haptics } from './haptics.js';
 import { spring, still } from './motion.js';
 import { I } from './icons.js';
 import { el, pushView, popView, openSheet, hueColor, shareText, esc, art, cap, settings, TIER_COLOR, TIER_INK, PILL_FILL, PILL_INK, LevelTheme } from './ui.js';
+import { CoverWall } from './coverwall.js';
 
 const SHAZAM_TAIL = 12;           // seconds a clip stays muted after the tab was away on the results screen
 const STRIP_MAX = 10;
@@ -33,6 +34,7 @@ const MOTION = {
   '--sp-tile': spring(0.45, 0.6),     // players popping into the waiting room
   '--sp-ans': spring(0.36, 0.55),     // a face lighting up as it answers
   '--sp-count': spring(0.32, 0.55),   // the count slamming in
+  '--sp-slam': spring(0.5, 0.78),     // the round and its level sliding in over the album wall
   '--sp-board': spring(0.75, 0.8),    // the board's bars and numbers
   '--sp-order': spring(0.6, 0.8),     // the board's rows finding their places
   '--sp-pod': spring(0.6, 0.6),       // the podium rising
@@ -167,6 +169,10 @@ export function mountParty(ctx, opts = {}) {
   let wentAwayAt = null, countN = -1, secsShown = -1;
   let scoresBefore = {}, revealed = false, podiumTimer = 0;
   let settingsSheet = null, songsSheet = null, kickMenu = null, pressTimer = 0, pressAt = null;
+  // The album wall behind the room loader and the round countdown: one of its ten cover sets,
+  // picked each time the room opens, from the room's genre or artist when one is set.
+  const wallPreset = CoverWall.randomPreset();
+  let slamRound = -1;
   // A friend's 1v1 (PartyLaunch on the iPhone): two seats, five rounds, the host's settings.
   const launch = opts.duel || (knob('showDuel') || demoDuelResult ? { name: 'Songbot', bot: true } : null);
   const isDuel = !!launch;
@@ -295,12 +301,12 @@ export function mountParty(ctx, opts = {}) {
       ${foot}`;
   }
 
+  /** Its own screen between rounds, on the album wall: the round and its level in big type, one number that pops each second, the faces. */
   function countdown() {
-    const size = game.players.length > 6 ? 28 : 36, shown = strip();
+    const size = game.players.length > 6 ? 28 : 36, shown = strip(), n = game.round + 1;
     return `${roundHead(false)}<div class="flex"></div>
-      <div class="pcount-screen"><small>${game.round === 0 ? 'GET READY' : 'NEXT UP'}</small>
-        <div class="num ${glow() ? 'glow' : ''}" style="color:${accent()}" data-keep><span class="n"></span></div>
-        <p>${cap(tier())} · listen, then pick it</p></div>
+      <div class="pslam${slamRound === game.round ? ' in' : ''}"><b>${n === game.settings.rounds ? 'FINAL' : `ROUND ${n}`}</b><span style="color:${accent()}">${esc(tier().toUpperCase())}</span></div>
+      <div class="pcount-screen"><div class="num ${glow() ? 'glow' : ''}" style="color:${accent()}" data-keep><span class="n"></span></div></div>
       <div class="flex"></div>
       <div class="pstrip" style="gap:${game.players.length > 6 ? 6 : 10}px;padding-bottom:44px">${shown.map(p => pav(p, size)).join('')}${overflow(shown.length, size)}</div>`;
   }
@@ -443,7 +449,25 @@ export function mountParty(ctx, opts = {}) {
     }
     if (typed && scr.querySelector('.gin')) { scr.querySelector('.gin').value = typed; refreshHits(); }
     key = k;
+    drawWall();
+    // The round and its level slide in once the countdown screen is up (spring .5/.78).
+    if (game.phase === 'countdown' && slamRound !== game.round) {
+      slamRound = game.round;
+      requestAnimationFrame(() => requestAnimationFrame(() => scr.querySelector('.pslam')?.classList.add('in')));
+    }
     frame();
+  }
+
+  /** The wall behind the room loader (veil .7) and the round countdown (veil .8); gone everywhere else. */
+  function drawWall() {
+    const loader = game.phase === 'connecting' || (game.phase === 'idle' && isDuel);
+    const on = loader || game.phase === 'countdown';
+    let w = view.querySelector(':scope > .cwall');
+    if (on) {
+      const covers = CoverWall.covers(pool, { preset: wallPreset, category: game.settings.category, artist: game.settings.artist });
+      w = CoverWall.mount(view, covers, loader ? 0.7 : 0.8, 'fixed');
+    }
+    w?.classList.toggle('off', !on);
   }
 
   /** The old screen, lifted off and faded out over the new one as it fades in. */

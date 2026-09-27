@@ -1,6 +1,11 @@
 /* The profile — ProfileView.swift, 1pt = 1px. Flat: surface fills, hairline edges, no glow. */
-.profile { --pf-accent: var(--accent); }
-.profile .pf-bar { position: sticky; top: 0; z-index: 2; background: var(--page); }
+.profile { --pf-accent: var(--accent); display: flex; flex-direction: column; overflow: hidden; }
+/* The bar stays put and the page scrolls under it, as the app's VStack { bar; ScrollView }. */
+.profile .pf-bar { position: relative; z-index: 2; flex: none; }
+.profile .pf-scroll { position: relative; z-index: 1; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+/* the album wall behind the header, 440pt tall, fading out into the page */
+.pf-wall { position: absolute; left: 0; right: 0; top: 0; height: calc(440px + var(--sat)); z-index: 0; pointer-events: none;
+  -webkit-mask-image: linear-gradient(#000, #000 50%, transparent); mask-image: linear-gradient(#000, #000 50%, transparent); }
 .profile .pf-barin { max-width: 440px; margin: 0 auto; padding: calc(14px + var(--sat)) 24px 0; display: flex; align-items: center; justify-content: space-between; }
 .profile .pf-barin h1 { margin: 0; font-size: 19px; font-weight: 800; font-style: italic; letter-spacing: -.57px; line-height: 35px; color: rgba(255,255,255,.55); }
 .profile .xbtn .i { font-size: 13px; }
@@ -64,7 +69,6 @@
 .pf-div { height: 1px; background: var(--line); }
 .pf-hero { display: flex; align-items: center; gap: 14px; }
 .pf-big { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; font-size: 26px; flex: none; }
-.pf-big.pf-trophy { font-size: 22px; }
 .pf-herot { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .pf-herot b { font-size: 20px; font-weight: 800; font-style: italic; letter-spacing: -.6px; line-height: 1.2; color: var(--text); }
 .pf-herot small { font-size: 12.5px; color: var(--muted); line-height: 1.25; }
@@ -104,23 +108,42 @@
 .pf-tier small { font-size: 10.5px; font-weight: 600; color: var(--muted); white-space: nowrap; line-height: 1.2; }
 
 /* ranked */
-.pf-ranked { display: flex; flex-direction: column; gap: 14px; }
-.pf-ranked .pf-herot { gap: 1px; }
-.pf-dots { display: flex; gap: 5px; flex: none; }
-.pf-dots i { width: 8px; height: 8px; border-radius: 50%; box-sizing: border-box; }
-.pf-dots i.empty { border: 1px solid var(--line); }
-.pf-rprog { display: flex; flex-direction: column; gap: 6px; }
-.pf-rtrack { height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
-.pf-rtrack i { display: block; height: 100%; width: 6px; border-radius: 3px; }
-.pf-rfoot { display: flex; justify-content: space-between; gap: 12px; font-size: 11.5px; color: var(--dim); line-height: 1.2; }
 
 /* career */
-.pf-career { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.pf-ct { display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 10px; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
 .pf-ctile { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; flex: none; }
-.pf-ctv { display: flex; flex-direction: column; min-width: 0; }
-.pf-ctv b { font-size: 16px; font-weight: 800; font-style: italic; letter-spacing: -.4px; line-height: 1.2; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pf-ctv small { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; }
+
+/* the ranked player card, in its rank's colour */
+.pf-rankwrap { margin-top: 30px; padding: 4px; border-radius: 26px; background: rgba(255,255,255,.03); }
+.pf-rank { padding: 18px; display: flex; flex-direction: column; gap: 14px; border-radius: 22px; border: 1px solid color-mix(in srgb, var(--rc) 35%, transparent);
+  background: linear-gradient(to bottom left, color-mix(in srgb, var(--rc) 42%, transparent), color-mix(in srgb, var(--rc) 12%, transparent), var(--surface)); }
+.pf-rtop { display: flex; align-items: flex-start; gap: 12px; }
+.pf-rname { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pf-rname em { font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: 2px; color: color-mix(in srgb, var(--rc) 90%, transparent); }
+.pf-rname b { font-size: 34px; font-weight: 800; font-style: italic; letter-spacing: -1.2px; line-height: 1.19; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pf-rname span { font: 800 13px/1.2 var(--mono); color: rgba(255,255,255,.7); }
+.pf-crown { width: 58px; height: 58px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 26px; color: var(--rc);
+  background: color-mix(in srgb, var(--rc) 16%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rc) 50%, transparent); }
+.pf-crown .i { width: 1.1em; height: 1.1em; filter: drop-shadow(0 1px 0 rgba(255,255,255,.25)); }
+.pf-rank .pf-rtrack { height: 6px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: visible; }
+.pf-rank .pf-rtrack i { display: block; height: 100%; width: 6px; border-radius: 3px; background: var(--rc); box-shadow: 0 0 12px color-mix(in srgb, var(--rc) 60%, transparent); }
+.pf-rank .pf-rfoot { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 600; color: rgba(255,255,255,.6); line-height: 1.2; }
+.pf-rank .pf-rfoot > span { flex: 1; min-width: 0; }
+.pf-wl { font: 800 12px/1.2 var(--mono); color: rgba(255,255,255,.8); white-space: nowrap; }
+.pf-badges { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.pf-badges::-webkit-scrollbar { display: none; }
+.pf-badge { flex: none; height: 24px; padding: 0 9px; display: inline-flex; align-items: center; gap: 5px; border-radius: 12px; background: rgba(0,0,0,.3); font-size: 11px; font-weight: 700; white-space: nowrap; }
+.pf-badge .i { font-size: 10px; }
+/* the compact daily card */
+.profile .pf-daily { margin-top: 12px; padding: 18px; border-radius: 22px; }
+.pf-herot em { font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: 2px; line-height: 1.2; }
+.pf-stack { display: flex; flex-direction: column; gap: 10px; }
+/* career, as one list */
+.pf-clist { padding: 0 16px; border-radius: 20px; }
+.pf-crow { height: 52px; display: flex; align-items: center; gap: 12px; }
+.pf-crow .pf-ctile { width: 30px; height: 30px; border-radius: 50%; }
+.pf-cn { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pf-crow b { font-size: 16px; font-weight: 800; font-style: italic; letter-spacing: -.4px; color: var(--text); white-space: nowrap; }
+.pf-cdiv { height: 1px; background: var(--line); margin-left: 42px; }
 
 /* account */
 .pf-acct { padding: 0 16px; }

@@ -10,6 +10,7 @@ import { I } from './icons.js';
 import { Haptics } from './haptics.js';
 import { supabase, SUPABASE_URL, SUPABASE_ANON } from './supabase.js';
 import { spring, bezier, CURVE, still } from './motion.js';
+import { Streak } from './account.js';
 
 /** Shake: .easeInOut(duration: 0.42) over the piecewise offsets of WinSequence's Shake, on the whole round. */
 function shakeNode(p) {
@@ -141,7 +142,9 @@ export function mountDaily(ctx) {
   const game = new Game(pool);
   let started = false, roundStart = 0, hints = 0, finished = false, secondChance = false;
   let query = '', picked = null, hits = [], activeHit = -1, clipError = null;
-  let board = { loading: true, failed: false, rows: [], players: 0, named: 0 };
+  let board = { loading: true, failed: false, rows: [], players: 0, named: 0, myRank: null };
+  // Today among you and your friends (daily_friends): the board shows Friends first, Everyone a tap away.
+  let friends = { loaded: false, rows: [] }, showEveryone = false, restored = false;
   let raf = 0, tickTimer = 0, toastTimer = 0, closed = false;
   // Glow is off unless switched on (Settings.glow).
   const artwork = settings.get('artwork', true), glow = settings.get('glow', false);
@@ -443,50 +446,112 @@ export function mountDaily(ctx) {
     } catch (e) {}
   }
   async function loadBoard() {
-    if (demo) { board = demoBoard(); return renderBoard(); }
+    if (demo) { board = demoBoard(); friends = demoFriends(); return renderBoard(); }
     board.loading = true; board.failed = false; renderBoard();
     try {
       const { data, error } = await supabase.rpc('daily_board', { p_day: day });
       if (error || !data) throw error || new Error('no board');
       const p = typeof data === 'string' ? JSON.parse(data) : data;
-      board = { loading: false, failed: false, rows: p.rows || [], players: p.players || 0, named: p.named || 0 };
+      // By points (faster is more), the time breaking ties; `me` is your place even outside the top fifty.
+      board = { loading: false, failed: false, rows: p.rows || [], players: p.players || 0, named: p.named || 0, myRank: p.me?.rank ?? null };
     } catch (e) { board = { ...board, loading: false, failed: true }; }
+    if (!closed) renderBoard();
+    await loadFriends();
+  }
+  async function loadFriends() {
+    try {
+      if (account.user) {
+        const { data, error } = await supabase.rpc('daily_friends', { p_day: day });
+        if (!error && Array.isArray(data)) friends.rows = data;
+      }
+    } catch (e) {}
+    friends.loaded = true;
     if (!closed) renderBoard();
   }
   const myId = () => account.user?.id || (demo ? 'demo-me' : null);
+  /** Friends on the board only once you have some; otherwise just everyone. */
+  const hasFriends = () => friends.rows.length > 1;
+  const pointsOf = r => (r.points ?? 0);
+  /** The board with your own result in it, from the record here, before the server has it. */
   function rowsWithMe(rows) {
     const me = myId();
     if (!record || !me || rows.some(r => r.user_id === me)) return rows;
-    const mine = { user_id: me, display_name: (account.name || '').trim() || 'You', avatar: account.avatar, stage: record.stage, won: record.won, ms: record.ms, hints: record.hints };
-    // By the clock, first to name it at the top: you have just finished, so you go after everyone already there.
-    const named = rows.filter(r => r.won), missed = rows.filter(r => !r.won);
-    return record.won ? [...named, mine, ...missed] : [...named, ...missed, mine];
+    const mine = { user_id: me, display_name: (account.name || '').trim() || 'You', avatar: account.avatar, stage: record.stage, won: record.won, ms: record.ms, hints: record.hints,
+      points: Daily.points(record.stage, record.won, record.hints, record.ms) };
+    // The board is by points (faster is more), the time breaking ties.
+    return [...rows, mine].sort((a, b) => (Number(b.won) - Number(a.won)) || (pointsOf(b) - pointsOf(a)) || (a.ms - b.ms));
   }
+  /** Your place on today's board: the server's count, or where your result sits among the rows before the server has it. */
+  function todayRank() {
+    if (board.myRank != null) return board.myRank;
+    const me = myId();
+    if (!record || !me || !(board.rows.length || board.players === 0) || board.loading) return null;
+    const i = rowsWithMe(board.rows).findIndex(r => r.user_id === me);
+    return i < 0 ? null : i + 1;
+  }
+  const initialOf = r => esc(((r.display_name || '').trim() || 'P')[0].toUpperCase());
+  const smallFace = r => (r.avatar ? `<img class="face" src="data:image/jpeg;base64,${esc(r.avatar)}" alt="" style="width:30px;height:30px">` : `<span class="face d-noface">${initialOf(r)}</span>`);
   function rowHTML(r, place) {
     const me = r.user_id === myId();
     const name = (r.display_name || '').trim() || 'Someone';
     return `<div class="d-row${me ? ' me' : ''}">
       <span class="pl${place <= 3 ? ' top' : ''}">${place}</span>
-      ${face(name, r.avatar, 'rgba(255,255,255,.12)', 30, '#a8a8a8')}
+      ${smallFace(r)}
       <span class="nm">${esc(name)}</span>
       ${r.hints > 0 ? `<span class="hb">${I.bulb.repeat(r.hints)}</span>` : ''}
+      ${r.won && r.points != null ? `<span class="pts">${r.points}</span>` : ''}
       <span class="pill-t${r.won ? ' won' : ''}">${r.won ? `in ${Daily.stageLabel(r.stage)}` : 'missed'}</span>
+    </div>`;
+  }
+  /** You and your friends: who named it and how fast, each one's streak, and who hasn't played yet. */
+  function friendHTML(r) {
+    const me = r.user_id === myId();
+    const name = (r.display_name || '').trim() || 'Player';
+    const pill = !r.played ? 'not yet' : r.won ? `in ${Daily.stageLabel(r.stage)}` : 'missed';
+    return `<div class="d-row d-friend${me ? ' me' : ''}">
+      ${smallFace(r)}
+      <span class="nm">${esc(me ? 'You' : name)}</span>
+      ${r.streak > 0 ? `<span class="fs">${I.flame}<b>${r.streak}</b></span>` : ''}
+      <span class="rk-fill"></span>
+      <span class="pill-t${r.played && r.won ? ' won' : ''}${r.played ? '' : ' yet'}">${pill}</span>
     </div>`;
   }
   function renderBoard() {
     const panel = scr.querySelector('.d-board'); if (!panel) return;
     const rank = scr.querySelector('[data-fig="rank"]');
-    if (board.failed) { panel.hidden = true; return; }
+    const tr = todayRank();
+    if (rank) rank.textContent = tr != null ? `#${tr}` : '—';
+    const everyone = showEveryone || !hasFriends();
+    if (everyone && board.failed && !hasFriends()) { panel.hidden = true; return; }
     panel.hidden = false;
-    const all = rowsWithMe(board.rows);
-    const i = all.findIndex(r => r.user_id === myId());
-    const mine = board.rows.findIndex(r => r.user_id === myId());
-    if (rank) rank.textContent = mine >= 0 ? `#${mine + 1}` : '—';
-    const head = `<div class="d-bhead"><span>FIRST TODAY</span><small>${board.players ? `${board.players} played · ${board.named} named it` : ''}</small></div>`;
-    if (board.loading && !board.rows.length) { panel.innerHTML = head + '<div class="d-spin"><span class="spin"></span></div>'; return; }
-    let body = all.slice(0, 10).map((r, k) => rowHTML(r, k + 1)).join('');
-    if (i >= 10) body += rowHTML(all[i], i + 1);
-    panel.innerHTML = head + body;
+    const tabs = hasFriends()
+      ? `<span class="d-tabs"><button class="d-tab${everyone ? '' : ' on'}" data-press data-act="tab-friends">Friends</button><button class="d-tab${everyone ? ' on' : ''}" data-press data-act="tab-everyone">Everyone</button></span>`
+      : '<span>FIRST TODAY</span>';
+    const played = friends.rows.filter(r => r.played).length;
+    const count = everyone ? (board.players ? `${board.players} played · ${board.named} named it` : '') : `${played} of ${friends.rows.length} played`;
+    const head = `<div class="d-bhead">${tabs}<small>${count}</small></div>`;
+    let body;
+    if (!everyone) body = friends.rows.map(friendHTML).join('');
+    else if (board.failed) body = '<p class="d-bmsg">The board couldn\'t load. Check your connection.</p>';
+    else if (board.loading && !board.rows.length) body = skeleton(4);
+    else {
+      const all = rowsWithMe(board.rows);
+      body = all.slice(0, 10).map((r, k) => rowHTML(r, k + 1)).join('');
+      const i = all.findIndex(r => r.user_id === myId());
+      if (i >= 10) body += rowHTML(all[i], board.myRank ?? i + 1);
+    }
+    panel.innerHTML = head + `<div class="d-brows">${body}</div>`;
+  }
+  /** SkeletonRows (Loading.swift): a face, two lines, a value, with a sweep of light. */
+  const skeleton = n => `<div class="d-skel">${Array.from({ length: n }, (_, i) => `<div><i class="c"></i><span><i style="width:${[120, 96, 140, 110, 84][i % 5]}px"></i><i style="width:${[70, 90, 60, 80, 76][i % 5]}px"></i></span><i class="v"></i></div>`).join('')}</div>`;
+  function demoFriends() {
+    const me = myId();
+    return { loaded: true, rows: [
+      { user_id: 'a', display_name: 'Maja', avatar: null, played: true, won: true, stage: 1, ms: 5200, hints: 0, streak: 12 },
+      { user_id: me, display_name: 'You', avatar: account.avatar, played: true, won: record.won, stage: record.stage, ms: record.ms, hints: record.hints, streak: Streak.live(account.stats, day) },
+      { user_id: 'c', display_name: 'Ines', avatar: null, played: true, won: false, stage: 5, ms: 30000, hints: 0, streak: 0 },
+      { user_id: 'd', display_name: 'Oskar', avatar: null, played: false, won: false, stage: 0, ms: 0, hints: 0, streak: 4 },
+    ] };
   }
   function demoBoard() {
     const me = myId();
@@ -496,15 +561,14 @@ export function mountDaily(ctx) {
       { user_id: 'c', display_name: 'Ines', avatar: null, stage: 3, won: true, ms: 21000, hints: 2 },
       { user_id: 'd', display_name: 'Oskar', avatar: null, stage: 5, won: false, ms: 30000, hints: 0 },
     ];
-    const mine = { user_id: me, display_name: (account.name || '').trim() || 'You', avatar: account.avatar, stage: record.stage, won: record.won, ms: record.ms, hints: record.hints };
-    rows.splice(record.won ? 2 : rows.length, 0, mine);
-    return { loading: false, failed: false, rows, players: 214, named: 163 };
+    rows.forEach(r => { r.points = Daily.points(r.stage, r.won, r.hints, r.ms); });
+    return { loading: false, failed: false, rows: rowsWithMe(rows), players: 214, named: 163, myRank: null };
   }
 
   // ---------------------------------------------------------------- the result
   function renderResult(fresh = false) {
     const r = record;
-    const streak = (() => { const s = account.stats || {}; return (s.lastDaily || 0) >= day - 1 ? (s.dailyStreak || 0) : 0; })();
+    const streak = Streak.live(account.stats || {}, day);
     const pts = Daily.points(r.stage, r.won, r.hints, r.ms);
     const state = r.won ? ACCENT : TIER_COLOR.expert;
     // From the round: withAnimation(.easeOut(duration: 0.28)) { phase = .result } — the two cross-fade.
@@ -523,15 +587,44 @@ export function mountDaily(ctx) {
         <div class="d-stamp" style="--s:${state}">${r.won ? `NAMED AT ${Daily.stageLabel(r.stage).toUpperCase()}` : 'MISSED IT'}${r.hints > 0 ? ` · ${r.hints} HINT${r.hints === 1 ? '' : 'S'}` : ''}</div>
         <div class="d-figs">
           <div class="${r.won ? 'lit' : ''}"><b>${pts}</b><span>Points</span></div>
-          <div class="${streak > 0 ? 'lit' : ''}"><b>${streak}</b><span>Streak</span></div>
+          <div class="${streak > 0 ? 'lit' : ''}" data-fig="streak"><b>${streak}</b><span>Streak</span></div>
           <div><b data-fig="rank">—</b><span>Today</span></div>
         </div>
         <button class="d-share" data-press data-act="share">${I.share}Share</button>
+        ${restoreHTML()}
         <div class="d-board card"></div>
         <div class="d-next"></div>
       </div>`;
     renderBoard();
     countdown();
+  }
+  /**
+   * A streak a miss or a skipped day just ended: premium brings it back, once a
+   * week (Stats.restorableStreak). Everyone else sees what it would take.
+   */
+  function restoreHTML() {
+    if (restored) return `<div class="d-restore done">${I.flame}<b>Streak restored: ${Streak.live(account.stats, day)} days</b></div>`;
+    const n = Streak.restorable(account.stats, day);
+    if (n == null) return '';
+    const premium = !!ctx.premium;
+    return `<button class="d-restore" data-press data-act="restore"><span class="fl">${I.flame}</span>
+      <span class="tx"><b>Restore your ${n}-day streak</b><small>${premium ? 'Premium · once a week' : 'With Premium'}</small></span>
+      <span class="go${premium ? ' on' : ''}">${premium ? '' : I.crown}Restore</span></button>`;
+  }
+  function restore() {
+    sound.click();
+    if (!ctx.premium) { close(); setTimeout(() => ctx.openPremium(null), 450); return; }
+    // A demo result restores on this page only: nothing is saved.
+    if (!demo) account.restoreStreak(day); else Streak.restore(account.stats, day);
+    Haptics.success();
+    restored = true;
+    const card = scr.querySelector('.d-restore');
+    if (card) {
+      const nu = el(restoreHTML()); card.replaceWith(nu);
+      if (!still()) { const sp = spring(0.4, 0.75); nu.animate([{ transform: 'scale(.95)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: sp.ms, easing: sp.easing }); }
+    }
+    const fig = scr.querySelector('[data-fig="streak"]'), live = Streak.live(account.stats, day);
+    if (fig) { fig.classList.toggle('lit', live > 0); fig.querySelector('b').textContent = live; }
   }
   function countdown() {
     const n = Daily.secondsToNext(), p = v => String(v).padStart(2, '0');
@@ -581,6 +674,8 @@ export function mountDaily(ctx) {
     if (act === 'hint') return takeHint();
     if (act === 'skip') return skip();
     if (act === 'share') { sound.click(); return shareText(Daily.shareText(record)); }
+    if (act === 'restore') return restore();
+    if (act === 'tab-friends' || act === 'tab-everyone') { sound.click(); Haptics.select(); showEveryone = act === 'tab-everyone'; return renderBoard(); }
     if (act === 'answer') { sound.click(); secondChance = false; return finish(false, 5); }
     if (act === 'watch') {
       sound.click(); player.stop();

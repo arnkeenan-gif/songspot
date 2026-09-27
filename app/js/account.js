@@ -4,6 +4,7 @@
 // follows its owner between the phone and the web.
 import { auth, profiles, premium as grants, providerReady } from './supabase.js';
 import { settings } from './ui.js';
+import { Ladder } from './ladder.js';
 
 export const Ranked = {
   startRating: 1000,
@@ -12,13 +13,6 @@ export const Ranked = {
     const k = mine < 1200 ? 40 : 24;
     return Math.max(100, Math.round(mine + k * (outcome - expected)));
   },
-  /** ISO week, local time — the key the apps write, so a season is one season everywhere. */
-  seasonKey(d = new Date()) {
-    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-    const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day);
-    const y = t.getUTCFullYear(); const w = Math.ceil(((t - Date.UTC(y, 0, 1)) / 864e5 + 1) / 7);
-    return `${y}-W${w}`;
-  },
   points(score, outcome) { return score + (outcome > 0.6 ? 300 : outcome > 0.4 ? 100 : 0); },
 };
 
@@ -26,10 +20,51 @@ export function freshStats() {
   return { roundsPlayed: 0, roundsWon: 0, streak: 0, bestStreak: 0, wonByStage: [0, 0, 0, 0, 0], winsByTier: {}, laddersClimbed: 0,
     partiesPlayed: 0, partiesWon: 0, partyRoundsWon: 0, partyPoints: 0, bestPartyScore: 0,
     rating: Ranked.startRating, bestRating: Ranked.startRating, rankedPlayed: 0, rankedWon: 0, recentRanked: [], rankedPoints: 0, bestRankedPoints: 0, season: '',
-    dailyPlayed: 0, dailyWon: 0, dailyStreak: 0, dailyBest: 0, lastDaily: 0 };
+    rp: 0, bestRP: 0, winStreak: 0, badges: [],
+    dailyPlayed: 0, dailyWon: 0, dailyStreak: 0, dailyBest: 0, lastDaily: 0, lostDailyStreak: 0, lostDailyOn: 0, streakRestoredOn: 0 };
+}
+/**
+ * A stored or synced stats object with every field filled in, as Stats.init(from:)
+ * decodes it: a row from before the ladder gets its RP from the old rating.
+ * Fields this build doesn't know are kept, so a newer phone's row round-trips.
+ */
+export function withDefaults(raw) {
+  const r = raw && typeof raw === 'object' ? raw : {};
+  const s = Object.assign(freshStats(), r);
+  if (r.bestRating == null) s.bestRating = s.rating;
+  if (r.rp == null) s.rp = Ladder.migrated(Math.max(s.rating, s.bestRating));
+  if (r.bestRP == null) s.bestRP = s.rp;
+  if (!Array.isArray(s.badges)) s.badges = [];
+  return s;
 }
 const played = s => (s.roundsPlayed || 0) + (s.partiesPlayed || 0) + (s.rankedPlayed || 0) + (s.dailyPlayed || 0);
 const newer = (a, b) => (played(a) >= played(b) ? a : b);
+
+/** Daily.number(): day one is 19 Sep 2026, UTC. */
+export const dailyNumber = (now = Date.now()) => Math.max(1, Math.floor((now - Date.UTC(2026, 8, 19)) / 864e5) + 1);
+
+/** The daily streak rules from Stats (Account.swift), on a plain stats object. */
+export const Streak = {
+  /** The streak as it stands today: a day skipped since the last go ends it. */
+  live: (s, today = dailyNumber()) => ((s.lastDaily || 0) >= today - 1 ? (s.dailyStreak || 0) : 0),
+  /** The streak premium can restore today, if any: ended by a miss in the last two days, or by skipping up to two days. Once a week. */
+  restorable(s, today = dailyNumber()) {
+    const restored = s.streakRestoredOn || 0, lost = s.lostDailyStreak || 0, streak = s.dailyStreak || 0, last = s.lastDaily || 0;
+    if (!(restored === 0 || today - restored >= 7)) return null;
+    if (lost > 1 && (s.lostDailyOn || 0) >= today - 1 && streak <= 1) return lost;
+    if (streak > 1 && last < today - 1 && last >= today - 3) return streak;
+    return null;
+  },
+  /** Bring the streak back on `s` (Stats.restoreStreak); nothing when there is none to restore. */
+  restore(s, today = dailyNumber()) {
+    const n = Streak.restorable(s, today); if (n == null) return;
+    if ((s.lostDailyStreak || 0) > 1 && (s.lostDailyOn || 0) >= today - 1 && (s.dailyStreak || 0) <= 1) { s.dailyStreak = n + (s.dailyStreak || 0); s.lostDailyStreak = 0; }
+    else s.dailyStreak = n;
+    s.lastDaily = Math.max(s.lastDaily || 0, today - 1);
+    s.dailyBest = Math.max(s.dailyBest || 0, s.dailyStreak);
+    s.streakRestoredOn = today;
+  },
+};
 
 /** The level ladder from ProfileView.swift: songs named → a title. */
 export const Level = {
@@ -47,7 +82,7 @@ export class Account {
     this.user = null;
     this.name = settings.get('profile.name', '') || '';
     this.avatar = settings.get('profile.avatar', null);
-    this.stats = Object.assign(freshStats(), settings.get('profile.stats', {}) || {});
+    this.stats = withDefaults(settings.get('profile.stats', {}));
     this.memberSince = settings.get('profile.since', null) ? new Date(settings.get('profile.since')) : null;
     this.premium = false;
     this.syncing = false;
@@ -81,7 +116,7 @@ export class Account {
       if (remote) {
         if (remote.display_name && remote.display_name !== 'Player') this.name = remote.display_name;
         if (remote.avatar) this.avatar = remote.avatar;
-        if (remote.stats) this.stats = newer(Object.assign(freshStats(), remote.stats), this.stats);
+        if (remote.stats) this.stats = newer(withDefaults(remote.stats), this.stats);
         if (remote.created_at) this.memberSince = new Date(remote.created_at);
       }
       if (!this.name && !user.is_anonymous) this.name = user.user_metadata?.full_name || user.user_metadata?.name || 'Player';
@@ -107,21 +142,59 @@ export class Account {
     this.record(s => { s.roundsPlayed++; if (won) { s.roundsWon++; s.streak++; s.bestStreak = Math.max(s.bestStreak, s.streak); while (s.wonByStage.length < 5) s.wonByStage.push(0); s.wonByStage[Math.min(Math.max(0, stage), 4)]++; s.winsByTier[tier] = (s.winsByTier[tier] || 0) + 1; if (tier === 'impossible') s.laddersClimbed++; } else s.streak = 0; });
   }
   recordParty(won, score, roundsWon) { this.record(s => { s.partiesPlayed++; if (won) s.partiesWon++; s.partyRoundsWon += roundsWon; s.partyPoints += score; s.bestPartyScore = Math.max(s.bestPartyScore, score); }); }
-  recordRanked(outcome, opponentRating, score = 0) {
-    this.record(s => { s.rankedPlayed++; if (outcome > 0.6) s.rankedWon++; s.rating = Ranked.newRating(s.rating, opponentRating, outcome); s.bestRating = Math.max(s.bestRating, s.rating);
+  /** A finished ranked match (Stats.recordRanked): RP first, judged against the ratings as they stood, then the hidden rating. */
+  recordRanked(outcome, opponentRating, score = 0, perfect = false) {
+    this.record(s => {
+      s.rankedPlayed++; if (outcome > 0.6) s.rankedWon++;
+      s.winStreak = outcome > 0.6 ? (s.winStreak || 0) + 1 : outcome < 0.4 ? 0 : (s.winStreak || 0);
+      const c = Ladder.change(outcome, s.rating, opponentRating, s.winStreak, perfect);
+      s.rp = Math.max(Ladder.tierFloor(s.rp || 0), (s.rp || 0) + c.delta);
+      s.bestRP = Math.max(s.bestRP || 0, s.rp);
+      s.rating = Ranked.newRating(s.rating, opponentRating, outcome); s.bestRating = Math.max(s.bestRating, s.rating);
       s.recentRanked.push(outcome > 0.6 ? 1 : outcome < 0.4 ? 0 : 2); while (s.recentRanked.length > 5) s.recentRanked.shift();
-      const earned = Ranked.points(score, outcome); s.rankedPoints += earned; s.bestRankedPoints = Math.max(s.bestRankedPoints, earned); });
+      const earned = Ranked.points(score, outcome); s.rankedPoints += earned; s.bestRankedPoints = Math.max(s.bestRankedPoints, earned);
+    });
   }
-  /** Stats.recordDaily — once per day number. */
+  /** Stats.recordDaily — once per day number. A streak a miss or a skipped day ends is kept aside for a restore. */
   recordDaily(day, won) {
-    this.record(s => { if (day === s.lastDaily) return; s.dailyPlayed++; if (won) { s.dailyWon++; s.dailyStreak = s.lastDaily === day - 1 ? s.dailyStreak + 1 : 1; s.dailyBest = Math.max(s.dailyBest, s.dailyStreak); } else s.dailyStreak = 0; s.lastDaily = day; });
+    this.record(s => {
+      if (day === s.lastDaily) return;
+      s.dailyPlayed++;
+      if (won) {
+        s.dailyWon++;
+        if (s.lastDaily < day - 1 && s.lastDaily >= day - 3 && s.dailyStreak > 1) { s.lostDailyStreak = s.dailyStreak; s.lostDailyOn = day; }
+        s.dailyStreak = s.lastDaily === day - 1 ? s.dailyStreak + 1 : 1;
+        s.dailyBest = Math.max(s.dailyBest, s.dailyStreak);
+      } else {
+        if (Streak.live(s, day) > 0) { s.lostDailyStreak = s.dailyStreak; s.lostDailyOn = day; }
+        s.dailyStreak = 0;
+      }
+      s.lastDaily = day;
+    });
   }
-  /** A new week is a new ladder. Returns true when a rating was reset. */
+  /** Premium brings a lost daily streak back, as if the missed day had been named (Stats.restoreStreak). */
+  restoreStreak(today = dailyNumber()) {
+    if (Streak.restorable(this.stats, today) == null) return false;
+    this.record(s => Streak.restore(s, today));
+    return true;
+  }
+  /**
+   * A season is a calendar month (Account.rolloverSeasonIfNeeded). At the turn you keep a badge for
+   * where you finished and start the new one a tier lower; the hidden rating, career totals and best
+   * rank are kept. The old weekly keys ("2026-W39") were the previous ladder: moving off one is not a season ending.
+   */
   rolloverSeasonIfNeeded() {
-    const key = Ranked.seasonKey(); if (this.stats.season === key) return false;
-    const had = this.stats.rankedPlayed > 0;
-    this.record(s => { s.season = key; s.rating = Ranked.startRating; s.recentRanked = []; });
-    return had;
+    const key = Ladder.seasonKey(); if (this.stats.season === key) return false;
+    const old = this.stats.season || '';
+    this.record(s => {
+      if (old && !old.includes('-W') && s.rp > 0) {
+        const badge = `${old}:${Ladder.place(s.rp).name}`;
+        if (!s.badges.includes(badge)) s.badges.push(badge);
+        s.rp = Ladder.seasonDrop(s.rp); s.winStreak = 0; s.recentRanked = [];
+      }
+      s.season = key;
+    });
+    return !!old && !old.includes('-W');
   }
   persist() { settings.set('profile.name', this.name); settings.set('profile.avatar', this.avatar); settings.set('profile.stats', this.stats); settings.set('profile.since', this.memberSince ? this.memberSince.getTime() : null); }
   schedulePush() { clearTimeout(this._push); this._push = setTimeout(() => this.push(), 2000); }
@@ -129,7 +202,8 @@ export class Account {
     if (!this.user || !this.name) return;
     try {
       const remote = await profiles.fetch(this.user.id);
-      if (remote?.stats) { const merged = newer(Object.assign(freshStats(), remote.stats), this.stats); if (merged !== this.stats) { this.stats = merged; this.persist(); } }
+      // Local first: on a tie (a streak restore, a season rollover — changes that add no play) this copy is the one saved.
+      if (remote?.stats) { const merged = newer(this.stats, withDefaults(remote.stats)); if (merged !== this.stats) { this.stats = merged; this.persist(); } }
       await profiles.save(this.user.id, this.name, this.avatar, this.stats);
     } catch (e) {}
   }

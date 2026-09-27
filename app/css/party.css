@@ -1,6 +1,6 @@
 /* Party — the iPhone app's PartyView. 1pt = 1px; tokens from app.css. --pa is the round's accent, --pa-ink its ink. */
 .party { background: var(--page); overflow-x: hidden; }
-.party .pt { padding: var(--sat) 24px calc(18px + var(--sab)); --pa: var(--easy); --pa-ink: #04160b; --accent: var(--pa); min-height: 100%; }
+.party .pt { z-index: 1; padding: var(--sat) 24px calc(18px + var(--sab)); --pa: var(--easy); --pa-ink: #04160b; --accent: var(--pa); min-height: 100%; }
 /* the screen going out while the next fades in (party.js crossfade) */
 .party .pt.ghost { z-index: 1; overflow: hidden; }
 .party .flex { flex: 1 1 0; min-height: 0; }
@@ -199,13 +199,15 @@
 .pthead .rof { font-size: 10.5px; font-weight: 600; letter-spacing: 2px; color: var(--muted); }
 .ptier { height: 28px; padding: 0 12px; border-radius: 14px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; }
 .pcount-screen { display: flex; flex-direction: column; align-items: center; }
-.pcount-screen small { font-size: 12px; font-weight: 800; letter-spacing: 3.5px; color: var(--muted); }
-.pcount-screen .num { height: 190px; display: grid; place-items: center; font-family: ui-rounded, "SF Pro Rounded", Inter, system-ui, sans-serif; font-weight: 800; }
-.pcount-screen .num .n { font-size: 168px; line-height: 1; animation: pslam var(--sp-count) both; }
-.pcount-screen .num.glow .n { text-shadow: 0 0 68px color-mix(in srgb, currentColor 60%, transparent); }
-.pcount-screen .num .n.go { font-size: 104px; }
-@keyframes pslam { from { transform: scale(1.35); opacity: .2; } to { transform: none; opacity: 1; } }
-.pcount-screen p { margin: 6px 0 0; font-size: 14.5px; font-weight: 600; color: var(--muted); }
+.pcount-screen .num { height: 80px; margin-top: 28px; display: grid; place-items: center; font-family: ui-rounded, "SF Pro Rounded", Inter, system-ui, sans-serif; font-weight: 800; }
+.pcount-screen .num .n { font-size: 64px; line-height: 1; animation: pslam var(--sp-count) both; }
+.pcount-screen .num.glow .n { text-shadow: 0 0 28px color-mix(in srgb, currentColor 60%, transparent); }
+@keyframes pslam { from { transform: scale(1.4); opacity: .3; } to { transform: none; opacity: 1; } }
+/* the round, in big type; the level under it in its colour — they slide in from either side */
+.pslam { display: flex; flex-direction: column; align-items: center; }
+.pslam b { font-size: 58px; font-weight: 800; font-style: italic; letter-spacing: -2.5px; line-height: 1.19; color: var(--text); white-space: nowrap; transform: translateX(-420px); transition: transform var(--sp-slam); }
+.pslam span { margin-top: -4px; font-size: 26px; font-weight: 800; font-style: italic; letter-spacing: 4px; line-height: 1.19; transform: translateX(420px); transition: transform var(--sp-slam); }
+.pslam.in b, .pslam.in span { transform: none; }
 .pstrip { display: flex; justify-content: center; align-items: center; flex-wrap: nowrap; }
 .pring { position: relative; width: 196px; height: 196px; border-radius: 50%; align-self: center; flex: none; }
 .pring svg { position: absolute; inset: 0; width: 196px; height: 196px; overflow: visible; }

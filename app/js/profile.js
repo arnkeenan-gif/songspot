@@ -1,11 +1,14 @@
 // The profile, as the iPhone app's ProfileView.swift draws it: the avatar in
 // an accent ring, the name, the level bar, four stat cards two by two, the
-// Friends row, then titled sections — Daily challenge (streak + a week of
-// days), How fast you name them (five columns), By difficulty (five tiles),
-// Ranked, Career (tiles two to a row) and Account.
+// Friends row, the ranked player card in its rank's colour, the compact daily
+// card, then titled sections — How fast you name them (five columns and the
+// difficulty tiles, once something is named), Career (a list that leaves out
+// what you haven't done) and Account. The album wall sits behind the header.
 import { el, esc, pushView, popView, openSheet, cap, label, alpha, TIER_COLOR, TIERS } from './ui.js';
 import { I } from './icons.js';
-import { Level } from './account.js';
+import { Level, Streak, dailyNumber } from './account.js';
+import { Ladder } from './ladder.js';
+import { CoverWall } from './coverwall.js';
 import { spring } from './motion.js';
 import { Haptics } from './haptics.js';
 
@@ -13,28 +16,10 @@ const STAGES = [0.1, 0.5, 2, 8, 15];
 /** SF "target", which icons.js does not carry. */
 const TARGET = `<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>`;
 
-/** Daily.number(): day one is 19 Sep 2026, UTC. */
-const dailyNumber = (d = Date.now()) => Math.max(1, Math.floor((d - Date.UTC(2026, 8, 19)) / 864e5) + 1);
-/** Ranked.rank */
-const rankTier = r => (r < 1100 ? 'easy' : r < 1300 ? 'medium' : r < 1500 ? 'hard' : r < 1700 ? 'expert' : 'impossible');
 /** Int.formatted(): the reader's own grouping, as the phone uses the device's. */
 const fmt = n => Number(n || 0).toLocaleString();
-/** Ranked.progress: where the next rank starts and how far through this one. */
-function rankProgress(r) {
-  for (const [lo, hi] of [[900, 1100], [1100, 1300], [1300, 1500], [1500, 1700]]) if (r < hi) return { next: hi, fraction: Math.min(1, Math.max(0, (r - lo) / (hi - lo))) };
-  return { next: null, fraction: 1 };
-}
-/** Ranked.seasonCountdown: the season ends at the start of next ISO week (Monday 00:00, local). */
-function seasonCountdown(now = new Date()) {
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  end.setDate(end.getDate() + (8 - (end.getDay() || 7)));
-  const left = (end - now) / 1000;
-  if (left <= 0) return 'Resetting now';
-  const hours = Math.floor(left / 3600);
-  if (hours < 24) return hours <= 1 ? 'Resets within the hour' : `Resets in ${hours} hours`;
-  const days = Math.ceil(left / 86400);
-  return days <= 1 ? 'Resets tomorrow' : `Resets in ${days} days`;
-}
+/** SF "rosette", for the season badges. */
+const ROSETTE = `<svg class="i" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="9" r="6.5"/><path d="M8.2 14.2L6.5 22l5.5-2.8L17.5 22l-1.7-7.8a8.4 8.4 0 0 1-7.6 0z"/><circle cx="12" cy="9" r="3.2" fill="rgba(0,0,0,.35)"/></svg>`;
 /** weekday(.narrow) for a day `ago` days back. */
 const weekday = ago => { const d = new Date(); d.setDate(d.getDate() - ago); return d.toLocaleDateString(undefined, { weekday: 'narrow' }); };
 /** SF "stairs" and "star.fill", which icons.js does not carry. */
@@ -71,9 +56,11 @@ export function mountProfile(ctx) {
   const { account } = ctx;
   let editing = false, deleting = false, deleteError = null, sheetOpen = false, first = true, closed = false;
 
+  // The album wall behind the header, fading out into the page (today's covers).
   const node = el(`<div class="view profile" role="dialog" aria-modal="true" aria-label="Profile">
+    <div class="pf-wall">${CoverWall.html(CoverWall.covers(ctx.pool), 0.72)}</div>
     <div class="pf-bar"><div class="pf-barin"><h1>Profile</h1><button class="xbtn" data-act="close" data-press aria-label="Close">${I.x}</button></div></div>
-    <div class="screen pf-screen"><div class="pf-body"></div></div>
+    <div class="pf-scroll"><div class="screen pf-screen"><div class="pf-body"></div></div></div>
     <input class="pf-file" type="file" accept="image/*" hidden>
   </div>`);
   const body = node.querySelector('.pf-body');
@@ -129,10 +116,10 @@ export function mountProfile(ctx) {
   const divider = '<div class="pf-div"></div>';
   const mini = (value, name) => `<div class="pf-mini"><b class="${value === '—' ? 'dim' : ''}">${esc(value)}</b><small>${esc(name)}</small></div>`;
 
-  /** The daily: your streak as a flame and a week of days, then the record. */
+  /** The daily: your streak as a flame and a week of days, then the record once you have played. */
   function dailyHTML(s) {
     const today = dailyNumber();
-    const streak = (s.lastDaily || 0) >= today - 1 ? (s.dailyStreak || 0) : 0;
+    const streak = Streak.live(s, today);
     const playedToday = s.lastDaily === today;
     const end = playedToday ? today : today - 1;
     const hard = TIER_COLOR.hard, tint = streak > 0 ? hard : '#4a4a4a';
@@ -140,11 +127,11 @@ export function mountProfile(ctx) {
       const day = today - 6 + k, lit = streak > 0 && day <= end && day > end - streak;
       return `<div class="pf-day${k === 6 ? ' today' : ''}"><span class="pf-dot${lit ? ' lit' : ''}">${lit ? I.check : ''}</span><small>${esc(weekday(6 - k))}</small></div>`;
     }).join('');
-    return `<div class="pf-card pf-pad pf-daily">
+    const record = s.dailyPlayed ? `${divider}<div class="pf-minis">${mini(String(s.dailyPlayed), 'Played')}${mini(String(s.dailyWon || 0), 'Named')}${mini(String(s.dailyBest || 0), 'Best streak')}</div>` : '';
+    return `<div class="pf-card pf-daily">
       <div class="pf-hero"><span class="pf-big" style="color:${tint};background:${alpha(tint, 0.14)}">${I.flame}</span>
-        <span class="pf-herot"><b>${streak === 0 ? 'No streak yet' : `${streak}-day streak`}</b><small>${playedToday ? "Today's done. Back tomorrow." : streak > 0 ? 'Play today to keep it going' : "Name today's song to start one"}</small></span></div>
-      <div class="pf-week">${days}</div>${divider}
-      <div class="pf-minis">${mini(s.dailyPlayed ? String(s.dailyPlayed) : '—', 'Played')}${mini(s.dailyWon ? String(s.dailyWon) : '—', 'Named')}${mini(s.dailyBest ? String(s.dailyBest) : '—', 'Best streak')}</div></div>`;
+        <span class="pf-herot"><em style="color:${tint}">DAILY CHALLENGE</em><b>${streak === 0 ? 'No streak yet' : `${streak}-day streak`}</b><small>${playedToday ? "Today's done. Back tomorrow." : streak > 0 ? 'Play today to keep it going' : "Name today's song to start one"}</small></span></div>
+      <div class="pf-week">${days}</div>${record}</div>`;
   }
 
   /** Wins by stage as five columns, the one you name most at lit. */
@@ -169,35 +156,37 @@ export function mountProfile(ctx) {
     return `<div class="pf-tier" style="background:${alpha(c, n === 0 ? 0.04 : 0.1)}"><i style="background:${c}"></i><b style="color:${n === 0 ? 'var(--dim)' : c}">${n}</b><small>${t === 'impossible' ? 'Imposs.' : cap(t)}</small></div>`;
   }).join('')}</div>`;
 
-  /** Your rank in its colour, the rating, the road to the next rank, form, and the week's record. */
+  /** Your rank as a player card in its own colour: the name big, the RP and the road to the next rank, the record and season badges. */
   function rankedHTML(s) {
-    const rating = s.rating || 1000, t = rankTier(rating), tint = TIER_COLOR[t], p = rankProgress(rating);
-    const recent = (s.recentRanked || []).slice(-5);
-    const dots = recent.map(r => `<i style="background:${r === 1 ? TIER_COLOR.easy : r === 0 ? TIER_COLOR.expert : 'var(--surface2)'}"></i>`).join('')
-      + '<i class="empty"></i>'.repeat(Math.max(0, 5 - recent.length));
-    const nextLine = p.next ? `${fmt(p.next - rating)} to ${cap(rankTier(p.next))}` : 'Top rank';
-    return `<div class="pf-card pf-pad pf-ranked">
-      <div class="pf-hero"><span class="pf-big pf-trophy" style="color:${tint};background:${alpha(tint, 0.14)}">${I.trophy}</span>
-        <span class="pf-herot"><b style="color:${tint}">${cap(t)}</b><small class="pf-mono">${fmt(rating)} rating</small></span><span class="pf-dots">${dots}</span></div>
-      <div class="pf-rprog"><div class="pf-rtrack"><i data-w="max(6px, ${(p.fraction * 100).toFixed(2)}%)" style="background:${tint}"></i></div>
-        <div class="pf-rfoot"><span>${esc(nextLine)}</span><span>${esc(seasonCountdown())}</span></div></div>${divider}
-      <div class="pf-minis">${mini(s.rankedPlayed ? `${s.rankedWon}–${s.rankedPlayed - s.rankedWon}` : '—', 'Won–lost')}${mini(fmt(s.bestRating || 1000), 'Best rating')}${mini(s.rankedPoints ? fmt(s.rankedPoints) : '—', 'Points')}</div></div>`;
+    const rp = s.rp || 0, p = Ladder.place(rp), tint = p.tier.color;
+    const next = p.nextAt != null ? `${fmt(p.nextAt - rp)} RP to ${Ladder.place(p.nextAt).name}` : 'Top rank';
+    const record = s.rankedPlayed ? `<b class="pf-wl">${s.rankedWon || 0}W · ${(s.rankedPlayed || 0) - (s.rankedWon || 0)}L</b>` : '';
+    const badges = (s.badges || []).slice().reverse().map(b => {
+      const i = b.indexOf(':'), key = i < 0 ? '' : b.slice(0, i), name = i < 0 ? b : b.slice(i + 1);
+      const c = (Ladder.tiers.find(t => name.startsWith(t.name)) || {}).color || 'var(--muted)';
+      return `<span class="pf-badge" style="color:${c}">${ROSETTE}${esc(`${Ladder.seasonName(key)} · ${name}`)}</span>`;
+    }).join('');
+    return `<div class="pf-rankwrap"><div class="pf-rank" style="--rc:${tint}">
+      <div class="pf-rtop"><div class="pf-rname"><em>RANKED</em><b>${esc(p.name)}</b><span>${fmt(rp)} RP</span></div><span class="pf-crown">${I.crown}</span></div>
+      <div class="pf-rtrack"><i data-w="max(6px, ${(p.fraction * 100).toFixed(2)}%)"></i></div>
+      <div class="pf-rfoot"><span>${esc(next)}</span>${record}</div>
+      ${badges ? `<div class="pf-badges">${badges}</div>` : ''}</div></div>`;
   }
 
-  /** Everything else you've done, as small tiles two to a row. */
-  function careerHTML(s) {
+  /** What you've done, as one clean list; nothing you haven't done yet. */
+  function careerRows(s) {
     const inst = (s.wonByStage && s.wonByStage[0]) || 0;
-    const items = [
-      [s.roundsPlayed ? fmt(s.roundsPlayed) : '—', 'Rounds played', I.play, TIER_COLOR.easy],
-      [inst ? fmt(inst) : '—', 'Named at 0.1s', I.bolt, TIER_COLOR.medium],
-      [s.laddersClimbed ? fmt(s.laddersClimbed) : '—', 'Ladders climbed', STAIRS, TIER_COLOR.hard],
-      [s.partiesPlayed ? `${s.partiesWon} of ${s.partiesPlayed}` : '—', 'Parties won', I.people, TIER_COLOR.impossible],
-      [s.bestPartyScore ? fmt(s.bestPartyScore) : '—', 'Best party score', STAR, TIER_COLOR.expert],
-      [s.partyPoints ? fmt(s.partyPoints) : '—', 'Party points', I.sparkles, '#4cc9f0'],
-    ];
-    return `<div class="pf-career">${items.map(([v, n, icon, c]) => `<div class="pf-ct"><span class="pf-ctile" style="color:${c};background:${alpha(c, 0.14)}">${icon}</span>
-      <span class="pf-ctv"><b class="${v === '—' ? 'dim' : ''}">${esc(v)}</b><small>${esc(n)}</small></span></div>`).join('')}</div>`;
+    return [
+      [s.roundsPlayed ? fmt(s.roundsPlayed) : '', 'Rounds played', I.play, TIER_COLOR.easy],
+      [inst ? fmt(inst) : '', 'Named at 0.1s', I.bolt, TIER_COLOR.medium],
+      [s.laddersClimbed ? fmt(s.laddersClimbed) : '', 'Ladders climbed', STAIRS, TIER_COLOR.hard],
+      [s.partiesPlayed ? `${s.partiesWon} of ${s.partiesPlayed}` : '', 'Parties won', I.people, TIER_COLOR.impossible],
+      [s.bestPartyScore ? fmt(s.bestPartyScore) : '', 'Best party score', STAR, TIER_COLOR.expert],
+      [s.partyPoints ? fmt(s.partyPoints) : '', 'Party points', I.sparkles, '#4cc9f0'],
+    ].filter(r => r[0]);
   }
+  const careerHTML = rows => `<div class="pf-card pf-clist">${rows.map(([v, n, icon, c], i) => `${i ? '<div class="pf-cdiv"></div>' : ''}<div class="pf-crow">
+      <span class="pf-ctile" style="color:${c};background:${alpha(c, 0.14)}">${icon}</span><span class="pf-cn">${esc(n)}</span><b>${esc(v)}</b></div>`).join('')}</div>`;
 
   const setting = (act, lbl, value, { tint = null, chevron = false } = {}) => {
     const inner = `<span class="pf-sl">${esc(lbl)}</span><b${tint ? ` style="color:${tint}"` : ''}>${esc(value)}</b>${chevron ? `<span class="pf-chev">${I.chevron}</span>` : ''}`;
@@ -229,12 +218,11 @@ export function mountProfile(ctx) {
     const total = (s.wonByStage || []).slice(0, 5).reduce((a, b) => a + (b || 0), 0);
     node.style.setProperty('--pf-accent', accent());
     const counts = STAGES.map((_, i) => (s.wonByStage && s.wonByStage[i]) || 0);
+    const career = careerRows(s);
     body.innerHTML = whoHTML() + levelHTML(s) + gridHTML(s) + friendsRowHTML()
-      + section('Daily challenge', dailyHTML(s))
-      + section('How fast you name them', speedHTML(s, counts, total), total === 0 ? null : `${fmt(total)} named`)
-      + section('By difficulty', difficultyHTML(s))
-      + section('Ranked', rankedHTML(s), s.rankedPlayed ? 'This week' : null)
-      + section('Career', careerHTML(s))
+      + rankedHTML(s) + dailyHTML(s)
+      + (total > 0 ? section('How fast you name them', `<div class="pf-stack">${speedHTML(s, counts, total)}${difficultyHTML(s)}</div>`, `${fmt(total)} named`) : '')
+      + (career.length ? section('Career', careerHTML(career)) : '')
       + section('Account', `<div class="pf-card pf-acct">${accountHTML()}</div>`)
       + (deleteError ? `<p class="pf-err">${esc(deleteError)}</p>` : '');
     const f = body.querySelector('.pf-field');
