@@ -6,6 +6,10 @@
 // blocker eats the script, adBreak simply never shows anything and the game
 // carries on. Our own audio is always stopped before an ad and muted during it.
 const CLIENT = 'ca-pub-2183185085536179';
+// The side banners on wide screens: an AdSense display unit ("Songspot side",
+// vertical). Empty until the unit exists in AdSense — then paste its
+// data-ad-slot number here and the rails appear for non-premium players.
+const SIDE_SLOT = '';
 const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 
 export class Ads {
@@ -30,6 +34,27 @@ export class Ads {
     s.onerror = () => { this.loaded = false; };
     document.head.appendChild(s);
     try { window.adConfig({ preloadAdBreaks: 'on', sound: 'on', onReady: () => {} }); } catch (e) {}
+    this.rails();
+  }
+  /** Skyscrapers either side of the game column, on screens wide enough to
+   *  have empty space there. Never on phones, never for premium, never over
+   *  the game. They hide the moment a player goes premium. */
+  rails() {
+    if (!SIDE_SLOT || this.railsOn || this.isPremium()) return;
+    this.railsOn = true;
+    const css = document.createElement('style');
+    css.textContent = `.ad-rail{position:fixed;top:50%;transform:translateY(-50%);width:160px;height:600px;z-index:1;display:none}
+      .ad-rail.l{right:calc(50% + 260px)}.ad-rail.r{left:calc(50% + 260px)}
+      @media (min-width:1100px) and (min-height:640px){.ad-rail{display:block}}`;
+    document.head.appendChild(css);
+    for (const side of ['l', 'r']) {
+      const box = document.createElement('div');
+      box.className = `ad-rail ${side}`;
+      box.innerHTML = `<ins class="adsbygoogle" style="display:inline-block;width:160px;height:600px" data-ad-client="${CLIENT}" data-ad-slot="${SIDE_SLOT}"></ins>`;
+      document.body.appendChild(box);
+      try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (e) {}
+    }
+    setInterval(() => { if (this.isPremium()) document.querySelectorAll('.ad-rail').forEach(e => e.remove()); }, 3000);
   }
   get available() { return this.loaded && !this.isPremium(); }
   before() { this.showing = true; this.player.stop(); this.player.mute(true); }

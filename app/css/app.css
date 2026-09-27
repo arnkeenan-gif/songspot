@@ -92,7 +92,7 @@ body.spot.winning .cone i { clip-path: polygon(34% 0, 66% 0, 77% 100%, 23% 100%)
 .disc { width: 120px; height: 120px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; position: relative; box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 30%, transparent); transition: background .26s; }
 .noglow .disc { box-shadow: none; }
 .disc .i { width: 40px; height: 40px; }
-.disc .play-g { margin-left: 6px; display: grid; }
+.disc .play-g { display: grid; }
 .disc .ring { position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--accent); opacity: 0; pointer-events: none; }
 .playing .disc .ring { animation: ring 1.5s linear infinite; }
 @keyframes ring { 0% { opacity: .55; transform: scale(1); } 100% { opacity: 0; transform: scale(1.18); } }
