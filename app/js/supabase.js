@@ -43,8 +43,8 @@ export const auth = {
   },
   /**
    * After a sign-in that left a guest account behind: as that guest, hand its
-   * daily results to `toId`, so the friends board shows today's round and the
-   * everyone board doesn't show the player twice. Once, then the key is gone.
+   * premium (bought before making a profile) and its daily results to `toId`.
+   * Once, then the key is gone.
    */
   async handOverGuest(toId) {
     let refresh = null;
@@ -54,7 +54,10 @@ export const auth = {
       const h = { apikey: SUPABASE_ANON, 'Content-Type': 'application/json' };
       const t = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, { method: 'POST', headers: h, body: JSON.stringify({ refresh_token: refresh }) }).then(r => r.ok ? r.json() : null);
       if (!t?.access_token || t.user?.id === toId) return;
-      await fetch(`${SUPABASE_URL}/rest/v1/rpc/hand_over_daily`, { method: 'POST', headers: { ...h, Authorization: `Bearer ${t.access_token}` }, body: JSON.stringify({ p_to: toId }) });
+      const as = { method: 'POST', headers: { ...h, Authorization: `Bearer ${t.access_token}` }, body: JSON.stringify({ p_to: toId }) };
+      // Premium bought as a guest, then the daily: both follow the player to the account they signed in to.
+      await fetch(`${SUPABASE_URL}/rest/v1/rpc/hand_over_premium`, as);
+      await fetch(`${SUPABASE_URL}/rest/v1/rpc/hand_over_daily`, as);
     } catch (e) {}
   },
   /** A guest account: a real user id with no email, so boards and premium have somewhere to live. */

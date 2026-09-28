@@ -301,6 +301,12 @@ html.wide { .grab { visibility: hidden; } }
 /* login */
 .login { position: fixed; inset: 0; z-index: 50; background: var(--stage); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
 .login .wordmark { font-size: 48px; letter-spacing: -1.44px; color: rgba(255,255,255,.08); margin-bottom: 64px; }
+.login.forced .wordmark { margin-bottom: 28px; }
+.login .paid { text-align: center; max-width: 340px; margin-bottom: 36px; }
+.login .paid .pk { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: 2.2px; color: #ffcc00; }
+.login .paid .pk .i { width: 14px; height: 14px; }
+.login .paid h2 { margin: 12px 0 8px; font-size: 30px; font-weight: 900; font-style: italic; letter-spacing: -1px; color: var(--text); }
+.login .paid p { margin: 0; font-size: 14px; line-height: 1.45; color: var(--muted); }
 .login .inner { width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
 .oauth { height: 52px; border-radius: 12px; background: #fff; color: #111; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 16px; font-weight: 600; }
 .oauth .i { font-size: 20px; }

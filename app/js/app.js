@@ -90,10 +90,9 @@ export function loadCSS(name) {
     refresh: () => stage?.render(),
   };
   window.__songspot = ctx;                                   // for poking at it from the console
-  account.onChange(() => { stage?.render(); ads.sync(); resumeBuy(); });
-  // A guest who pressed Go premium was sent to sign in; once they're back and signed in, reopen premium.
-  let buyResumed = false;
-  function resumeBuy() { if (buyResumed) return; let p = null; try { p = sessionStorage.getItem('songspot.pendingBuy'); } catch (e) {} if (p && account.signedIn && !ctx.premium) { buyResumed = true; ctx.openPremium(null); } }
+  account.onChange(() => { stage?.render(); ads.sync(); if (account.signedIn && settings.get('mustProfile', false)) settings.set('mustProfile', false); });
+  /** Paid as a guest: the sign-in screen without a way out, until premium sits on a real profile. */
+  const mustProfile = async () => { if (account.isGuest) (await lazy('login', 'openLogin', 'app'))(ctx, { forced: true }); };
   // Friends: the heartbeat (online + incoming challenges) and the challenge banner.
   // A 1v1 opens out of whatever is on screen: the menu closes, the stage goes quiet.
   loadCSS('friends');
@@ -107,11 +106,15 @@ export function loadCSS(name) {
   // Back from Stripe Checkout: say so, and look for the grant (the webhook may take a moment).
   if (q.get('checkout') === 'success') {
     history.replaceState(null, '', location.pathname);
+    // Paid as a guest: a profile is next, and the screen stays until they have one (see mustProfile below).
+    if (account.isGuest) { settings.set('mustProfile', true); mustProfile(); }
     toast('Thanks! Switching premium on…', 5);
     for (let i = 0; i < 8 && !(await account.refreshPremium()); i++) await new Promise(r => setTimeout(r, 1500));
     toast(account.premium ? "You're premium. No more ad breaks." : 'Payment received. Premium switches on in a moment — reload if it does not.', 6);
     stage.render();
   } else if (q.get('checkout') === 'cancel') history.replaceState(null, '', location.pathname);
+  // Came back without finishing the profile (closed the tab, reloaded): it is still the first thing they see.
+  if (account.isGuest && (settings.get('mustProfile', false) || account.premium)) mustProfile();
 
   // A party link: songspotapp.com/?party=CODE opens the room.
   const party = (q.get('party') || '').toUpperCase();

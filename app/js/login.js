@@ -1,21 +1,24 @@
 // Sign in: LoginGateView.swift on the web. The dark stage, the ghosted
-// wordmark and the white buttons at the foot. On the web it is never a gate —
-// "Not now" goes back to the game. Only providers that are set up for the web
+// wordmark and the white buttons at the foot. On the web it is not a gate —
+// "Not now" goes back to the game — except after paying as a guest: then
+// { forced: true } keeps it up until they have a profile, so premium is theirs. Only providers that are set up for the web
 // are offered (a provider without a web client answers 400, and the button
 // would only fail).
 import { el, esc } from './ui.js';
 import { I } from './icons.js';
 
-export async function openLogin(ctx) {
-  if (document.querySelector('.login')) return;
+export async function openLogin(ctx, { forced = false } = {}) {
+  const open = document.querySelector('.login');
+  if (open && !(forced && !open.classList.contains('forced'))) return;
+  if (open) open.remove();
   const { account, sound } = ctx;
   let returning = false, working = null;
-  const node = el(`<div class="login" role="dialog" aria-modal="true" aria-label="Sign in"><div class="wordmark">songspot</div><div class="inner rise"><p class="fine" style="margin:0 0 8px"><i class="spin s"></i></p></div></div>`);
+  const node = el(`<div class="login${forced ? ' forced' : ''}" role="dialog" aria-modal="true" aria-label="${forced ? 'Make your profile' : 'Sign in'}"><div class="wordmark">songspot</div>${forced ? `<div class="paid rise"><div class="pk">${I.crown}<span>PREMIUM</span></div><h2>You're premium</h2><p>Make a profile to keep it. Premium is saved to it, on any device.</p></div>` : ''}<div class="inner rise"><p class="fine" style="margin:0 0 8px"><i class="spin s"></i></p></div></div>`);
   document.body.appendChild(node);
   const inner = node.querySelector('.inner');
   const [apple, google] = await Promise.all([account.providerReady('apple'), account.providerReady('google')]);
   const close = () => { document.removeEventListener('keydown', onKey); node.remove(); };
-  const onKey = e => { if (e.key === 'Escape') close(); };
+  const onKey = e => { if (e.key === 'Escape' && !forced) close(); };
   document.addEventListener('keydown', onKey);
   const paint = err => {
     const any = apple || google;
@@ -24,7 +27,7 @@ export async function openLogin(ctx) {
       ${google ? `<button class="oauth" data-press data-p="google">${working === 'google' ? '<i class="spin"></i>' : `${I.google}<span>${returning ? 'Sign in with Google' : 'Continue with Google'}</span>`}</button>` : ''}
       <button class="btn quiet toggle" data-press><span style="color:var(--muted)">${returning ? 'New here?' : 'Already have a profile?'}</span>&nbsp;<span style="color:var(--text)">${returning ? 'Create a profile' : 'Sign in'}</span></button>
       ${err ? `<p class="err">${esc(err)}</p>` : ''}
-      <button class="btn quiet notnow" data-press>Not now</button>
+      ${forced ? '' : '<button class="btn quiet notnow" data-press>Not now</button>'}
       <p class="fine">Your stats, daily results and premium follow your account to the iPhone app. <a href="/privacy" target="_blank">Privacy</a></p>`
       : `<p class="fine" style="font-size:13px;color:var(--muted)">Signing in on the web is almost ready. Until then your progress is kept in this browser, and premium bought here stays with it.</p>
       <button class="btn surface notnow" data-press style="margin-top:8px">Keep playing</button>`;
@@ -33,7 +36,7 @@ export async function openLogin(ctx) {
   node.addEventListener('click', async e => {
     const b = e.target.closest('button'); if (!b) return;
     sound.click();
-    if (b.classList.contains('notnow')) return close();
+    if (b.classList.contains('notnow') && !forced) return close();
     if (b.classList.contains('toggle')) { returning = !returning; return paint(); }
     const p = b.dataset.p; if (!p || working) return;
     working = p; paint();

@@ -32,7 +32,8 @@ async function userForCustomer(customer) {
   return rows?.[0]?.user_id || null;
 }
 async function syncSubscription(sub) {
-  const userId = sub.metadata?.user_id || await userForCustomer(sub.customer);
+  // The customer link first: it follows a guest's purchase to the profile they made after paying.
+  const userId = (await userForCustomer(sub.customer)) || sub.metadata?.user_id;
   if (!userId) return;
   await db('POST', 'stripe_customers', { user_id: userId, customer_id: sub.customer, subscription_id: sub.id, status: sub.status, updated_at: new Date().toISOString() }, 'resolution=merge-duplicates,return=minimal').catch(() => {});
   if (LIVE.has(sub.status)) await grant(userId, { note: 'monthly', expires: periodEnd(sub) + GRACE, ref: sub.id });
@@ -50,7 +51,7 @@ export default async function handler(req, res) {
     switch (event.type) {
       case 'checkout.session.completed':
       case 'checkout.session.async_payment_succeeded': {
-        const userId = o.metadata?.user_id || o.client_reference_id;
+        const userId = (await userForCustomer(o.customer)) || o.metadata?.user_id || o.client_reference_id;
         if (!userId) break;
         if (o.customer) await db('POST', 'stripe_customers', { user_id: userId, customer_id: o.customer, updated_at: new Date().toISOString() }, 'resolution=merge-duplicates,return=minimal').catch(() => {});
         if (o.mode === 'payment' && o.payment_status === 'paid') await grant(userId, { note: 'lifetime', expires: null, ref: o.payment_intent || o.id });
@@ -70,7 +71,7 @@ export default async function handler(req, res) {
       case 'charge.refunded': {
         if (!o.refunded) break;                                    // only a full refund takes lifetime back
         const pi = o.payment_intent && await stripe('GET', `payment_intents/${o.payment_intent}`);
-        const userId = pi?.metadata?.user_id; if (userId && pi.metadata.plan === 'lifetime') await revoke(userId, 'lifetime');
+        const userId = (await userForCustomer(pi?.customer || o.customer)) || pi?.metadata?.user_id; if (userId && pi?.metadata?.plan === 'lifetime') await revoke(userId, 'lifetime');
         break;
       }
       default: break;
