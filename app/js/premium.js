@@ -9,7 +9,7 @@ import { auth } from './supabase.js';
 
 export const PERKS = [
   { key: 'ads', icon: I.mute, title: 'No ad breaks', detail: 'Free play stops for a short ad after every five rounds. Premium never does, and hears 20 seconds on the last stage instead of 15.' },
-  { key: 'ranked', icon: I.trophy, title: 'Ranked', detail: 'Five-round matches, a ladder from Bronze to Legend, and a new season every month. Your first match is free.' },
+  { key: 'ranked', icon: I.trophy, title: 'Ranked', detail: 'Five-round matches, a ladder from Bronze to Legend, and a new season every month.' },
   { key: 'host', icon: I.people, title: 'Host parties', detail: 'Your own room code for up to fifty phones. Joining stays free for everyone.' },
   { key: 'artist', icon: I.mic, title: 'One-artist mode', detail: "Play only one artist's songs — on your own, or for the whole party you host." },
 ];

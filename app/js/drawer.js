@@ -69,7 +69,7 @@ export async function openDrawer(ctx) {
           : online > 0 ? `<span class="pl-stat pl-wide"><i class="pl-dot" style="background:${TIER_COLOR.easy}"></i>${n(online)} online</span>${chev}` : chev;
         return `<div class="pgroup card" data-fit-group>`
           + prow('party', 'Play with friends', `Up to ${n(50)} players`, I.people, TIER_COLOR.impossible, chev)
-          + prow('ranked', 'Play ranked', ctx.premium ? 'Climb the ladder' : freeMatch ? 'First match free' : 'Part of Premium', I.trophy, TIER_COLOR.medium, rank + (rankedOpen ? chev : lock))
+          + prow('ranked', 'Play ranked', ctx.premium || freeMatch ? 'Climb the ladder' : 'Part of Premium', I.trophy, TIER_COLOR.medium, rank + (rankedOpen ? chev : lock))
           + prow('friends', 'Friends', friendsSub, TWO, TIER_COLOR.hard, friendsEnd)
           + `</div>`;
       })()}
