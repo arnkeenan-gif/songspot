@@ -36,7 +36,7 @@ export async function stripe(method, path, params) {
   const url = `https://api.stripe.com/v1/${path}` + (method === 'GET' && body ? `?${body}` : '');
   const r = await fetch(url, {
     method,
-    headers: { Authorization: `Bearer ${env('STRIPE_SECRET_KEY')}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Stripe-Version': '2024-06-20' },
+    headers: { Authorization: `Bearer ${env('STRIPE_SECRET_KEY')}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Stripe-Version': '2025-03-31.basil' },
     body: method === 'GET' ? undefined : body,
   });
   const d = await r.json();
