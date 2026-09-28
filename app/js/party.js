@@ -3,7 +3,7 @@
 // and the board, the podium. The room, the rules and the wire live in
 // partygame.js and speak the iPhone's own PartyMessage JSON, so a browser
 // and an iPhone can sit in the same room. Sizes are the SwiftUI points.
-import { PartyGame, MAX_PLAYERS, ROUND_OPTIONS, DIFFICULTIES, WINDOWS, YEARS, normaliseCode } from './partygame.js';
+import { PartyGame, MAX_PLAYERS, ROUND_OPTIONS, DIFFICULTIES, WINDOWS, YEARS, normaliseCode, TEAM_MODES, teamName, teamColor, teamModeLabel, describeTeams, lobbyTeams, teamStandings } from './partygame.js';
 import { choiceGrid } from './choices.js';
 import { confetti } from './confetti.js';
 import { Haptics } from './haptics.js';
@@ -21,6 +21,16 @@ const CPU = '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor
 // person.fill.xmark, for the host's Kick.
 const PERSON_X = '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9.5" cy="7.5" r="3.6" fill="currentColor" stroke="none"/><path d="M2.8 20c0-3.6 3-6 6.7-6s6.7 2.4 6.7 6z" fill="currentColor" stroke="none"/><path d="M17.5 8.5l4 4M21.5 8.5l-4 4"/></svg>';
 const HOURGLASS = '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg>';
+
+const SHUFFLE = '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h3.5c2 0 3.2.9 4.3 2.6l2.4 6.8c1.1 1.7 2.3 2.6 4.3 2.6H21M3 18h3.5c2 0 3.2-.9 4.3-2.6M13.2 8.6c1.1-1.7 2.3-2.6 4.3-2.6H21M18.5 3.5 21 6l-2.5 2.5M18.5 15.5 21 18l-2.5 2.5"/></svg>';
+const ARROW_R = '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M13 8.5 16.5 12 13 15.5"/></svg>';
+/** A team's name with its colour: a short bar and the name in small caps (TeamLabel). */
+const teamLabel = (t, size = 11) => `<span class="tlabel" style="--t:${teamColor(t)};font-size:${size}px"><i></i>${esc(teamName(t).toUpperCase())}</span>`;
+/** Faces overlapping left to right, each cut out of the page, with a count for the rest (FaceStack). */
+const faceStack = (ps, size = 22, limit = 5) => {
+  const shown = ps.slice(0, limit);
+  return `<span class="fstack" style="--s:${size}px">${shown.map(p => avatar(p.name, p.avatar, hueColor(p.hue), size, p.team != null ? teamColor(p.team) : null)).join('')}${ps.length > shown.length ? `<span class="pav more" style="width:${size}px;height:${size}px;font-size:${(size * 0.38).toFixed(1)}px">+${ps.length - shown.length}</span>` : ''}</span>`;
+};
 
 /** 1st, 2nd, 3rd, 4th … 11th, 12th, 13th … 21st. */
 const ordinal = n => { const t = n % 100, u = n % 10; return n + (t >= 11 && t <= 13 ? 'th' : u === 1 ? 'st' : u === 2 ? 'nd' : u === 3 ? 'rd' : 'th'); };
@@ -140,10 +150,12 @@ function roll(el, to, sp, down = false) {
 }
 
 /** A face as the app draws it: the picture, the initial on the player's colour, or a person on grey. */
-function avatar(name, pic, color, size) {
+function avatar(name, pic, color, size, tint = null) {
   const n = String(name || '').trim();
   const box = `width:${size}px;height:${size}px`;
   if (pic) return `<img class="pav" src="data:image/jpeg;base64,${esc(pic)}" alt="" style="${box}">`;
+  // In a team game: the initial in the team's colour on a dark disc (PartyFace's tint).
+  if (tint && n) return `<span class="pav tint" style="${box};--t:${tint};font-size:${(size * 0.44).toFixed(1)}px">${esc(n[0].toUpperCase())}</span>`;
   if (!n) return `<span class="pav none" style="${box};font-size:${Math.round(size * 0.4)}px">${I.person}</span>`;
   return `<span class="pav" style="${box};background:${color};font-size:${(size * 0.44).toFixed(1)}px">${esc(n[0].toUpperCase())}</span>`;
 }
@@ -156,7 +168,9 @@ export function mountParty(ctx, opts = {}) {
   const qs = new URLSearchParams(location.search);
   const knob = k => local && (qs.has(k) || (qs.get('demo') || '').toLowerCase() === k.toLowerCase().replace(/^demo/, ''));
   const demoDuelResult = knob('demoDuelResult');
-  const game = new PartyGame(pool, { loopback: knob('demoParty') || knob('showDuel') || knob('showJoining') || demoDuelResult, standIns: knob('demoParty') });
+  const demoTeams = knob('demoTeams');
+  const demoTeamStage = knob('demoTeamRound') ? 'round' : knob('demoTeamResult') ? 'finished' : null;
+  const game = new PartyGame(pool, { loopback: knob('demoParty') || demoTeams || !!demoTeamStage || knob('showDuel') || knob('showJoining') || demoDuelResult, standIns: knob('demoParty') || demoTeams });
   // The raw wire, for anyone checking it from the console.
   const wire = (window.__partyWire = []);
   game.transport.tap = (dir, m) => { wire.push({ dir, t: Date.now(), m: JSON.parse(JSON.stringify(m)) }); if (wire.length > 400) wire.shift(); };
@@ -178,7 +192,7 @@ export function mountParty(ctx, opts = {}) {
   // { name, bot, friendId } hosts and invites (.challenge); { join: code, name } answers one (.join).
   const launch = opts.duel || (knob('showDuel') || demoDuelResult ? { name: 'Songbot', bot: true } : null);
   const isDuel = !!launch;
-  let recordedGame = demoDuelResult;   // a demo result is not a game played
+  let recordedGame = demoDuelResult || !!demoTeamStage;   // a demo result is not a game played
   let challengeNote = null, challengeID = null;
   view.style.cssText = Object.entries(MOTION).map(([k, v]) => `${k}:${v.css}`).join(';');
 
@@ -196,11 +210,16 @@ export function mountParty(ctx, opts = {}) {
   const roundHead = withClose => `<div class="pthead"><div class="rnd"><small>ROUND</small><div><b class="mono">${game.round + 1}</b><span class="mono">/ ${game.settings.rounds}</span></div></div><div class="sp"></div>${tierPill()}${withClose ? `<button class="xbtn sm" data-press data-act="close" aria-label="Leave">${I.x}</button>` : ''}</div>`;
 
   // ---------- screens ----------
+  /** The way in: the album wall drifting behind, the pitch up top, everything you touch low on the screen. */
   function entry() {
     const premium = ctx.premium, n = name();
     return `${bar('Party', true)}
+      <div class="flex"></div>
+      <div class="phub"><div class="hero">
       <h2 class="ptitle">Play with friends</h2>
       <p class="plead">Everyone hears the same clip at the same moment. The fastest right answer scores the most.</p>
+      <p class="pfacts"><span>Up to 50 players</span><i></i><span>Solo or teams</span><i></i><span>Free to join</span></p>
+      </div><div class="acts">
       <button class="prow card" data-press data-act="profile">
         ${avatar(n, account.avatar, TIER_COLOR.easy, 46)}
         <span class="who"><small>PLAYING AS</small><b class="${n ? '' : 'none'}">${esc(n || 'Add your name')}</b></span>
@@ -211,12 +230,24 @@ export function mountParty(ctx, opts = {}) {
         <span class="tx"><b>Host a party</b><small>${premium ? 'Get a code, play live with up to 50 people.' : 'Hosting is a premium perk. Joining a party is free for everyone.'}</small></span>
         ${premium ? `<i class="chev">${I.chevron}</i>` : '<span class="ptag">PREMIUM</span>'}
       </button>
-      <div class="por"><i></i><span>or</span><i></i></div>
+      <div class="por"><i></i><span>HAVE A CODE?</span><i></i></div>
       <div class="pjoin">
-        <input class="pcode ${codeEntry.length === 5 ? 'full' : ''}" value="${esc(codeEntry)}" placeholder="ROOM CODE" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="5" aria-label="Room code" enterkeyhint="go">
+        <label class="pcodebox ${codeEntry.length === 5 ? 'full' : ''}" data-keep>
+          <input class="pcode" value="${esc(codeEntry)}" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="5" aria-label="Room code" enterkeyhint="go">
+          <span class="boxes" aria-hidden="true">${codeBoxes()}</span>
+        </label>
         <button class="pgo ${codeEntry.length === 5 ? 'on' : ''}" data-press data-act="join" ${codeEntry.length === 5 ? '' : 'disabled'}>Join</button>
-      </div>
-      <div class="flex"></div>`;
+      </div></div></div>`;
+  }
+  /** The five boxes the room code fills as it is typed; the input sits under them, invisible. */
+  const codeBoxes = () => Array.from({ length: 5 }, (_, i) => {
+    const c = codeEntry[i], active = i === Math.min(codeEntry.length, 4) && codeEntry.length < 5;
+    return `<span class="${c ? 'has' : ''} ${active ? 'at' : ''}">${c ? esc(c) : '<i></i>'}</span>`;
+  }).join('');
+  function paintCode() {
+    const box = scr.querySelector('.pcodebox'); if (!box) return;
+    box.querySelector('.boxes').innerHTML = codeBoxes();
+    box.classList.toggle('full', codeEntry.length === 5);
   }
   const opponentName = () => game.players.find(p => p.id !== game.myID)?.name || launch?.name || 'your friend';
   /** Opening or joining a room: your face in two counter-turning rings, a headline that says what is happening, a way out. */
@@ -242,34 +273,57 @@ export function mountParty(ctx, opts = {}) {
       <button class="pcancel" data-press data-act="close">Cancel</button>`;
   }
 
+  /** What the game is set to, as a receipt: label left, value right, a hairline between. */
+  function summaryCard() {
+    const s = game.settings;
+    const rows = [['Songs', game.songsLabel]];
+    if (game.teamsOn) rows.push(['Teams', teamModeLabel(s.teams)]);
+    rows.push(['Rounds', String(s.rounds), 1], ['Difficulty', s.difficulty === 'mixed' ? 'Easy → Impossible' : cap(s.difficulty)],
+      ['Time per song', `${Math.round(s.guessWindow)}s`, 1], ['Years', s.era === 'all' ? 'Any' : `The ${s.era}`]);
+    return `<div class="shead"><small>GAME SETTINGS</small><div class="sp"></div>${game.isHost ? `<span style="color:${accent()}">Edit</span><i class="chev">${I.chevron}</i>` : ''}</div>
+      ${rows.map(([k, v, mono]) => `<div class="rrow"><span>${esc(k)}</span><b class="${mono ? 'mono' : ''}">${esc(v)}</b></div>`).join('')}`;
+  }
+  function tile(p) {
+    const me = p.id === game.myID, team = game.teamsOn;
+    const c = team ? teamColor(p.team ?? 0) : hueColor(p.hue);
+    // The host holds a player down (or right-clicks them) for the menu: the teams to move to, and Kick.
+    const menu = game.isHost && (!me || team) ? ` data-kick="${esc(p.id)}"` : '';
+    const face = team ? avatar(p.name, p.avatar, c, 60, c) : pav(p, 60);
+    return `<div class="ptile${team && game.isHost ? ' mv' : ''}" data-k="${esc(p.id)}"${menu} data-enter data-exit><span class="ring" style="outline:${me ? 3 : 2}px solid ${c};outline-offset:${me ? 1.5 : 2}px">${face}${p.isHost ? `<i class="crownb">${I.crown}</i>` : ''}</span>
+      <b class="${me ? 'me' : ''}">${esc(p.name)}</b><small style="color:${me ? c : 'var(--dim)'}">${me ? 'you' : p.isHost ? 'host' : '&nbsp;'}</small></div>`;
+  }
   function lobby() {
     const n = game.players.length, empty = n < MAX_PLAYERS ? Math.max(1, 4 - n) : 0;
-    const tiles = game.players.map(p => {
-      const c = hueColor(p.hue), me = p.id === game.myID;
-      // The host holds a player down (or right-clicks them) to remove them.
-      const kick = game.isHost && !me ? ` data-kick="${esc(p.id)}"` : '';
- return `<div class="ptile" data-k="${esc(p.id)}"${kick} data-enter data-exit><span class="ring" style="outline:${me ? 3 : 2}px solid ${c};outline-offset:${me ? 1.5 : 2}px">${pav(p, 60)}${p.isHost ? `<i class="crownb">${I.crown}</i>` : ''}</span>
-        <b class="${me ? 'me' : ''}">${esc(p.name)}</b><small style="color:${me ? c : 'var(--dim)'}">${me ? 'you' : p.isHost ? 'host' : '&nbsp;'}</small></div>`;
-    }).join('') + Array.from({ length: empty }, (_, i) => `<div class="ptile seat" data-k="seat-${i}" data-enter data-exit><span class="dash">${I.plus}</span><b>waiting</b>${dots('var(--dim)')}</div>`).join('');
-    const s = game.settings;
-    const row = (icon, text) => `<div class="srow"><i style="color:${accent()}">${icon}</i><span>${esc(text)}</span></div>`;
-    const summary = `${game.isHost ? `<div class="shead"><small>GAME SETTINGS</small><div class="sp"></div><span style="color:${accent()}">Edit</span><i class="chev">${I.chevron}</i></div>` : ''}
-      ${row(I.hash, `${s.rounds} rounds`)}${row(I.bars, s.difficulty === 'mixed' ? 'Easy to Impossible' : cap(s.difficulty))}
-      ${row(I.timer, `${Math.round(s.guessWindow)} seconds a song`)}${row(I.calendar, s.era === 'all' ? 'Any year' : `The ${s.era}`)}
-      ${row(s.artist ? I.mic : I.genres, game.songsLabel)}`;
+    let seats;
+    if (game.teamsOn) {
+      seats = lobbyTeams(game.players, game.settings.teams).map(t => `<div class="pteam" data-k="team-${t.team}">
+        <div class="th">${teamLabel(t.team)}<div class="sp"></div><span class="mono">${t.members.length}</span></div>
+        ${t.members.length ? `<div class="pgrid">${t.members.map(tile).join('')}</div>` : `<p class="tempty">${game.isHost ? 'Empty. Tap a player to move them here.' : 'No one yet'}</p>`}</div>`).join('');
+      seats = `<div class="pteams">${seats}</div>`;
+    } else {
+      seats = `<div class="pgrid">${game.players.map(tile).join('') + Array.from({ length: empty }, (_, i) => `<div class="ptile seat" data-k="seat-${i}" data-enter data-exit><span class="dash">${I.plus}</span><b>waiting</b>${dots('var(--muted)')}</div>`).join('')}</div>`;
+    }
     const foot = game.isHost
       ? `<button class="pstart ${game.canStart ? 'on' : ''} ${glow() ? 'glow' : ''}" data-press data-act="start" ${!game.canStart || game.preparingSongs ? 'disabled' : ''}>${game.preparingSongs ? 'Getting the songs ready…' : game.canStart ? (isDuel ? 'Start the 1v1' : 'Start the party') : (isDuel ? `Waiting for ${esc(opponentName())}` : 'Waiting for players')}</button>`
       : `<div class="pwait">${dots('var(--muted)')}<span>Waiting for ${esc(game.hostName || 'the host')} to start</span></div>`;
+    const right = game.isHost && game.teamsOn
+      ? `<button class="pshuf" data-press data-act="shuffle">${SHUFFLE}<span>Shuffle</span></button>`
+      : `<small>up to ${MAX_PLAYERS}</small>`;
+    // A phone reads it top to bottom; a desktop (html.wide) puts the room in a side column
+    // — code, settings, start — and the players across the rest (party.css).
     return `${bar('Waiting room')}
-      <div class="pscroll">
+      <div class="pscroll"><div class="plob"><aside class="side">
         ${challengeNote ? `<div class="pnote" data-enter>${I.bolt}<span>${esc(challengeNote)}</span></div>` : ''}
         <div class="pcodeblock"><small>ROOM CODE</small><div class="big mono ${glow() ? 'glow' : ''}" style="color:${accent()}">${esc(game.code)}</div>
           <button class="pshare" data-press data-act="share">${I.share}<span>Share the code</span></button></div>
-        <div class="pcount"><span><b class="mono">${n}</b> ${n === 1 ? 'player' : 'players'}</span><small>room for ${MAX_PLAYERS}</small></div>
-        <div class="pgrid">${tiles}</div>
-        ${game.isHost ? `<button class="psum card" data-press data-act="settings">${summary}</button>` : `<div class="psum card">${summary}</div>`}
-      </div>
-      ${foot}`;
+        ${game.isHost ? `<button class="psum card" data-press data-act="settings">${summaryCard()}</button>` : `<div class="psum card">${summaryCard()}</div>`}
+        <div class="wfoot">${foot}</div>
+      </aside><section class="main">
+        <div class="pcount"><span><b class="mono">${n}</b> ${n === 1 ? 'player' : 'players'}${game.teamsOn ? ` · ${esc(teamModeLabel(game.settings.teams))}` : ''}</span>${right}</div>
+        ${game.isHost && game.teamsOn ? '<p class="phint">Tap a player to switch team. Hold for more.</p>' : ''}
+        ${seats}
+      </section></div></div>
+      <div class="pfoot">${foot}</div>`;
   }
 
   /** The 1v1 room: the two of you face to face, the host's settings under you, one button. */
@@ -282,12 +336,7 @@ export function mountParty(ctx, opts = {}) {
   }
   function duelLobby() {
     const me = game.me, other = game.players.find(p => p.id !== game.myID);
-    const s = game.settings;
-    const row = (icon, text) => `<div class="srow"><i style="color:${accent()}">${icon}</i><span>${esc(text)}</span></div>`;
-    const summary = `${game.isHost ? `<div class="shead"><small>GAME SETTINGS</small><div class="sp"></div><span style="color:${accent()}">Edit</span><i class="chev">${I.chevron}</i></div>` : ''}
-      ${row(I.hash, `${s.rounds} rounds`)}${row(I.bars, s.difficulty === 'mixed' ? 'Easy to Impossible' : cap(s.difficulty))}
-      ${row(I.timer, `${Math.round(s.guessWindow)} seconds a song`)}${row(I.calendar, s.era === 'all' ? 'Any year' : `The ${s.era}`)}
-      ${row(s.artist ? I.mic : I.genres, game.songsLabel)}`;
+    const summary = summaryCard();
     const note = challengeNote ? `<div class="pnote duel ${other ? '' : 'wait'}">${other ? I.bolt : HOURGLASS}<span>${esc(other ? `${other.name} is in. ${game.isHost ? 'Pick the settings and start.' : ''}` : challengeNote)}</span></div>` : '';
     const n = name();
     const empty = `<div class="dseat empty"><span class="dash">${dots('var(--muted)')}</span><b>${esc(opponentName())}</b><small>invited</small></div>`;
@@ -310,7 +359,36 @@ export function mountParty(ctx, opts = {}) {
       <div class="pslam${slamRound === game.round ? ' in' : ''}"><b>${n === game.settings.rounds ? 'FINAL' : `ROUND ${n}`}</b><span style="color:${accent()}">${esc(tier().toUpperCase())}</span></div>
       <div class="pcount-screen"><div class="num ${glow() ? 'glow' : ''}" style="color:${accent()}" data-keep><span class="n"></span></div></div>
       <div class="flex"></div>
-      <div class="pstrip" style="gap:${game.players.length > 6 ? 6 : 10}px;padding-bottom:44px">${shown.map(p => pav(p, size)).join('')}${overflow(shown.length, size)}</div>`;
+      ${game.teamsOn ? teamLine() : `<div class="pstrip" style="gap:${game.players.length > 6 ? 6 : 10}px;padding-bottom:44px">${shown.map(p => pav(p, size)).join('')}${overflow(shown.length, size)}</div>`}`;
+  }
+
+  /** The teams as they stand, in one line under the count. */
+  function teamLine() {
+    const st = teamStandings(game.players, game.settings.teams).slice(0, 4), mine = game.myTeam;
+    return `<div class="pteamline">${mine != null ? `<p style="color:${teamColor(mine)}">You're on ${esc(teamName(mine))}</p>` : ''}
+      <div>${st.map(t => `<span><i style="background:${t.color}"></i><b>${esc(t.name)}</b><em class="mono">${t.score}</em></span>`).join('')}</div></div>`;
+  }
+  /** The round result in a team game: each team's average, then your own team player by player. */
+  function teamBoard() {
+    const gained = game.lastGained, mode = game.settings.teams, mt = game.myTeam;
+    const now = teamStandings(game.players, mode, gained);
+    const old = new Map(teamStandings(game.players.map(p => ({ ...p, score: scoresBefore[p.id] || 0 })), mode).map(t => [t.id, t.score]));
+    const top = Math.max(1, now[0]?.score || 1), cut = 5;
+    let visible = now.slice(0, cut).map((t, i) => [i, t]);
+    const mi = now.findIndex(t => t.id === mt); if (mi >= cut) visible.push([mi, now[mi]]);
+    const rows = visible.map(([i, t]) => {
+      const shown = revealed ? t.score : (old.get(t.id) || 0);
+      return `<div class="tbrow" data-k="t${t.id}"><span class="rk mono" style="color:${i === 0 ? 'var(--text)' : 'var(--dim)'}">${i + 1}</span>
+        <div class="mid"><div class="top"><b class="${t.id === mt ? 'me' : ''}">${esc(t.name)}</b>${t.id === mt ? `<small style="color:${t.color}">YOU</small>` : ''}<div class="sp"></div>${faceStack(t.members, 20, 4)}
+        ${t.gained > 0 ? `<span class="gain mono" style="color:${t.color}">+${t.gained}</span>` : ''}<span class="sc mono" data-keep data-to="${t.score}">${shown}</span></div>
+        <div class="trackbar"><i style="background:${t.color};width:max(6px, ${(100 * shown / top).toFixed(2)}%)"></i></div></div></div>`;
+    }).join('');
+    const mine = now.find(t => t.id === mt);
+    const own = mine ? `<div class="tmine"><div class="h">${teamLabel(mine.id, 9.5)}<small>THIS ROUND</small></div>
+      ${mine.members.slice().sort((a, b) => (gained[b.id] || 0) - (gained[a.id] || 0)).slice(0, 5).map(p => { const g = gained[p.id] || 0;
+        return `<div class="r">${avatar(p.name, p.avatar, mine.color, 24, mine.color)}<b>${esc(p.name)}</b><div class="sp"></div><span class="mono" style="color:${g > 0 ? mine.color : 'var(--dim)'}">${g > 0 ? '+' + g : '—'}</span></div>`; }).join('')}
+      ${mine.members.length > 5 ? `<small class="more">+${mine.members.length - 5} more</small>` : ''}</div>` : '';
+    return `<div class="pboard teams ${revealed ? 'rev' : ''}"><small class="cap">TEAMS</small>${rows}<i class="hr"></i><small class="note">Team score is the average of its players</small></div>${own}`;
   }
 
   function playing() {
@@ -359,7 +437,7 @@ export function mountParty(ctx, opts = {}) {
       ${a ? `<div class="phero">${a.artwork ? `<span class="cov">${glow() ? `<img class="bloom" src="${esc(art(a.artwork, 300))}" alt="">` : ''}<img class="art" src="${esc(art(a.artwork, 300))}" alt=""></span>` : ''}
         <span class="tx"><small style="color:${accent()}">IT WAS_</small><b>${esc(a.title)}</b><span>${esc(a.artist)}</span></span></div>` : ''}
       <div class="pverdict" style="color:${verdictCol};background:${pts > 0 ? myColor() + '1f' : 'rgba(168,168,168,.12)'}"><i>${pts > 0 ? I.bolt : I.x}</i><span>${pts > 0 ? 'You scored' : game.wrong.has(game.myID) ? 'Wrong answer' : 'Missed it'}</span><div class="sp"></div><b class="mono">+${pts}</b></div>
-      <div class="pboard ${revealed ? 'rev' : ''}">${rows}${ranked.length > cut + (visible.length > cut ? 1 : 0) ? `<small class="more">+${ranked.length - visible.length} more</small>` : ''}</div>
+      ${game.teamsOn ? teamBoard() : `<div class="pboard ${revealed ? 'rev' : ''}">${rows}${ranked.length > cut + (visible.length > cut ? 1 : 0) ? `<small class="more">+${ranked.length - visible.length} more</small>` : ''}</div>`}
       <div class="flex"></div>
       ${game.isHost ? `<button class="pnext" data-press data-act="next" style="background:${accent()};color:${ink()}">${last ? 'See the podium' : 'Next round'}</button>`
         : `<div class="pwait h54">${dots('var(--muted)')}<span>Waiting for the host</span></div>`}`;
@@ -376,6 +454,9 @@ export function mountParty(ctx, opts = {}) {
     }).join('');
     // Fourth and fifth under the podium; anyone lower sees only their own place.
     const rest = ranked.slice(3, 5).map((p, i) => `<div class="restrow"><span class="rk mono">${i + 4}</span>${pav(p, 26)}<b>${esc(p.name)}</b><div class="sp"></div><span class="mono">${p.score}</span></div>`).join('');
+    if (game.teamsOn) return `${bar('Results')}${teamFinal()}<div class="flex"></div>
+      ${game.isHost ? '<button class="pagain" data-press data-act="again">Play again</button>' : ''}
+      <button class="pleave" data-act="close">Leave the party</button>`;
     return `${bar('Results')}
       <h2 class="pwin">${first ? (first.id === game.myID ? 'You win!' : `${esc(first.name)} wins!`) : 'Game over'}</h2>
       <div class="podium">${podium}</div>
@@ -384,6 +465,26 @@ export function mountParty(ctx, opts = {}) {
       <div class="flex"></div>
       ${game.isHost ? '<button class="pagain" data-press data-act="again">Play again</button>' : ''}
       <button class="pleave" data-act="close">Leave the party</button>`;
+  }
+
+  /** A team game's final: the winning team named, the teams on a podium with their players on top, the best player and your place. */
+  function teamFinal() {
+    const ranked = teamStandings(game.players, game.settings.teams), me = game.me;
+    const winners = ranked.filter(t => t.score === ranked[0]?.score);
+    const title = !ranked.length ? 'Game over' : winners.length > 1 ? "It's a tie!" : ranked[0].id === me?.team ? 'Your team wins!' : `Team ${esc(ranked[0].name)} wins!`;
+    const top = ranked.slice(0, 3), order = top.length === 2 ? [0, 1] : [1, 0, 2].filter(i => i < top.length);
+    const heights = [124, 88, 64], delays = [0.45, 0.7, 0.9];
+    const podium = order.map(i => { const t = top[i];
+      return `<div class="pod" style="--d:${delays[i]}s">${faceStack(t.members, i === 0 ? 30 : 24, 3)}<b>${esc(t.name)}</b><span class="sc mono" style="color:${t.color}">${t.score}</span>
+        <div class="blk" style="--h:${heights[i]}px;background:${t.color}${i === 0 ? 'e6' : '9e'}"><span>${i + 1}</span></div></div>`; }).join('');
+    const sorted = game.sortedPlayers, mvp = sorted[0], place = sorted.findIndex(p => p.id === game.myID);
+    const row = (rank, label, detail, value) => `<div class="rrow"><small class="mono">${rank}</small>${label}<div class="sp"></div>${detail}<span class="mono">${value}</span></div>`;
+    const rows = ranked.slice(3, 5).map((t, i) => row(i + 4, teamLabel(t.id, 10.5), faceStack(t.members, 18, 4), t.score)).join('')
+      + (mvp ? row('MVP', `${avatar(mvp.name, mvp.avatar, hueColor(mvp.hue), 20, mvp.team != null ? teamColor(mvp.team) : null)}<b>${esc(mvp.name)}</b>`, mvp.team != null ? teamLabel(mvp.team, 9) : '', mvp.score) : '')
+      + (me && place > 0 ? row('YOU', `<b>${ordinal(place + 1)} of ${sorted.length}</b>`, '', me.score) : '');
+    return `<div class="twin">${ranked.length && winners.length === 1 ? teamLabel(ranked[0].id, 11) : ''}<h2 class="pwin">${title}</h2></div>
+      <div class="podium teams">${podium}</div>
+      <div class="treceipt">${rows}</div>`;
   }
 
   /** A friend's 1v1 ends like ranked: the verdict, the two of you with your scores, the match again round by round, a rematch. */
@@ -463,11 +564,13 @@ export function mountParty(ctx, opts = {}) {
   /** The wall behind the room loader (veil .7) and the round countdown (veil .8); gone everywhere else. */
   function drawWall() {
     const loader = game.phase === 'connecting' || (game.phase === 'idle' && isDuel);
-    const on = loader || game.phase === 'countdown';
+    // The way in and the waiting room stand on it too, darker (veils .74 and .86).
+    const hub = game.phase === 'idle' && !isDuel, room = game.phase === 'lobby' && !isDuel;
+    const on = loader || hub || room || game.phase === 'countdown';
     let w = view.querySelector(':scope > .cwall');
     if (on) {
       const covers = CoverWall.covers(pool, { preset: wallPreset, category: game.settings.category, artist: game.settings.artist });
-      w = CoverWall.mount(view, covers, loader ? 0.7 : 0.8, 'fixed');
+      w = CoverWall.mount(view, covers, loader ? 0.7 : hub ? 0.74 : room ? 0.86 : 0.8, 'fixed');
     }
     w?.classList.toggle('off', !on);
   }
@@ -504,7 +607,11 @@ export function mountParty(ctx, opts = {}) {
       if (!recordedGame) {
         recordedGame = true;
         // A tie for first is a win for everyone on the top score.
-        const mine = game.me?.score || 0, won = mine > 0 && mine === (game.sortedPlayers[0]?.score || 0);
+        const mine = game.me?.score || 0, st = teamStandings(game.players, game.settings.teams);
+        // In a team game: everyone on a team with the top average (a tie counts).
+        const won = game.teamsOn && game.myTeam != null && st.length
+          ? st[0].score > 0 && st.find(t => t.id === game.myTeam)?.score === st[0].score
+          : mine > 0 && mine === (game.sortedPlayers[0]?.score || 0);
         try { account.recordParty(won, mine, game.myRoundsWon); } catch (e) {}
       }
       clearTimeout(podiumTimer);
@@ -512,7 +619,7 @@ export function mountParty(ctx, opts = {}) {
         if (game.phase !== 'finished' || closed) return;
         Haptics.success();
         sound.reveal();
-        const c = hueColor(game.sortedPlayers[0]?.hue ?? 0), r = view.getBoundingClientRect();
+        const c = game.teamsOn ? (teamStandings(game.players, game.settings.teams)[0]?.color || teamColor(0)) : hueColor(game.sortedPlayers[0]?.hue ?? 0), r = view.getBoundingClientRect();
         confetti(r.left + r.width / 2, r.top + r.height * 0.34, [c, '#ffffff', c], 140);
         // PartyView's confetti layer sits over the whole screen; the shared canvas sits under #views by default.
         const cv = [...document.querySelectorAll('canvas.confetti')].pop(); if (cv) cv.style.zIndex = '40';
@@ -637,15 +744,26 @@ export function mountParty(ctx, opts = {}) {
     const s = game.settings, a = accent();
     const minutes = Math.max(1, Math.round(s.rounds * (s.guessWindow + 9) / 60));
     const levels = DIFFICULTIES.map(([v, l]) => [v, l, v === 'mixed' ? a : TIER_COLOR[v], v === 'mixed' ? TIER_INK.easy : TIER_INK[v]]);
+    // Quiet chips, a dot of each level's colour; the pick filled in its colour.
     const chips = levels.map(([v, l, c, k]) => { const on = v === s.difficulty;
-      return `<button data-field="difficulty" data-v="${esc(v)}" class="${on ? 'on' : ''}" style="background:${on ? c : c + '1f'};color:${on ? k : c}">${esc(l)}</button>`; }).join('');
+      return `<button data-field="difficulty" data-v="${esc(v)}" class="${on ? 'on' : ''}" style="${on ? `background:${c};color:${k}` : ''}">${on ? '' : `<i style="background:${c}"></i>`}${esc(l)}</button>`; }).join('');
+    const on = game.teamsOn, teams = on ? lobbyTeams(game.players, s.teams) : [];
+    const preview = on ? `<div class="ptprev">${teams.slice(0, 6).map(t => `<div class="r">${teamLabel(t.team, 10.5)}<div class="sp"></div>${t.members.length ? faceStack(t.members, 24, 6) : '<small>empty</small>'}</div>`).join('')}
+      ${teams.length > 6 ? `<small class="more">+${teams.length - 6} more teams</small>` : ''}
+      <div class="f"><small>Team score is the average of its players, so uneven teams stay fair.</small><button class="pshuf in" data-press data-sact="shuffle">${SHUFFLE}<span>Shuffle</span></button></div></div>` : '';
     return `<div class="grab"></div><div class="pshead"><h3>Game settings</h3><button class="done" data-press data-sact="done">Done</button></div>
       <div class="psettings">
         <button class="psongs" data-press data-sact="songs"><span class="ic" style="background:${a};color:${TIER_INK.easy}">${s.artist ? I.mic : I.genres}</span>
-          <span class="tx"><small>SONGS</small><b>${esc(game.songsLabel)}</b></span><div class="sp"></div><span class="chg" style="color:${a}">Change</span></button>
+          <span class="tx"><small>SONGS</small><b>${esc(game.songsLabel)}</b></span><div class="sp"></div><span class="chg" style="color:${a}">Change</span><i class="chev">${I.chevron}</i></button>
+        <i class="prule"></i>
+        <div class="psblock teams">${settingRow('Teams', describeTeams(s.teams, game.players.length), TEAM_MODES, on ? s.teams : 'solo', 'teams')}${preview}</div>
+        <i class="prule"></i>
         ${settingRow('Rounds', `About ${minutes} min of play`, ROUND_OPTIONS.map(r => [r, String(r)]), s.rounds, 'rounds')}
+        <i class="prule"></i>
         <div class="psrow">${settingTitle('Difficulty', s.difficulty === 'mixed' ? 'Starts easy and climbs to Impossible by the last round' : `Every round at ${cap(s.difficulty)}`)}<div class="plevels">${chips}</div></div>
-        ${settingRow('Time per song', 'The clip plays the whole time; faster answers score more', WINDOWS.map(w => [w, w + 's']), Math.round(s.guessWindow), 'window')}
+        <i class="prule"></i>
+        ${settingRow('Time per song', 'The clip plays the whole time. Faster answers score more.', WINDOWS.map(w => [w, w + 's']), Math.round(s.guessWindow), 'window')}
+        <i class="prule"></i>
         ${settingRow('Years', s.era === 'all' ? 'Songs from any decade' : `Only songs from the ${s.era}`, YEARS, s.era, 'era')}
       </div>`;
   }
@@ -656,7 +774,8 @@ export function mountParty(ctx, opts = {}) {
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.sact === 'done') { settingsSheet.close(); return; }
       if (b.dataset.sact === 'songs') { sound.click(); openSongs(); return; }
-      const f = b.dataset.field; if (!f) return;
+      if (b.dataset.sact === 'shuffle') { sound.click(); Haptics.select(); game.shuffleTeams(); morph(settingsSheet.body, settingsBody()); game.pushSettings(); render(); return; }
+      const f = b.dataset.field; if (!f || b.classList.contains('on')) return;
       // A tick, a tap of the phone, and the room told.
       sound.click(); Haptics.select();
       const v = b.dataset.v, s = game.settings;
@@ -664,6 +783,7 @@ export function mountParty(ctx, opts = {}) {
       if (f === 'difficulty') s.difficulty = v;
       if (f === 'window') { s.guessWindow = parseInt(v, 10) || 20; s.clipSeconds = s.guessWindow; }
       if (f === 'era') s.era = v;
+      if (f === 'teams') game.setTeams(v === 'solo' ? null : v);
       morph(settingsSheet.body, settingsBody());
       game.pushSettings(); render();
     });
@@ -712,10 +832,14 @@ export function mountParty(ctx, opts = {}) {
   /** A small menu under the held player: "Kick <name>". */
   function openKickMenu(tile) {
     const id = tile.dataset.kick, p = game.players.find(x => x.id === id);
-    if (!game.isHost || !p || id === game.myID || kickMenu) return;
+    if (!game.isHost || !p || kickMenu || (id === game.myID && !game.teamsOn)) return;
     Haptics.press(0.6);
     const r = tile.getBoundingClientRect();
-    const box = el(`<div class="pkick"><div class="scrim" data-kact="dismiss"></div><div class="menu" role="menu"><button role="menuitem" data-kact="kick">${PERSON_X}<span>Kick ${esc(p.name)}</span></button></div></div>`);
+    // In a team game the menu offers the other teams first.
+    const moves = game.teamsOn ? lobbyTeams(game.players, game.settings.teams).map(t => t.team).filter(t => t !== p.team)
+      .map(t => `<button role="menuitem" class="mv" data-kact="move" data-team="${t}">${ARROW_R}<span>Move to ${esc(teamName(t))}</span></button>`).join('') : '';
+    const kick = id !== game.myID ? `<button role="menuitem" data-kact="kick">${PERSON_X}<span>Kick ${esc(p.name)}</span></button>` : '';
+    const box = el(`<div class="pkick"><div class="scrim" data-kact="dismiss"></div><div class="menu" role="menu">${moves}${kick}</div></div>`);
     const menu = box.querySelector('.menu');
     view.appendChild(box);
     const w = menu.offsetWidth, h = menu.offsetHeight;
@@ -725,6 +849,7 @@ export function mountParty(ctx, opts = {}) {
     box.addEventListener('click', e => {
       const b = e.target.closest('[data-kact]'); if (!b) return;
       if (b.dataset.kact === 'kick') { Haptics.press(0.8); game.kick(id); }
+      if (b.dataset.kact === 'move') { Haptics.select(); game.moveToTeam(id, +b.dataset.team); game.pushSettings(); }
       closeKickMenu();
     });
     kickMenu = box;
@@ -823,6 +948,13 @@ export function mountParty(ctx, opts = {}) {
   }
 
   view.addEventListener('click', e => {
+    // The host taps a player across to the next team.
+    const mv = e.target.closest('.ptile.mv');
+    if (mv && game.isHost && game.teamsOn && game.phase === 'lobby') {
+      sound.click(); Haptics.select();
+      game.moveToTeam(mv.dataset.k, game.nextTeam(mv.dataset.k)); game.pushSettings();
+      return;
+    }
     const b = e.target.closest('[data-act],[data-choice]'); if (!b || b.disabled) return;
     const choice = b.dataset.choice;
     if (choice != null) { sound.click(); Haptics.press(0.7); game.pick(choice); return; }
@@ -837,6 +969,7 @@ export function mountParty(ctx, opts = {}) {
       case 'join': join(); break;
       case 'share': share(); break;
       case 'settings': openSettings(); break;
+      case 'shuffle': Haptics.select(); game.shuffleTeams(); game.pushSettings(); break;
       case 'start': game.start(); break;
       case 'skip': game.skipRound(); break;
       case 'next': game.nextRound(); break;
@@ -859,7 +992,7 @@ export function mountParty(ctx, opts = {}) {
       const n = normaliseCode(e.target.value);
       if (n !== e.target.value) e.target.value = n;
       codeEntry = n;
-      e.target.classList.toggle('full', n.length === 5);
+      paintCode();
       const go = scr.querySelector('.pgo'); go.disabled = n.length !== 5; go.classList.toggle('on', n.length === 5);
     }
     if (e.target.classList.contains('gin')) refreshHits();
@@ -895,5 +1028,8 @@ export function mountParty(ctx, opts = {}) {
   if (knob('showJoining')) { codeEntry = 'BCDFG'; setTimeout(join, 0); }
   if (launch) setTimeout(startFromLaunch, 0);
   if (demoDuelResult) setTimeout(() => game.demoDuelFinish(name() || 'Leo'), 0);
+  if (demoTeamStage) setTimeout(() => game.demoTeams(name() || 'Leo', demoTeamStage), 0);
+  // ?demoTeams: a hosted demo room (eight stand-ins, no network) split into two teams.
+  if (demoTeams && !launch) setTimeout(async () => { if (!ctx.premium) return; await game.host(account.displayName || 'Leo', account.avatar); game.setTeams('two'); game.pushSettings(); if (knob('showHostSettings')) setTimeout(openSettings, 400); }, 0);
   return view;
 }

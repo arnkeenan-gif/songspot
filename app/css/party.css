@@ -427,3 +427,170 @@
 .dleave { width: 100%; height: 44px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); font-size: 14.5px; font-weight: 800; text-align: center; }
 /* the host's settings: a full-height sheet on a phone, as iOS presents a sheet with no detents */
 html:not(.wide) { .view.sheet.party-sheet.full .sheet-body { height: calc(100% - 44px - var(--sat)); } }
+
+/* ======== teams, and the hub and waiting room on the album wall (Party/PartyTeams.swift) ======== */
+/* cards over the wall: near-black, so the covers only just show */
+.ph-idle .prow, .ph-idle .phost:not(.on), .ph-lobby .psum, .ph-lobby .pshare, .ph-lobby .pstart:not(.on), .ph-lobby .pshuf { background: rgba(14,14,14,.86); }
+.ph-idle { height: 100%; min-height: 0 !important; padding-bottom: calc(20px + var(--sab)) !important; }
+.ph-idle .ptitle { margin-top: 0; font-size: 36px; letter-spacing: -1.2px; }
+.pfacts { margin: 14px 0 0; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: rgba(242,242,242,.78); white-space: nowrap; }
+.pfacts i { width: 3px; height: 3px; border-radius: 50%; background: var(--dim); flex: none; }
+.ph-idle .prow { margin-top: 26px; }
+.ph-idle .phost { margin-top: 12px; }
+.ph-idle .por { padding: 26px 0 14px; }
+.ph-idle .por span { font-size: 9.5px; letter-spacing: 1.6px; color: var(--muted); }
+/* the room code as five boxes; the input under them, invisible */
+.pcodebox { position: relative; flex: 1; min-width: 0; height: 56px; display: block; cursor: text; }
+.pcodebox .pcode { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .02; border: 0; padding: 0; color: transparent; caret-color: transparent; background: none; }
+.pcodebox .boxes { position: absolute; inset: 0; display: flex; gap: 6px; pointer-events: none; }
+.pcodebox .boxes span { flex: 1 1 0; min-width: 0; border-radius: 13px; background: rgba(4,4,4,.55); border: 1.5px solid var(--line); display: grid; place-items: center; font: 800 23px/1 var(--mono); color: var(--text); transition: border-color .2s; }
+.pcodebox .boxes span i { width: 12px; height: 2.5px; border-radius: 2px; background: var(--dim); }
+.pcodebox:focus-within .boxes span.at { border-color: rgba(168,168,168,.6); }
+.pcodebox:focus-within .boxes span.at i { background: var(--easy); }
+.pcodebox .boxes span.has { animation: pbox .3s cubic-bezier(.3,1.3,.5,1) both; }
+@keyframes pbox { from { transform: scale(.85); } to { transform: none; } }
+.pcodebox.full .boxes span { border-color: rgba(25,223,112,.7); }
+.ph-idle .pgo { width: 76px; border-radius: 14px; background: rgba(4,4,4,.55); border: 1px solid var(--line); }
+.ph-idle .pgo.on { background: var(--easy); border-color: transparent; }
+
+/* a face in a team game: the initial in the team's colour on a dark disc */
+.pav.tint { background: color-mix(in srgb, var(--t) 20%, #141414); color: var(--t); }
+.pav.more { background: #1a1a1a; color: var(--muted); font-family: var(--mono); }
+.tlabel { display: inline-flex; align-items: center; gap: 7px; font-weight: 800; letter-spacing: .16em; color: var(--t); white-space: nowrap; line-height: 1; }
+.tlabel i { width: 3px; height: calc(1em + 3px); border-radius: 2px; background: var(--t); flex: none; }
+.fstack { display: inline-flex; align-items: center; flex: none; }
+.fstack > * { box-shadow: 0 0 0 2px var(--page); }
+.fstack > * + * { margin-left: calc(var(--s) * -.32); }
+
+/* the waiting room */
+.ph-lobby .pcodeblock { margin-top: 18px; }
+.ph-lobby .pcount { margin-top: 30px; align-items: center; }
+.pshuf { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 15px; background: var(--surface2); border: 1px solid var(--line); color: var(--text); font-size: 12.5px; font-weight: 700; flex: none; }
+.pshuf .i { width: 13px; height: 13px; }
+.pshuf.in { height: 32px; border: 0; }
+.phint { margin: 6px 0 0; font-size: 11.5px; color: var(--dim); }
+.pteams { margin-top: 6px; }
+.pteam { padding: 16px 0; border-top: 1px solid var(--line); }
+.pteam .th { display: flex; align-items: center; margin-bottom: 14px; }
+.pteam .th .mono { font-size: 11.5px; font-weight: 800; color: var(--dim); }
+.pteam .pgrid { margin-top: 0; row-gap: 14px; }
+.pteam .tempty { margin: 0; height: 40px; display: flex; align-items: center; font-size: 12.5px; color: var(--dim); }
+.ptile.mv { cursor: pointer; }
+/* the settings, as a receipt */
+.psum { gap: 0; padding: 14px 16px 4px; }
+.psum .shead { margin-bottom: 8px; }
+.psum .rrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 38px; border-top: 1px solid var(--line); font-size: 13.5px; }
+.psum .rrow span { color: var(--muted); }
+.psum .rrow b { color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.psum .rrow b.mono { font-weight: 800; }
+.pkick .menu button.mv { color: var(--text); }
+.pkick .menu button.mv:hover, .pkick .menu button.mv:active { background: rgba(255,255,255,.06); }
+
+/* the host's settings: sections between hairlines; teams with their preview; quiet level chips */
+.psettings { gap: 0; }
+.prule { display: block; height: 1px; background: var(--line); margin: 20px 0; }
+.psrow { gap: 10px; }
+.psongs .chev { margin-left: 4px; }
+.plevels button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
+.plevels button.on { border-color: transparent; }
+.plevels button i { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.pseg button { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ptprev { margin-top: 10px; }
+.ptprev .r { display: flex; align-items: center; gap: 10px; height: 40px; border-bottom: 1px solid var(--line); }
+.ptprev .r small { font-size: 11.5px; color: var(--dim); }
+.ptprev .more { display: block; height: 34px; line-height: 34px; font-size: 11.5px; color: var(--dim); }
+.ptprev .f { margin-top: 12px; display: flex; align-items: center; gap: 10px; }
+.ptprev .f small { flex: 1; font-size: 11.5px; line-height: 1.3; color: var(--muted); }
+
+/* the count: the teams as they stand */
+.pteamline { padding-bottom: 44px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.pteamline p { margin: 0; font-size: 12.5px; font-weight: 600; }
+.pteamline div { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+.pteamline span { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; white-space: nowrap; }
+.pteamline span i { width: 7px; height: 7px; border-radius: 50%; }
+.pteamline span b { font-weight: 700; color: var(--muted); }
+.pteamline span em { font-style: normal; font-weight: 800; color: var(--text); }
+
+/* between rounds: the team board, then your team player by player */
+.pboard.teams { gap: 0; }
+.pboard.teams .cap, .tmine .h small { font-size: 9.5px; font-weight: 600; letter-spacing: 2px; color: var(--muted); }
+.pboard.teams .cap { padding-bottom: 10px; }
+.tbrow { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid var(--line); }
+.tbrow .rk { width: 14px; font-size: 12px; font-weight: 800; flex: none; }
+.tbrow .mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+.tbrow .top { display: flex; align-items: center; gap: 8px; }
+.tbrow .top b { font-size: 15px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tbrow .top b.me { font-weight: 800; }
+.tbrow .top small { font-size: 8.5px; font-weight: 800; letter-spacing: 1.2px; }
+.tbrow .gain { font-size: 11.5px; font-weight: 800; opacity: 0; transform: translateX(100%); transition: opacity var(--sp-board), transform var(--sp-board); }
+.pboard.rev .tbrow .gain { opacity: 1; transform: none; }
+.tbrow .sc { min-width: 44px; text-align: right; font-size: 15px; font-weight: 800; color: var(--text); }
+.tbrow .trackbar { height: 5px; }
+.pboard.teams .hr { display: block; height: 1px; background: var(--line); }
+.pboard.teams .note { padding-top: 8px; font-size: 11px; color: var(--dim); }
+.tmine { margin-top: 24px; }
+.tmine .h { display: flex; align-items: center; gap: 6px; padding-bottom: 8px; }
+.tmine .r { display: flex; align-items: center; gap: 10px; height: 36px; border-top: 1px solid var(--line); opacity: 0; transition: opacity .4s; }
+.pboard.rev + .tmine .r { opacity: 1; }
+.tmine .r b { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.tmine .r .mono { font-size: 13px; font-weight: 800; }
+.tmine .more { display: block; padding-top: 6px; font-size: 11px; color: var(--dim); }
+
+/* the end: the team podium and the receipt under it */
+.twin { margin-top: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; animation: pwin var(--sp-win) 1.05s both; }
+.twin .pwin { margin: 0; animation: none; white-space: nowrap; }
+.podium.teams { margin-top: 30px; }
+.podium.teams .pod b { font-size: 13px; font-weight: 800; }
+.treceipt { margin-top: 22px; border-bottom: 1px solid var(--line); animation: pfade .35s cubic-bezier(0,0,.58,1) 1.35s both; }
+.treceipt .rrow { display: flex; align-items: center; gap: 10px; height: 42px; border-top: 1px solid var(--line); }
+.treceipt .rrow > small { width: 30px; font-size: 9.5px; font-weight: 800; letter-spacing: .6px; color: var(--dim); flex: none; }
+.treceipt .rrow b { font-size: 13.5px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.treceipt .rrow > .mono { min-width: 44px; text-align: right; font-size: 13.5px; font-weight: 800; color: var(--muted); }
+
+/* ---- layout wrappers: invisible on a phone, the desktop's columns on a wide screen ---- */
+.phub, .phub .hero, .phub .acts, .plob .side, .plob .main, .pfoot { display: contents; }
+.plob { display: flex; flex-direction: column; }
+.plob .pnote { order: 0; } .plob .pcodeblock { order: 1; } .plob .pcount { order: 2; } .plob .phint { order: 3; }
+.plob .main > .pgrid, .plob .pteams { order: 4; } .plob .psum { order: 5; }
+.wfoot { display: none; }
+
+/* ---- desktop (html.wide; phone mode keeps the phone layout) ---- */
+html.wide {
+  /* the hub: the pitch big on the left, everything you touch on the right, over the wall */
+  .party .pt.ph-idle, .party .pt.ph-lobby { max-width: 1120px; padding-left: 48px; padding-right: 48px; }
+  .phub { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 72px; align-items: end; margin-bottom: 14vh; }
+  .phub .hero, .phub .acts { display: block; }
+  .ph-idle .ptitle { font-size: 64px; letter-spacing: -2.4px; line-height: 1.02; }
+  .ph-idle .plead { margin-top: 16px; font-size: 17px; line-height: 1.4; max-width: 460px; }
+  .ph-idle .pfacts { margin-top: 20px; font-size: 13px; }
+  .ph-idle .prow { margin-top: 0; }
+  .pcodebox { cursor: text; }
+  .party > .cwall .cw-veil { opacity: calc(var(--veil) + .1); }
+  /* keep the bar's X clear of the fixed PC / phone switch in the top corner */
+  .ph-idle .pbar, .ph-lobby .pbar { margin-right: calc(max(48px, 130px - max(0px, (100vw - 1120px) / 2)) - 48px); }
+
+  /* the waiting room: the room in a side column, the players across the rest */
+  .ph-lobby .pscroll { padding-top: 26px; }
+  .plob { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 56px; align-items: start; }
+  .plob .side { display: flex; flex-direction: column; position: sticky; top: 0; }
+  .plob .main { display: block; min-width: 0; }
+  .plob .pcodeblock { margin-top: 0; align-items: flex-start; }
+  .plob .pcodeblock .big { padding-left: 0; font-size: 64px; }
+  .plob .side .pnote { margin: 0 0 18px; }
+  .plob .side .psum { margin-top: 28px; }
+  .wfoot { display: block; order: 9; }
+  .plob .side .psum { order: 5; }
+  .wfoot .pstart { margin: 16px 0 0; }
+  .wfoot .pwait { padding: 20px 0 0; justify-content: flex-start; }
+  .pfoot { display: none; }
+  .ph-lobby .pcount { margin-top: 0; }
+  .plob .main > .pgrid, .pteam .pgrid { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); row-gap: 20px; }
+  .pteams { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); column-gap: 40px; }
+
+  /* the host's settings: wider, in two columns */
+  .view.sheet.party-sheet.full .sheet-body { width: min(860px, calc(100vw - 48px)); padding: 0 36px 28px; }
+  .psettings { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 30px 44px; grid-auto-flow: row dense; padding-top: 18px; }
+  .psettings .prule { display: none; }
+  .psettings .psongs { grid-column: 1 / -1; }
+  .psettings .psblock.teams { grid-row: span 2; }
+}

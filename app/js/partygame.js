@@ -33,6 +33,8 @@ const shuffle = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).
 export const wirePlayer = p => {
   const o = { id: str(p.id), name: str(p.name), isHost: !!p.isHost, score: int(p.score), hue: int(p.hue) };
   if (p.avatar) o.avatar = String(p.avatar);
+  // The host's team seat (PartyPlayer.team). Omitted in solo, as Swift omits a nil optional.
+  if (p.team != null && Number.isFinite(Number(p.team))) o.team = int(p.team);
   return o;
 };
 /** PartySettings. Every field but artist is required on decode. */
@@ -42,6 +44,8 @@ export const wireSettings = s => {
   if (s.artist) o.artist = String(s.artist);
   // The host listens on the room's inbox. Only ever sent as true; older hosts leave it out.
   if (s.inbox === true) o.inbox = true;
+  // Teams (PartySettings.teams): "two" | "three" | "pairs" | "trios". Absent is solo; older phones ignore it.
+  if (teamsOn(s.teams)) o.teams = String(s.teams);
   return o;
 };
 /** PartyTrack: id, title, artist required; artwork optional. */
@@ -76,7 +80,7 @@ export function decode(m) {
   if (!m || typeof m !== 'object') return null;
   const keys = Object.keys(m); if (keys.length !== 1) return null;
   const kind = keys[0], v = m[kind] || {};
-  const player = p => (p && typeof p === 'object' && p.id != null ? { id: str(p.id), name: str(p.name), isHost: !!p.isHost, score: int(p.score), hue: int(p.hue), avatar: p.avatar || null } : null);
+  const player = p => (p && typeof p === 'object' && p.id != null ? { id: str(p.id), name: str(p.name), isHost: !!p.isHost, score: int(p.score), hue: int(p.hue), avatar: p.avatar || null, team: p.team == null ? null : int(p.team) } : null);
   const track = t => (t && t.id != null ? { id: str(t.id), title: str(t.title), artist: str(t.artist), artwork: t.artwork || null } : null);
   switch (kind) {
     case 'lobby': return { kind, players: (v.players || []).map(player).filter(Boolean), settings: { ...(v.settings || {}) } };
@@ -205,7 +209,72 @@ export const ROUND_OPTIONS = [5, 10, 15, 20];
 export const DIFFICULTIES = [['mixed', 'Mixed'], ['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard'], ['expert', 'Expert'], ['impossible', 'Impossible']];
 export const WINDOWS = [10, 20, 30, 45, 60];
 export const YEARS = [['all', 'Any'], ['80s', '80s'], ['90s', '90s'], ['2000s', '00s'], ['2010s', '10s'], ['2020s', '20s']];
-export const freshSettings = () => ({ category: 'all', era: 'all', artist: null, difficulty: 'mixed', easySearch: true, rounds: 10, guessWindow: 20, clipSeconds: 20 });
+export const freshSettings = () => ({ category: 'all', era: 'all', artist: null, difficulty: 'mixed', easySearch: true, rounds: 10, guessWindow: 20, clipSeconds: 20, teams: null });
+
+// ---------- teams (Party/PartyTeams.swift, rule for rule) ----------
+// The host alone seats players (player.team) and sends the seating with the lobby. Scores stay per
+// player on the wire; a team's score is the average of its players, worked out on every phone.
+export const TEAM_MODES = [['solo', 'Solo'], ['two', '2 teams'], ['three', '3 teams'], ['pairs', 'Pairs'], ['trios', 'Trios']];
+export const TEAM_NAMES = ['Bass', 'Treble', 'Tempo', 'Encore', 'Reverb', 'Vinyl', 'Chorus', 'Remix', 'Echo', 'Groove', 'Riff', 'Hook', 'Mixtape', 'B-Side', 'Backbeat', 'Falsetto',
+  'Loop', 'Drop', 'Verse', 'Bridge', 'Sample', 'Stereo', 'Tape', 'Unplugged', 'Crescendo'];
+export const TEAM_COLORS = ['#4cc9f0', '#f8545c', '#19df70', '#f7c823', '#a855f7', '#ff8a2b', '#f72585', '#2ec4b6'];
+/** How many teams a room of n has in this mode; 0 is solo (and any mode this build doesn't know). */
+export function teamCount(mode, n) {
+  switch (mode) {
+    case 'two': return 2;
+    case 'three': return 3;
+    case 'pairs': return Math.max(2, Math.floor((n + 1) / 2));
+    case 'trios': return Math.max(2, Math.floor((n + 2) / 3));
+    default: return 0;
+  }
+}
+export const teamsOn = mode => teamCount(mode, 2) > 0;
+export const teamName = i => (i >= 0 && i < TEAM_NAMES.length ? TEAM_NAMES[i] : `Team ${i + 1}`);
+export const teamColor = i => TEAM_COLORS[((i % TEAM_COLORS.length) + TEAM_COLORS.length) % TEAM_COLORS.length];
+export const teamModeLabel = mode => (TEAM_MODES.find(([k]) => k === mode) || [null, 'Teams'])[1];
+export function describeTeams(mode, n) {
+  const c = teamCount(mode, n);
+  if (!c) return 'Everyone for themselves';
+  if (mode === 'pairs') return `Teams of two · ${c} teams`;
+  if (mode === 'trios') return `Teams of three · ${c} teams`;
+  return `${c} teams split the room`;
+}
+/** Everyone dealt round the teams like cards — in join order, or shuffled. */
+export function balanceTeams(players, mode, shuffled = false) {
+  const n = teamCount(mode, players.length);
+  if (!n) return players.map(p => ({ ...p, team: null }));
+  const order = shuffled ? shuffle(players.map(p => p.id)) : players.slice().sort((a, b) => a.hue - b.hue).map(p => p.id);
+  const seat = new Map(order.map((id, k) => [id, k % n]));
+  return players.map(p => ({ ...p, team: seat.get(p.id) }));
+}
+/** Where a newcomer sits: the smallest team, the first of equals. */
+export function seatTeam(players, mode) {
+  const n = teamCount(mode, players.length + 1);
+  if (!n) return null;
+  const sizes = Array(n).fill(0);
+  for (const p of players) if (p.team != null && p.team >= 0 && p.team < n) sizes[p.team]++;
+  let best = 0; for (let i = 0; i < n; i++) if (sizes[i] < sizes[best]) best = i;
+  return best;
+}
+/** The teams a lobby shows: every seat the mode has, empty or not, plus any team a player is still on. */
+export function lobbyTeams(players, mode) {
+  const n = teamCount(mode, players.length);
+  if (!n) return [];
+  const all = new Set([...Array(n).keys(), ...players.filter(p => p.team != null).map(p => p.team)]);
+  return [...all].sort((a, b) => a - b).map(t => ({ team: t, members: players.filter(p => p.team === t).sort((a, b) => a.hue - b.hue) }));
+}
+/** Teams with players on them, best first (ties: the lower team first). score and gained are averages, rounded. */
+export function teamStandings(players, mode, gained = {}) {
+  if (!teamsOn(mode)) return [];
+  const groups = new Map();
+  for (const p of players) if (p.team != null) { if (!groups.has(p.team)) groups.set(p.team, []); groups.get(p.team).push(p); }
+  return [...groups].map(([t, ms]) => ({
+    id: t, name: teamName(t), color: teamColor(t),
+    members: ms.slice().sort((a, b) => (a.score === b.score ? a.hue - b.hue : b.score - a.score)),
+    score: Math.round(ms.reduce((s, p) => s + p.score, 0) / ms.length),
+    gained: Math.round(ms.reduce((s, p) => s + (gained[p.id] || 0), 0) / ms.length),
+  })).sort((a, b) => (a.score === b.score ? a.id - b.id : b.score - a.score));
+}
 
 export class PartyGame {
   /** loopback: no network (localhost demos). standIns: eight stand-ins fill a hosted room and answer at random (-demoParty). */
@@ -249,7 +318,13 @@ export class PartyGame {
   get me() { return this.players.find(p => p.id === this.myID) || null; }
   get sortedPlayers() { return this.players.slice().sort((a, b) => (a.score === b.score ? a.hue - b.hue : b.score - a.score)); }
   get sortedByHue() { return this.players.slice().sort((a, b) => a.hue - b.hue); }
-  get canStart() { return this.isHost && this.players.length >= 2; }
+  get canStart() {
+    if (!this.isHost || this.players.length < 2) return false;
+    // A team game needs two sides with someone on them.
+    return !this.teamsOn || new Set(this.players.filter(p => p.team != null).map(p => p.team)).size >= 2;
+  }
+  get teamsOn() { return teamsOn(this.settings.teams); }
+  get myTeam() { return this.teamsOn ? (this.me?.team ?? null) : null; }
   get iAnswered() { return this.answered.includes(this.myID); }
   get hostName() { return this.players.find(p => p.isHost)?.name || null; }
   get songsLabel() { return this.settings.artist || (this.settings.category === 'all' ? 'All genres' : this.settings.category); }
@@ -308,6 +383,22 @@ export class PartyGame {
     this.settings.rounds = 5;
     this.phase = 'finished'; this.emit();
   }
+  /** A room of ten in two teams, scored, for looking at the team screens (?demoTeamRound, ?demoTeamResult). */
+  demoTeams(name, target) {
+    this.isHost = true; this.code = this.code || 'BCDFG';
+    const names = [name, ...DEMO_NAMES, 'Zoe'], scores = [4210, 3890, 5120, 2980, 4460, 3310, 4705, 2650, 3995, 3570];
+    this.players = names.map((n, i) => ({ id: i === 0 ? this.myID : 'demo-' + i, name: n, isHost: i === 0, score: scores[i], avatar: null, hue: i === 0 ? 0 : i + 1, team: null }));
+    this.settings.teams = 'two'; this.settings.rounds = 10;
+    this.players = balanceTeams(this.players, 'two');
+    if (target === 'round') {
+      this.round = 6; this.heardRound = 6;
+      this.lastGained = Object.fromEntries(this.players.map(p => [p.id, [0, 612, 874, 0, 755][Math.abs(p.hue) % 5]]));
+      this.lastAnswer = { title: 'Blinding Lights', artist: 'The Weeknd', artwork: null };
+      this.answered = this.players.map(p => p.id);
+      this.phase = 'result';
+    } else this.phase = 'finished';
+    this.emit();
+  }
   async leave() {
     clearTimeout(this.closer); clearTimeout(this.pruneTimer);
     this.timers.forEach(clearTimeout); this.timers.clear();
@@ -329,6 +420,28 @@ export class PartyGame {
     this.settings.artist = name; this.settings.category = 'all'; this.artistSongs = songs;
     this.catalogue = songs.map(s => ({ id: s.id, title: s.title, artist: s.artist }));
     this.emit(); await this.broadcastLobby();
+  }
+  // ---- teams (host only); the caller tells the room (pushSettings) ----
+  /** A new team mode: everyone dealt out again in join order. Solo clears the seats. */
+  setTeams(mode) {
+    if (!this.isHost) return;
+    const m = teamsOn(mode) ? mode : null;
+    this.settings.teams = m;
+    this.players = balanceTeams(this.players, m);
+    this.emit();
+  }
+  /** Deal the teams again at random, still even. */
+  shuffleTeams() { if (this.isHost && this.teamsOn) { this.players = balanceTeams(this.players, this.settings.teams, true); this.emit(); } }
+  /** The host moves one player to another team. */
+  moveToTeam(id, team) {
+    const p = this.isHost && this.teamsOn ? this.players.find(x => x.id === id) : null;
+    if (p) { p.team = team; this.emit(); }
+  }
+  /** The team after this player's, round the room's teams — a tap in the lobby. */
+  nextTeam(id) {
+    const n = Math.max(2, teamCount(this.settings.teams, this.players.length));
+    const t = this.players.find(p => p.id === id)?.team ?? -1;
+    return (t + 1) % n;
   }
   async playAgain() { if (this.isHost) await this.transport.send(Msg.again()); }
   /** One tap only: a double tap used to skip a song and end the game early. */
@@ -496,7 +609,9 @@ export class PartyGame {
         if (!this.players.some(p => p.id === m.player.id)) {
           if (this.players.length >= this.seatLimit) return;
           const hue = Math.max(-1, ...this.players.map(p => p.hue)) + 1;
-          this.players.push({ ...m.player, isHost: false, score: 0, hue });
+          // In a team game a newcomer joins the smallest team.
+          const team = seatTeam(this.players, this.settings.teams);
+          this.players.push({ ...m.player, isHost: false, score: 0, hue, team });
         }
         this.broadcastLobby(); this.emit();
         return;
