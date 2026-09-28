@@ -8,6 +8,10 @@ import { I } from './icons.js';
 import { Level, Streak } from './account.js';
 import { Haptics } from './haptics.js';
 import { Friends } from './friends.js';
+import { Ladder } from './ladder.js';
+
+// person.2.fill, for Friends (the party row keeps person.3.fill), drawn like icons.js.
+const TWO = '<svg class="i" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="7.4" r="3.8"/><path d="M1.6 19.8a7.4 7.4 0 0 1 14.8 0z"/><circle cx="17" cy="8.3" r="3.1"/><path d="M18.3 19.8h4.3a5.7 5.7 0 0 0-8.3-5.1 9.3 9.3 0 0 1 4 5.1z"/></svg>';
 
 let dailyMod = null;
 import('./daily.js').then(m => { dailyMod = m; }).catch(() => {});
@@ -23,14 +27,16 @@ export async function openDrawer(ctx) {
   // Ranked is premium, with one free match for a new player (Drawer.swift).
   const rankedOpen = () => ctx.premium || (account.stats.rankedPlayed || 0) === 0;
 
+  // The level title never runs under the streak pill: where it doesn't fit, the card tightens (app.css .hero.tight).
+  const fitHero = () => { const h = d.querySelector('.hero'), t = h && h.querySelector('.who span'); if (t && t.scrollWidth > t.clientWidth) h.classList.add('tight'); };
   const render = () => {
     const accent = TIER_COLOR[game.difficulty], ink = TIER_INK[game.difficulty];
     wrap.style.setProperty('--accent', accent); wrap.style.setProperty('--accent-ink', ink);
     const st = account.stats, level = Level.at(st.roundsWon);
-    const freeMatch = !ctx.premium && (st.rankedPlayed || 0) === 0, rankedOpen = ctx.premium || freeMatch;
+    const freeMatch = !ctx.premium && (st.rankedPlayed || 0) === 0;
     const counts = game.artistSongs.length ? Object.fromEntries(TIERS.map(t => [t, 1])) : pool.counts(game.era, game.category, game.artist);
     const D = dailyMod?.Daily;
-    const playedToday = D ? !!D.todayRecord() : false;
+    const today = D ? D.todayRecord() : null;
     const avatar = account.avatar ? face(account.name, account.avatar, accent, 46) : account.initial ? `<span class="face" style="width:46px;height:46px;background:${accent};color:#08120c;font-size:18px">${esc(account.initial)}</span>` : '';
     const top = ['all', ...pool.categoryCounts.slice(0, 8).map(c => c.name)];
     const online = Friends.onlineCount, requests = Friends.requests.length;
@@ -44,17 +50,32 @@ export async function openDrawer(ctx) {
       </button>
       ${ctx.premium ? '<div style="height:14px"></div>' : `<button class="gopro" data-press data-act="premium">${I.crown}<span>Go Premium</span></button>`}
       <p class="dlabel">Play</p>
-      ${(() => {
-        // The badge says what it means: today's song is new. The line under it carries the streak, when there is one.
-        const streak = Streak.live(account.stats);
-        const sub = playedToday ? (streak > 1 ? `Played today · ${streak}-day streak` : 'Played today') : streak > 0 ? `Keep your ${streak}-day streak` : 'One song a day, one go';
-        return prow('daily', 'Daily challenge', sub, I.calendar, TIER_COLOR.easy, !playedToday && !!D,
-          playedToday ? `<span class="tick">${I.check}</span>` : D ? `<span class="num">New</span>` : `<span class="chev">${I.chevron}</span>`);
-      })()}
-      ${prow('party', 'Play with friends', 'Up to 50 players', I.people, TIER_COLOR.impossible, false, `<span class="chev">${I.chevron}</span>`)}
-      ${prow('ranked', 'Play ranked', ctx.premium ? 'Climb the ladder' : freeMatch ? 'Your first match is free' : 'Premium · climb the ladder', I.trophy, TIER_COLOR.medium, false, rankedOpen ? `<span class="chev">${I.chevron}</span>` : `<span class="tick">${I.lock}</span>`)}
-      ${prow('friends', 'Friends', online > 0 ? `${online} online · challenge a 1v1` : 'Challenge a friend to a 1v1', I.people, TIER_COLOR.hard, false,
-        requests ? `<span class="num fbadge" style="background:${TIER_COLOR.hard};color:#08120c">${requests}</span>` : `<span class="chev">${I.chevron}</span>`)}
+      <div class="plays card">${(() => {
+        // One surface, four rows. Under each title, what the row is for or how today went; on the right,
+        // where you stand, in words. In a narrower drawer the right side gives way first (the dots, then the
+        // division, then all of it), so no title or line is ever cut.
+        const chev = `<span class="pl-chev">${I.chevron}</span>`;
+        const streak = Streak.live(st), n = v => `<b class="mono">${v}</b>`;
+        // Played: a plain tick, never the time (the owner's rule); the streak is words in the line, not a second flame.
+        const daily = today ? `<span class="pl-mark">${I.check}<span class="sr">Played today</span></span>` : D ? '<span class="pl-new">New</span>' : chev;
+        const dailySub = today ? (streak > 1 ? [`Played today · ${n(streak)}-day streak`, `${n(streak)}-day streak`, true] : 'Played today')
+          : streak > 0 ? (streak < 100 ? [`Keep your ${n(streak)}-day streak`, `${n(streak)}-day streak`] : `${n(streak)}-day streak`) : ['One song a day, one go', 'One song a day'];
+        // Your rank in plain words, its colour a dot beside it. No lock with it: the line already says premium.
+        // Before your first match there is no rank to show.
+        const place = Ladder.place(st.rp), tier = place.tier.name;
+        const ranked = (st.rankedPlayed || 0) > 0
+          ? `<span class="pl-rank"><i class="pl-dot" style="background:${place.tier.color}"></i><span>${esc(tier)}<span class="pl-div">${esc(place.name.slice(tier.length))}</span></span></span>`
+          : chev;
+        // Requests are counted once, in the line; who's online sits on the right, or in the line when narrow.
+        const friendsSub = requests ? `${n(requests)} new request${requests > 1 ? 's' : ''}`
+          : online > 0 ? ['Challenge a 1v1', `${n(online)} online`] : ['Challenge a friend to a 1v1', 'Challenge a 1v1'];
+        const friends = online > 0 ? `<span class="pl-online pl-wide"><i class="pl-dot"></i>${n(online)} online</span><span class="pl-narrow">${chev}</span>` : chev;
+        return prow('daily', 'Daily challenge', dailySub, I.calendar, TIER_COLOR.easy, daily)
+          + prow('party', 'Play with friends', ['Host or join a party', `Up to ${n(50)} players`], I.people, TIER_COLOR.impossible,
+            `<span class="pl-cap pl-wide">Up to ${n(50)}</span><span class="pl-narrow">${chev}</span>`)
+          + prow('ranked', 'Play ranked', ctx.premium ? 'Climb the ladder' : freeMatch ? 'First match is free' : 'Part of premium', I.trophy, TIER_COLOR.medium, ranked)
+          + prow('friends', 'Friends', friendsSub, TWO, TIER_COLOR.hard, friends);
+      })()}</div>
       <div class="rule"></div>
       <div class="dhead"><p class="dlabel">Difficulty</p><button data-press data-act="reroll">${I.reroll}Reroll</button></div>
       <div class="ladder">${TIERS.map(t => `<button class="rung card ${t === game.difficulty ? 'on' : ''} ${counts[t] === 0 ? 'dead' : ''}" style="--t:${TIER_COLOR[t]}" data-tier="${t}">${cap(t)}${t === game.difficulty ? I.check : ''}</button>`).join('')}</div>
@@ -92,16 +113,21 @@ export async function openDrawer(ctx) {
         <a class="getapp" href="${LINKS.get}" target="_blank" rel="noopener">${I.apple}Get the app</a>
         <a href="/privacy">Privacy</a><a href="/support">Support</a>
       </div>`;
+    if (wrap.isConnected) fitHero();
   };
-  function prow(act, title, sub, icon, tint, lit, trailing) {
-    const bg = lit ? `background:color-mix(in srgb, ${tint} 12%, transparent);border-color:color-mix(in srgb, ${tint} 40%, transparent)` : '';
-    const tile = lit ? `background:${tint};color:#04160b` : `background:color-mix(in srgb, ${tint} 16%, transparent);color:${tint}`;
-    return `<button class="prow card" style="${bg}" data-press data-act="${act}"><span class="tile" style="${tile}">${icon}</span><span class="txt"><b>${title}</b><span>${sub}</span></span>${trailing}</button>`;
+  // A row of the Play list: a tile in a quiet tint of the row's colour, the title and one line, and a status on the right.
+  // `sub` can be [wide, narrow]: the second line for a narrow drawer, where the status on the right shrinks.
+  // [long, short, true] keeps the long line for a roomy drawer only (414 phones and desktop).
+  function prow(act, title, sub, icon, tint, end) {
+    const [a, b] = Array.isArray(sub) && sub[2] ? ['pl-roomy', 'pl-snug'] : ['pl-wide', 'pl-narrow'];
+    const line = Array.isArray(sub) ? `<span class="pl-sub ${a}">${sub[0]}</span><span class="pl-sub ${b}">${sub[1]}</span>` : `<span class="pl-sub">${sub}</span>`;
+    return `<button class="pl" style="--tint:${tint}" data-press data-act="${act}"><span class="pl-tile">${icon}</span><span class="pl-txt"><b class="pl-title">${title}</b>${line}</span><span class="pl-end">${end}</span></button>`;
   }
   const tline = (k, t, icon, def) => `<div class="tline ${S(k, def) ? 'on' : ''}" role="switch" tabindex="0" aria-checked="${S(k, def)}" data-toggle="${k}" data-def="${def}">${icon}<span>${t}</span><i class="sw"></i></div>`;
 
   render();
   document.body.appendChild(wrap);
+  fitHero(); if (document.fonts) document.fonts.ready.then(() => { if (wrap.isConnected) fitHero(); });
   requestAnimationFrame(() => requestAnimationFrame(() => wrap.classList.add('in')));
   const offAccount = account.onChange(() => render());
   // Who's online, for the Friends row (it redraws when the list comes back).
