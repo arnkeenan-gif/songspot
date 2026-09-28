@@ -115,6 +115,9 @@ img.fv-face { opacity: 1; }
 .cb-no { width: 34px; height: 34px; border-radius: 50%; background: var(--surface); color: var(--muted); display: grid; place-items: center; font-size: 13px; flex: none; }
 .cb-yes { height: 34px; padding: 0 16px; border-radius: 999px; background: var(--easy); color: #04160b; font-size: 13.5px; font-weight: 700; flex: none; }
 
+/* the drawer's Friends row: requests waiting, as a count in a circle */
+.prow .num.fbadge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; display: inline-grid; place-items: center; box-sizing: border-box; font-size: 11px; font-weight: 700; flex: none; }
+
 /* ---------- desktop: one stacked column in a medium dialog (the owner wants it stacked) ---------- */
 .fv-side, .fv-list { display: contents; }
 .fv-qrin { display: none; }
