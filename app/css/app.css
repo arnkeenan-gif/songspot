@@ -190,15 +190,84 @@ html.wide { .cone { width: min(960px, calc(100vw + 96px)); } .cone i { clip-path
 .dhead button { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
 .dhead button .i { font-size: 13px; }
 .rule { height: 1px; background: rgba(255,255,255,.09); margin: 26px 0; }
-.prow { width: 100%; height: 62px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 14px; }
-.prow + .prow { margin-top: 8px; }
-.prow .tile { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; font-size: 14px; flex: none; }
-.prow .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.prow .txt b { font-size: 14px; font-weight: 700; color: var(--text); }
-.prow .txt span { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.prow .num { font-size: 11px; font-weight: 700; color: #04160b; background: var(--easy); padding: 4px 8px; border-radius: 6px; }
-.prow .tick { color: var(--muted); font-size: 14px; display: inline-flex; }
-.prow .tile .i { font-size: 19px; }
+/* the Play section: today's daily as a featured card, the other three as one grouped list under it.
+   Nothing here is filled: quiet tints, hairlines, one faint green edge while today's song is unplayed.
+   The card's 40 tile and the list's 34 tiles share one centre line (32 from the edge) and one text line (64),
+   and step down together: .snug, all 34 (text 58); .tight, 34 and 30 (centre 27, text 54).
+   drawer.js fitPlay steps a box down (.f1, .f2, .snug, .tight) when a line would otherwise be cut. */
+.pfeat { width: 100%; display: flex; flex-direction: column; gap: 12px; padding: 14px 12px; border-radius: 16px; text-align: left; margin-bottom: 10px; }
+.pfeat.due { border-color: color-mix(in srgb, var(--easy) 24%, var(--line)); }
+.pfeat.tight { padding: 14px 10px; }
+.pf-top { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.pf-tile { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: none; color: var(--easy); background: color-mix(in srgb, var(--easy) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--easy) 16%, transparent); }
+.pf-tile .i { font-size: 22px; }
+.pf-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.pf-title { font-size: 15px; line-height: 19px; font-weight: 700; letter-spacing: -.2px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pf-sub { font-size: 11.5px; line-height: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pf-new { flex: none; margin-left: 8px; height: 22px; padding: 0 8px; border-radius: 7px; display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; color: color-mix(in srgb, var(--easy) 85%, #fff); background: color-mix(in srgb, var(--easy) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--easy) 30%, transparent); }
+.pf-tick { flex: none; margin-left: 8px; display: inline-flex; font-size: 20px; color: var(--muted); }
+.pf-tick.won { color: var(--easy); }
+.pfeat .pf-top > .chev { margin-left: 8px; }
+.pf-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.07); }
+.pf-week { display: inline-flex; align-items: center; gap: 5px; flex: none; }
+.pf-week i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.12); }
+.pf-week i.on { background: var(--easy); }
+.pf-week i.due { background: none; box-shadow: inset 0 0 0 1.5px var(--easy); }
+.pf-week i.miss { background: rgba(255,255,255,.3); }
+.pf-note { min-width: 0; display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; line-height: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; }
+.pf-note .i { flex: none; font-size: 11.5px; color: var(--dim); }
+.pf-note.lit .i { color: var(--hard); }
+.pf-note b { font-weight: 600; color: var(--text); }
+.pf-short { display: none; }
+/* a narrower drawer: a smaller tile (.snug/.tight, with the list), then a smaller New, then no New (the green edge
+   and the open ring still say today's is new); a played tick moves into the tile rather than cut the title,
+   green if named, grey on a grey tile if missed */
+.pf-tile > span { display: inline-flex; }
+.pf-tile .pf-done { display: none; }
+.pf-tile .pf-done .i { font-size: 23px; }
+.pfeat.tight .pf-top { gap: 10px; }
+.pfeat:is(.snug, .tight) .pf-tile { width: 34px; height: 34px; border-radius: 10px; }
+.pfeat:is(.snug, .tight) .pf-tile .i { font-size: 19px; }
+.pfeat:is(.snug, .tight) .pf-tile .pf-done .i { font-size: 21px; }
+.pf-top.f1 .pf-new { margin-left: 6px; padding: 0 6px; font-size: 10.5px; }
+.pf-top.f2 .pf-new, .pf-top.f2 .pf-tick, .pf-top.f2 .pf-cal:not(:only-child) { display: none; }
+.pf-top.f2 .pf-done { display: inline-flex; }
+.pf-top.f2 .pf-tile.miss { color: var(--muted); background: color-mix(in srgb, var(--muted) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--muted) 16%, transparent); }
+.pf-foot.f1 .pf-long { display: none; }
+.pf-foot.f1 .pf-short { display: inline; }
+.pf-foot.f2 .pf-week { gap: 4px; }
+.pf-foot.f2 .pf-week i { width: 6px; height: 6px; }
+.pgroup { border-radius: 16px; overflow: hidden; }
+.pli { position: relative; width: 100%; height: 58px; display: flex; align-items: center; padding: 0 12px 0 15px; text-align: left; transition: background .16s var(--easeOut); }
+.pli + .pli::before { content: ""; position: absolute; top: 0; left: 64px; right: 0; height: 1px; background: rgba(255,255,255,.07); }
+.pli.pressed { transform: none; opacity: 1; background: rgba(255,255,255,.05); }
+@media (hover: hover) { .pli:hover { filter: none; background: rgba(255,255,255,.03); } }
+.pli:focus-visible { outline-offset: -2px; border-radius: 15px; }
+.pl-tile { width: 34px; height: 34px; margin-right: 15px; border-radius: 10px; display: grid; place-items: center; flex: none; color: var(--tint); background: color-mix(in srgb, var(--tint) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tint) 16%, transparent); }
+.pl-tile .i { font-size: 16px; }
+.pl-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.pl-title { font-size: 14px; line-height: 17px; font-weight: 700; letter-spacing: -.15px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-sub { font-size: 11.5px; line-height: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-sub b, .pl-stat b { font-weight: 600; color: var(--text); }
+.pl-end { flex: none; margin-left: 8px; display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.pl-end .chev { font-size: 12px; }
+.pl-stat { display: inline-flex; align-items: center; gap: 5px; color: rgba(242,242,242,.85); }
+.pl-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.pl-lock { display: inline-flex; font-size: 12px; color: color-mix(in srgb, var(--gold) 80%, transparent); }
+.pl-badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; display: inline-grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--hard); background: color-mix(in srgb, var(--hard) 16%, transparent); }
+.pli .pl-narrow { display: none; }
+.pli.f1 .pl-wide { display: none; }
+.pli.f1 .pl-sub.pl-narrow { display: block; }
+.pli.f1 .pl-stat .pl-narrow { display: inline; }
+.pli.f2 .pl-stat { display: none; }
+.pgroup.snug .pli { padding: 0 12px; }
+.pgroup.snug .pli + .pli::before { left: 58px; }
+.pgroup.snug .pl-tile { margin-right: 12px; }
+.pgroup.tight .pli { padding: 0 10px 0 12px; }
+.pgroup.tight .pli + .pli::before { left: 54px; }
+.pgroup.tight .pl-tile { width: 30px; height: 30px; margin-right: 12px; border-radius: 9px; }
+.pgroup.tight .pl-tile .i { font-size: 14px; }
+.pgroup.tight .pl-end { margin-left: 6px; }
 .ladder { display: flex; flex-direction: column; gap: 6px; }
 .rung { height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; border-radius: 10px; font-size: 13px; font-weight: 700; color: rgba(242,242,242,.85); }
 .rung.on { color: color-mix(in srgb, var(--t) 75%, #fff); background: color-mix(in srgb, var(--t) 12%, transparent); border-color: color-mix(in srgb, var(--t) 40%, transparent); }

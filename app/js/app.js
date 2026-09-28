@@ -18,7 +18,7 @@ const q = new URLSearchParams(location.search);
 const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 
 /** Bumped with every deploy that changes CSS, so browsers drop the old files. */
-const CSS_V = 22;
+const CSS_V = 23;
 
 /** A module's own stylesheet, loaded once when the module first opens. */
 export function loadCSS(name) {
