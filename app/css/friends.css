@@ -117,21 +117,9 @@ img.fv-face { opacity: 1; }
 /* the drawer's Friends row: requests waiting, as a count in a circle */
 .prow .num.fbadge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; display: inline-grid; place-items: center; box-sizing: border-box; font-size: 11px; font-weight: 700; flex: none; }
 
-/* ---------- desktop: the list on the left, your code, theirs and the requests on the right ---------- */
+/* ---------- desktop: one stacked column in a medium dialog (the owner wants it stacked) ---------- */
 .fv-side, .fv-list { display: contents; }
 .fv-qrin { display: none; }
 html.xwide {
-  .view.sheet.friends-sheet:not(.fq-sheet) .sheet-body { width: min(920px, calc(100vw - 280px)); height: auto; min-height: min(520px, calc(100vh - 48px)); }
-  .friends-sheet .fv-head { padding: 22px 32px 0; }
-  .fv-scroll { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); column-gap: 32px; align-items: start; padding: 22px 32px 36px; }
-  .fv-list { display: block; grid-column: 1; grid-row: 1; min-width: 0; }
-  .fv-side { display: block; grid-column: 2; grid-row: 1; position: sticky; top: 0; }
-  .fv-list > div:first-child > .fv-label { margin-top: 0; }
-  .fv-qrin { display: flex; align-items: center; gap: 14px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
-  .fv-qrbox { width: 96px; height: 96px; padding: 8px; box-sizing: border-box; background: #fff; border-radius: 12px; flex: none; }
-  .fv-qrbox svg { width: 100%; height: 100%; display: block; }
-  .fv-qrin small { font-size: 12px; line-height: 1.4; color: var(--muted); }
-  .fv-codev { font-size: 26px; }
-  .fv-codehd small { display: none; }
-  .fv-codehd .fv-label { white-space: nowrap; }
+  .view.sheet.friends-sheet:not(.fq-sheet) .sheet-body { width: min(560px, calc(100vw - 64px)); }
 }

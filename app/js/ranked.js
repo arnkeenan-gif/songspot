@@ -387,7 +387,7 @@ export function mountRanked(ctx) {
     const best = Ladder.place(s.bestRP || 0).tier;
     const recent = (s.recentRanked || []).length
       ? `<i class="rk-gline"></i><div class="rk-last"><span>LAST 5</span>${formRow(s.recentRanked)}</div>` : '';
-    // .rk-home and .rk-side only matter on a desktop (the rank on the left, the season and the
+    // .rk-home and .rk-entryside only matter on a desktop (the rank on the left, the season and the
     // buttons on the right); on a phone they are display: contents and the column is unchanged.
     return `<div class="rk-entry-all">${bar()}<div class="rk-fill"></div>
       <div class="rk-home">
@@ -397,7 +397,7 @@ export function mountRanked(ctx) {
         <div class="rk-rp">${s.rp || 0} RP</div>
         ${rankProgress(s.rp || 0)}
       </div>
-      <div class="rk-side">
+      <div class="rk-entryside">
         <div class="rk-glass">
           <div class="rk-gtop">${I.calendar}<span>${esc(Ladder.seasonCountdown())}</span><div class="rk-fill"></div>${streak}</div>
           <div class="rk-record"><div><b>${s.rankedPlayed || 0}</b><span>Played</span></div><div><b>${s.rankedWon || 0}</b><span>Won</span></div>

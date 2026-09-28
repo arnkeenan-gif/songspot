@@ -141,19 +141,12 @@ html.wide {
   .daily .playrow { margin-bottom: 24px; }
 }
 
-/* ---------- desktop: the result on the left, today's board beside it ---------- */
+/* ---------- desktop: one stacked column, a little larger (the owner wants desktop screens stacked) ---------- */
 .d-rmain, .d-rside { display: contents; }
 html.xwide {
-  .daily .screen:has(.d-result) { max-width: 1040px; }
-  .daily .screen:has(.d-result) .d-bar { padding-left: 40px; padding-right: 40px; }
-  .d-result { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); column-gap: 56px; align-items: start; padding: 12px 40px 48px; margin-block: auto; width: 100%; box-sizing: border-box; }
-  .d-rmain { display: flex; flex-direction: column; align-items: center; }
-  .d-rside { display: flex; flex-direction: column; align-items: stretch; }
+  .daily .screen:has(.d-result) { max-width: 560px; }
   .d-art { width: 180px; height: 180px; border-radius: 16px; }
   .d-result h2 { font-size: 28px; }
-  .d-rside .d-board { margin-top: 18px; padding: 20px 22px; border-radius: 16px; }
-  .d-rside .d-row { height: 52px; }
-  .d-rside .d-next { text-align: left; margin-bottom: 40px; }
 }
 /* the PC / phone switch sits in the top-right corner: keep the close button clear of it */
 @media (max-width: 1200px) { html.xwide body.has-viewtoggle .daily .screen:has(.d-result) .d-bar .xbtn { margin-right: 96px; } }
