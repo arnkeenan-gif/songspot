@@ -48,7 +48,7 @@ body.spot .cone { display: block; }
 .cone i .sweep { position: absolute; left: 0; right: 0; filter: blur(1.5px); mix-blend-mode: screen; pointer-events: none; }
 /* with the cone off it sweeps the full width as a soft band (StageView.bareWave) */
 .bare-wave { position: fixed; left: 0; right: 0; filter: blur(26px); mix-blend-mode: screen; pointer-events: none; z-index: 0; }
-html.wide { .cone { width: min(1000px, calc(100vw + 96px)); } .cone i { clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%); } }
+html.wide { .cone { width: min(860px, calc(100vw + 96px)); } .cone i { clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%); } }
 
 /* ---------- the stage ---------- */
 .stage { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 16px 74px; z-index: 1; }
@@ -464,5 +464,6 @@ body.phone-shell { background: #000; overflow: hidden; }
 /* phone mode (desktop): the phone layout in a 430px column in the middle, while
    the stage, the light and the colours still fill the whole screen. */
 html.phonemode { --col: 398px; }
+html.phonemode .cone { width: min(100vw, 700px); }
 html.phonemode .screen { max-width: 430px; }
 html.phonemode .view.sheet .sheet-body { left: calc(50% - 215px); right: auto; width: 430px; }
