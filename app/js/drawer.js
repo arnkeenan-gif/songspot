@@ -5,7 +5,7 @@
 import { TIERS } from './pool.js';
 import { el, face, TIER_COLOR, TIER_INK, cap, esc, settings, LINKS, LevelTheme } from './ui.js';
 import { I } from './icons.js';
-import { Level } from './account.js';
+import { Level, Streak } from './account.js';
 import { Haptics } from './haptics.js';
 import { Friends } from './friends.js';
 
@@ -44,8 +44,13 @@ export async function openDrawer(ctx) {
       </button>
       ${ctx.premium ? '<div style="height:14px"></div>' : `<button class="gopro" data-press data-act="premium">${I.crown}<span>Go Premium</span></button>`}
       <p class="dlabel">Play</p>
-      ${prow('daily', 'Daily challenge', playedToday ? 'Played today' : 'One song a day, one go', I.calendar, TIER_COLOR.easy, !playedToday && !!D,
-        playedToday ? `<span class="tick">${I.check}</span>` : D ? `<span class="num">#${D.displayNumber()}</span>` : `<span class="chev">${I.chevron}</span>`)}
+      ${(() => {
+        // The badge says what it means: today's song is new. The line under it carries the streak, when there is one.
+        const streak = Streak.live(account.stats);
+        const sub = playedToday ? (streak > 1 ? `Played today · ${streak}-day streak` : 'Played today') : streak > 0 ? `Keep your ${streak}-day streak` : 'One song a day, one go';
+        return prow('daily', 'Daily challenge', sub, I.calendar, TIER_COLOR.easy, !playedToday && !!D,
+          playedToday ? `<span class="tick">${I.check}</span>` : D ? `<span class="num">New</span>` : `<span class="chev">${I.chevron}</span>`);
+      })()}
       ${prow('party', 'Play with friends', 'Up to 50 players', I.people, TIER_COLOR.impossible, false, `<span class="chev">${I.chevron}</span>`)}
       ${prow('ranked', 'Play ranked', ctx.premium ? 'Climb the ladder' : freeMatch ? 'Your first match is free' : 'Premium · climb the ladder', I.trophy, TIER_COLOR.medium, false, rankedOpen ? `<span class="chev">${I.chevron}</span>` : `<span class="tick">${I.lock}</span>`)}
       ${prow('friends', 'Friends', online > 0 ? `${online} online · challenge a 1v1` : 'Challenge a friend to a 1v1', I.people, TIER_COLOR.hard, false,
