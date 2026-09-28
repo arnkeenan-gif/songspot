@@ -19,14 +19,23 @@ export const COUNT = 4;
 export const choiceKey = t => String(t || '').split('(')[0].toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\p{L}\p{N}]/gu, '');
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
-/** `from` is the songs in play (an artist's catalogue), null for the whole pool. */
-export function deal(answer, tier, pool, from = null) {
+/**
+ * `from` is the songs in play (an artist's catalogue), null for the whole pool.
+ * `category` is the game's category: a UK Rap song is filed under Hip-Hop, so
+ * without it the decoys would be US rap and give the answer away.
+ */
+export function deal(answer, tier, pool, from = null, category = 'all') {
   const picked = [answer], titles = new Set([choiceKey(answer.title)]);
   const take = list => { for (const s of shuffle(list)) { if (picked.length >= COUNT) break; if (s.id === answer.id) continue; const k = choiceKey(s.title); if (titles.has(k)) continue; titles.add(k); picked.push(s); } };
   const era = eraOf(answer.year);
   if (from && from.length) take(from);
   else {
-    take(pool.filter(tier, era, answer.category));
+    if (category !== 'all') {
+      take(pool.filter(tier, era, category));
+      if (picked.length < COUNT) take(pool.filter(tier, 'all', category));
+      if (picked.length < COUNT) take(pool.filter(null, 'all', category));
+    }
+    if (picked.length < COUNT) take(pool.filter(tier, era, answer.category));
     if (picked.length < COUNT) take(pool.filter(tier, era));
     if (picked.length < COUNT) take(pool.filter(tier));
     if (picked.length < COUNT) take(pool.filter(null));

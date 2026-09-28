@@ -360,7 +360,7 @@ export class PartyGame {
       for (const options of candidates) { const s = options.find(x => ok(x) && !used.has(x.id)); if (s) { picked.push(s); used.add(s.id); } }
       for (const s of candidates.flat()) { if (picked.length >= rounds) break; if (ok(s) && !used.has(s.id)) { picked.push(s); used.add(s.id); } }
       this.queue = picked;
-      this.deck = picked.map((s, i) => deal(s, this.tier(i), this.pool, this.artistSongs.length ? this.artistSongs : null));
+      this.deck = picked.map((s, i) => deal(s, this.tier(i), this.pool, this.artistSongs.length ? this.artistSongs : null, this.settings.category || 'all'));
       if (this.queue.length < 2) { this.phase = 'error'; this.error = 'Not enough of those songs are available here.'; return; }
       this.round = 0; this.heardRound = -1;
       this.players.forEach(p => { p.score = 0; });

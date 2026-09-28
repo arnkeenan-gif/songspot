@@ -28,6 +28,23 @@ function seeded(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+/**
+ * `count` tiles from fewer covers, laid out so no cover touches itself: not
+ * beside it in the row, not above it in its column (tile i sits in column
+ * i % COLS), and not across the seam where a column loops back to its top.
+ */
+function fill(covers, count) {
+  const out = [], n = covers.length, rows = Math.floor(count / COLS);
+  for (let i = 0; i < count; i++) {
+    const avoid = new Set([out[i - 1], out[i - COLS]]);
+    if (Math.floor(i / COLS) === rows - 1) avoid.add(out[i % COLS]);
+    let pick = covers[i % n];
+    for (let k = 0; k < n; k++) { const c = covers[(i + k) % n]; if (!avoid.has(c)) { pick = c; break; } }
+    out.push(pick);
+  }
+  return out;
+}
+
 function shuffled(list, rnd) {
   const a = list.slice();
   for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
@@ -56,6 +73,11 @@ export const CoverWall = {
     // Distinct covers only: one artist's singles often share an album.
     const seen = new Set();
     picks = picks.filter(s => s.artwork && !seen.has(s.artwork) && seen.add(s.artwork));
+    // An artist with a handful of albums still gets a wall of their own:
+    // their covers repeat, never next to the same one.
+    if (artist && picks.length >= 3 && picks.length < count) {
+      return fill(shuffled(picks, rnd).map(s => art(s.artwork, 160)), count);
+    }
     if (picks.length < 12) {
       const easy = pool.filter('easy').filter(s => s.artwork);
       picks = easy.length ? easy : pool.songs.slice(0, 200).filter(s => s.artwork);
