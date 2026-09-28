@@ -122,19 +122,20 @@ export async function openDrawer(ctx) {
     if (b.tagName !== 'A') e.preventDefault();
     if (act === 'close') close();
     else if (act === 'profile') { close(); ctx.openProfile(); }
-    else if (act === 'premium') ctx.openPremium(null);
+    // Anything that opens a sheet closes the drawer first: sheets live under it.
+    else if (act === 'premium') close(() => ctx.openPremium(null));
     else if (act === 'daily') { close(); ctx.openDaily(); }
     else if (act === 'party') { close(); ctx.openParty(); }
-    else if (act === 'ranked') rankedOpen() ? (close(), ctx.openRanked()) : ctx.openPremium('ranked');
+    else if (act === 'ranked') rankedOpen() ? (close(), ctx.openRanked()) : close(() => ctx.openPremium('ranked'));
     else if (act === 'reroll') { ctx.toast('New song.'); ctx.newRound(); }
     else if (act === 'anyera') { Haptics.select(); game.era = 'all'; ctx.newRound(); render(); }
     else if (act === 'friends') { close(); ctx.openFriends(); }
     else if (act === 'privacy') { try { window.googlefc.showRevocationMessage(); } catch (err) {} }
     else if (act === 'noartist') { e.stopPropagation(); game.artist = null; game.setArtistSongs([]); ctx.newRound(); render(); }
     else if (act === 'artist') { close(); ctx.openArtists(); }
-    else if (act === 'lockedartist') ctx.openPremium('artist');
+    else if (act === 'lockedartist') close(() => ctx.openPremium('artist'));
     else if (act === 'genres') { close(); ctx.openGenres(); }
-    else if (act === 'faq') ctx.openFAQ();
+    else if (act === 'faq') close(() => ctx.openFAQ());
     else if (act === 'restore') restore();
   });
   d.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.dataset.toggle) { e.preventDefault(); e.target.click(); } });
