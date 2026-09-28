@@ -9,6 +9,8 @@ export default async function handler(req, res) {
   if (!stripeReady()) return send(res, 503, { error: 'Premium on the web is coming soon.' });
   const user = await userFrom(req);
   if (!user) return send(res, 401, { error: 'Sign in first.' });
+  // Premium belongs to a real account: a guest (anonymous) one is lost with the browser's storage.
+  if (user.is_anonymous) return send(res, 403, { error: 'Sign in to buy premium.' });
   const body = await readJSON(req);
   const plan = body.plan === 'lifetime' ? 'lifetime' : 'monthly';
   const back = safeReturn(req, body.return);

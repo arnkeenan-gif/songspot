@@ -90,7 +90,10 @@ export function loadCSS(name) {
     refresh: () => stage?.render(),
   };
   window.__songspot = ctx;                                   // for poking at it from the console
-  account.onChange(() => { stage?.render(); ads.sync(); });
+  account.onChange(() => { stage?.render(); ads.sync(); resumeBuy(); });
+  // A guest who pressed Go premium was sent to sign in; once they're back and signed in, reopen premium.
+  let buyResumed = false;
+  function resumeBuy() { if (buyResumed) return; let p = null; try { p = sessionStorage.getItem('songspot.pendingBuy'); } catch (e) {} if (p && account.signedIn && !ctx.premium) { buyResumed = true; ctx.openPremium(null); } }
   // Friends: the heartbeat (online + incoming challenges) and the challenge banner.
   // A 1v1 opens out of whatever is on screen: the menu closes, the stage goes quiet.
   loadCSS('friends');

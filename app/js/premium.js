@@ -23,11 +23,16 @@ export async function premiumConfig() {
   return config;
 }
 
+/** Set when a guest presses Go premium: sign in first, then come back to the plan they chose. */
+export const PENDING = 'songspot.pendingBuy';
+
 export async function mountPremium(ctx, highlight = null) {
   const { account, sound } = ctx;
   const tier = ctx.game.difficulty, accent = TIER_COLOR[tier], ink = TIER_INK[tier];
   const cfg = await premiumConfig();
   let plan = 'monthly', working = false, error = '';
+  // Back from signing in to buy: the plan they had chosen is still chosen.
+  try { const p = JSON.parse(sessionStorage.getItem(PENDING) || 'null'); sessionStorage.removeItem(PENDING); if (p && Date.now() - p.at < 15 * 60e3 && (p.plan === 'monthly' || p.plan === 'lifetime')) plan = p.plan; } catch (e) {}
   let off = null;
   const sh = openSheet('', { cls: 'premium tall', label: 'Premium', onClose: () => off && off() });
   sh.node.style.setProperty('--accent', accent); sh.node.style.setProperty('--accent-ink', ink);
@@ -49,9 +54,9 @@ export async function mountPremium(ctx, highlight = null) {
       <div class="pfill"></div>
       ${error ? `<p class="perr">${esc(error)}</p>` : ''}
       ${has ? `<button class="btn primary" data-act="manage" data-press>You're premium — manage</button>`
-        : cfg.stripe ? `<button class="btn primary" data-act="buy" data-press ${working ? 'disabled' : ''}>${working ? 'One moment…' : plan === 'monthly' ? `Go premium — ${cfg.monthly}/month` : `Go premium — ${cfg.lifetime} once`}</button>`
+        : cfg.stripe ? `<button class="btn primary" data-act="buy" data-press ${working ? 'disabled' : ''}>${working ? 'One moment…' : guest ? 'Sign in to go premium' : plan === 'monthly' ? `Go premium — ${cfg.monthly}/month` : `Go premium — ${cfg.lifetime} once`}</button>`
         : `<button class="btn primary" disabled>Premium on the web is coming soon</button><a class="pios" href="https://songspotapp.com/get" target="_blank" rel="noopener">Get it now in the <b>iPhone app</b></a>`}
-      ${!has && cfg.stripe && guest ? `<p class="pguest">Buying without signing in keeps premium in this browser. <button data-act="signin">Sign in first</button> to have it everywhere.</p>` : ''}
+      ${!has && cfg.stripe && guest ? `<p class="pguest">Premium belongs to your account, so you have it on every device. Sign in first, then pay.</p>` : ''}
       ${has ? '' : `<button class="prestore" data-act="restore" data-press>Restore purchases</button>`}
       ${plan === 'monthly' && !has && cfg.stripe ? `<p class="prenew">Renews at ${cfg.monthly}/month until cancelled. Payments by Stripe.</p>` : ''}
       <div class="plinks"><a href="/support" target="_blank">Terms</a><a href="/privacy" target="_blank">Privacy</a></div>
@@ -72,13 +77,18 @@ export async function mountPremium(ctx, highlight = null) {
     }
     if (act === 'manage') return openPortal();
     if (act === 'buy' && !working) {
+      // Premium must belong to a real account, never a guest one that a cleared browser loses.
+      if (!account.signedIn) {
+        try { sessionStorage.setItem(PENDING, JSON.stringify({ plan, at: Date.now() })); } catch (e) {}
+        sh.close(); return ctx.signIn();
+      }
       working = true; error = ''; paint();
       try {
-        await account.ensureUser();
         const token = await auth.token();
         const r = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ plan, return: location.origin + '/' }) });
         const d = await r.json().catch(() => ({}));
         if (r.status === 503) { config = { ...cfg, stripe: false }; cfg.stripe = false; working = false; return paint(); }
+        if (r.status === 401 || r.status === 403) { working = false; paint(); try { sessionStorage.setItem(PENDING, JSON.stringify({ plan, at: Date.now() })); } catch (e) {} sh.close(); return ctx.signIn(); }
         if (!r.ok || !d.url) throw new Error(d.error || 'checkout');
         location.href = d.url;
       } catch (err) { working = false; error = "Couldn't start the payment. Check your connection and try again."; paint(); }
