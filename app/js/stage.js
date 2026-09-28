@@ -23,7 +23,7 @@ export function mountStage(root, ctx) {
   let query = '', picked = null, hits = [], activeHit = -1;
   let phase = 'play';            // play | offer | winning | reveal
   let hintUsed = false, secondChance = null, looking = false, lookUntil = 0, raf = 0, spin = null, drag = null;
-  const S = k => settings.get(k, { easySearch: true, glow: false, artwork: true, motion: true, haptics: true, hint: false, sounds: true, volume: 0.28, spotlight: 'off' }[k]);
+  const S = k => settings.get(k, { easySearch: true, glow: false, artwork: true, motion: true, haptics: true, hint: false, sounds: true, volume: 0.28, spotlight: 'simple' }[k]);
 
   root.innerHTML = `<div class="stage"><div class="col"></div></div>
     <button class="corner menu-btn" data-press aria-label="Menu">${I.menu}</button>

@@ -66,7 +66,7 @@ export async function openDrawer(ctx) {
       <div class="chips">${top.map(c => `<button class="${c === game.category ? 'on' : ''}" data-cat="${esc(c)}" title="${esc(c)}">${c === 'all' ? 'All' : esc(c)}</button>`).join('')}</div>
       <div class="rule"></div>
       <p class="dlabel">Spotlight</p>
-      <div class="seg">${[['off', 'Off'], ['simple', 'On']].map(([v, t]) => `<button data-spot="${v}" class="${S('spotlight', 'off') === v ? 'on' : ''}">${t}</button>`).join('')}</div>
+      <div class="seg">${[['off', 'Off'], ['simple', 'On']].map(([v, t]) => `<button data-spot="${v}" class="${S('spotlight', 'simple') === v ? 'on' : ''}">${t}</button>`).join('')}</div>
       <div class="rule"></div>
       <p class="dlabel">Settings</p>
       <div class="group card">
@@ -117,7 +117,7 @@ export async function openDrawer(ctx) {
     // The drawer makes no sounds in the app; only the switches, the segment and the era action tick.
     if (b.dataset.tier) { if (b.classList.contains('dead')) return; ctx.setTier(b.dataset.tier); return render(); }
     if (b.dataset.cat) { game.category = b.dataset.cat; ctx.newRound(); return render(); }
-    if (b.dataset.spot) { if (S('spotlight', 'off') !== b.dataset.spot) Haptics.select(); settings.set('spotlight', b.dataset.spot); ctx.refresh(); return render(); }
+    if (b.dataset.spot) { if (S('spotlight', 'simple') !== b.dataset.spot) Haptics.select(); settings.set('spotlight', b.dataset.spot); ctx.refresh(); return render(); }
     const act = b.dataset.act; if (!act) return;
     if (b.tagName !== 'A') e.preventDefault();
     if (act === 'close') close();
