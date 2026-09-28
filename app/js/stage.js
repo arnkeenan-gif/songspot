@@ -156,7 +156,9 @@ export function mountStage(root, ctx) {
     const s = game.song;
     if (!s) return toast('No songs match these filters. Change the difficulty, era or genre.', 5);
     if (ads.showing) return;
-    if (player.playing || looking) { Haptics.press(0.45); stopLook(); return; }
+    // A press stops only a clip that is sounding or loading. The playing look lingers
+    // half a second after a 0.1 s clip ends; a press then plays it again at once.
+    if (player.playing || player.pending) { Haptics.press(0.45); stopLook(); return; }
     Haptics.press(0.8);
     lookUntil = performance.now() + 500; setLook(true); tick();
     const ok = await player.play(s.id, s.preview, game.duration);
@@ -422,6 +424,13 @@ export function mountStage(root, ctx) {
   // ---------- events ----------
   menuBtn.addEventListener('click', () => { sound.click(); Haptics.press(0.5); ctx.openDrawer(); });
   crownBtn.addEventListener('click', () => { sound.click(); Haptics.press(0.5); ctx.openPremium(null); });
+  // The disc answers on touch-down, not on release: in a 0.1 s game the press is the moment.
+  // The click that follows is swallowed; a keyboard press (Enter/Space) still comes as a click.
+  let discDownAt = 0;
+  col.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || !e.target.closest('[data-act="play"]')) return;
+    discDownAt = performance.now(); sound.click(); play();
+  });
   col.addEventListener('click', e => {
     if (col._suppressClick) return;
     const t = e.target;
@@ -429,7 +438,7 @@ export function mountStage(root, ctx) {
     const hit = t.closest('.hit');
     if (hit) { sound.click(); Haptics.select(); picked = hits[+hit.dataset.i]; query = pickLabel(picked); const inp = col.querySelector('input'); inp.value = query; inp.blur(); hits = []; col.querySelector('.hits').hidden = true; setArmed(); return; }
     const act = t.closest('[data-act]')?.dataset.act;
-    if (act === 'play') { sound.click(); return play(); }
+    if (act === 'play') { if (performance.now() - discDownAt < 1500) return; sound.click(); return play(); }
     if (act === 'skip') return skip();
     if (act === 'reel') return startSpin();
     if (act === 'hint') { sound.click(); if (!game.song) return; if (!hintUsed) { hintUsed = true; Haptics.success(); const k = col.querySelector('.hintkey'); if (k) { k.classList.add('used'); k.innerHTML = I.bulbOff; } } return toast(`It's by ${game.song.artist}.`, 4); }
