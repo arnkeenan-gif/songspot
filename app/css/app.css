@@ -242,7 +242,9 @@ html.wide { .cone { width: min(860px, calc(100vw + 96px)); } .cone i { clip-path
 
 /* ---------- views and sheets ---------- */
 /* fullScreenCover: the whole screen slides up from the bottom edge, and back down */
-.view { position: absolute; inset: 0; background: var(--page); overflow-y: auto; overscroll-behavior: contain; transform: translateY(100%); transition: transform .5s var(--ease); }
+.view { position: absolute; inset: 0; background: var(--page); overflow-y: auto; overscroll-behavior: contain; transform: translateY(100%); transition: transform .5s var(--ease);
+  /* Each screen keeps its layers to itself, so a sheet opened over it always paints on top. */
+  isolation: isolate; }
 .view.in { transform: none; }
 .view.sheet { background: transparent; transform: none; overflow: hidden; }
 .view.sheet .scrim { position: absolute; inset: 0; background: rgba(0,0,0,.55); opacity: 0; transition: opacity .5s var(--ease); }
