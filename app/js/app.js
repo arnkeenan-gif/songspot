@@ -18,7 +18,7 @@ const q = new URLSearchParams(location.search);
 const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 
 /** Bumped with every deploy that changes CSS, so browsers drop the old files. */
-const CSS_V = 19;
+const CSS_V = 20;
 
 /** A module's own stylesheet, loaded once when the module first opens. */
 export function loadCSS(name) {
@@ -79,7 +79,11 @@ export function loadCSS(name) {
     // Ranked is premium, with one free match for a new player (StageView.rankedOpen).
     openRanked: async () => { if (!ctx.premium && (account.stats.rankedPlayed || 0) > 0) return ctx.openPremium('ranked'); ctx.stopStage(); (await lazy('ranked', 'mountRanked'))(ctx); },
     openDaily: async () => { ctx.stopStage(); (await lazy('daily', 'mountDaily'))(ctx); },
-    openPremium: async perk => (await lazy('premium', 'mountPremium'))(ctx, perk ?? null),
+    // Premium needs a profile first: signed out, sign in, and premium opens once they're back.
+    openPremium: async perk => {
+      if (!account.signedIn && !ctx.premium) { (await lazy('premium', 'rememberPending'))({ kind: 'open', perk: perk ?? null }); ctx.toast('Make a profile first, so premium is saved to it.'); return ctx.signIn(); }
+      (await lazy('premium', 'mountPremium'))(ctx, perk ?? null);
+    },
     openGenres: async () => (await lazy('pickers', 'openGenres', 'app'))(ctx),
     openArtists: async () => { if (!ctx.premium) return ctx.openPremium('artist'); (await lazy('pickers', 'openArtists', 'app'))(ctx); },
     openFAQ: async () => (await lazy('pickers', 'openFAQ', 'app'))(ctx),
@@ -90,7 +94,19 @@ export function loadCSS(name) {
     refresh: () => stage?.render(),
   };
   window.__songspot = ctx;                                   // for poking at it from the console
-  account.onChange(() => { stage?.render(); ads.sync(); if (account.signedIn && settings.get('mustProfile', false)) settings.set('mustProfile', false); });
+  account.onChange(() => { stage?.render(); ads.sync(); if (account.signedIn && settings.get('mustProfile', false)) settings.set('mustProfile', false); resumePremium(); });
+  // Sent to sign in on the way to premium: once back and signed in, carry on — open premium,
+  // or, if they had pressed pay, go straight on to Stripe.
+  let premiumResumed = false;
+  async function resumePremium() {
+    if (premiumResumed || !account.signedIn || ctx.premium) return;
+    let raw = null; try { raw = sessionStorage.getItem('songspot.pendingBuy'); } catch (e) {}
+    if (!raw) return;
+    premiumResumed = true;
+    const m = await import('./premium.js'); const p = m.takePending(); if (!p) return;
+    if (p.kind === 'buy' && (p.plan === 'monthly' || p.plan === 'lifetime')) { toast('Taking you to checkout…'); const msg = await m.startCheckout(ctx, p.plan); if (msg) { toast(msg, 5); ctx.openPremium(null); } }
+    else ctx.openPremium(p.perk ?? null);
+  }
   /** Paid as a guest: the sign-in screen without a way out, until premium sits on a real profile. */
   const mustProfile = async () => { if (account.isGuest) (await lazy('login', 'openLogin', 'app'))(ctx, { forced: true }); };
   // Friends: the heartbeat (online + incoming challenges) and the challenge banner.

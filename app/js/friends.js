@@ -166,7 +166,7 @@ function mountBanner() {
     if ((c?.id ?? null) === shownId) return;
     shownId = c?.id ?? null;
     if (!c) { banner.classList.remove('on'); return; }
-    banner.innerHTML = `<div class="cb" role="alertdialog" aria-label="${esc(c.from_name)} challenged you">
+    banner.innerHTML = `<div class="cbanner" role="alertdialog" aria-label="${esc(c.from_name)} challenged you">
       <span class="cb-av">${face(c.from_name, c.from_avatar, 'var(--easy)', 42, 'rgba(0,0,0,.75)')}</span>
       <span class="cb-tx"><b>${esc(c.from_name)} challenged you</b><small>1v1, right now</small></span>
       <button class="cb-no" data-press data-cb="no" aria-label="Decline">${I.x}</button>

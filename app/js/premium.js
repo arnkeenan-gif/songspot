@@ -23,6 +23,31 @@ export async function premiumConfig() {
   return config;
 }
 
+/**
+ * Where a signed-out player was going when they were sent to sign in: { kind: 'open', perk } (they
+ * pressed Premium) or { kind: 'buy', plan } (they pressed pay). app.js carries on once they're back.
+ */
+export const PENDING = 'songspot.pendingBuy';
+export function rememberPending(v) { try { sessionStorage.setItem(PENDING, JSON.stringify({ ...v, at: Date.now() })); } catch (e) {} }
+export function takePending() {
+  try { const p = JSON.parse(sessionStorage.getItem(PENDING) || 'null'); sessionStorage.removeItem(PENDING); return p && Date.now() - p.at < 15 * 60e3 ? p : null; } catch (e) { return null; }
+}
+
+/** Straight to Stripe, for a signed-in player. Resolves with an error message if it could not start. */
+export async function startCheckout(ctx, plan) {
+  if (!ctx.account.signedIn) { rememberPending({ kind: 'buy', plan }); ctx.signIn(); return null; }
+  try {
+    const token = await auth.token();
+    const r = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ plan, return: location.origin + '/' }) });
+    const d = await r.json().catch(() => ({}));
+    if (r.status === 503) return 'Premium on the web is coming soon.';
+    if (r.status === 401 || r.status === 403) { rememberPending({ kind: 'buy', plan }); ctx.signIn(); return null; }
+    if (!r.ok || !d.url) throw new Error(d.error || 'checkout');
+    location.href = d.url;
+    return null;
+  } catch (err) { return "Couldn't start the payment. Check your connection and try again."; }
+}
+
 export async function mountPremium(ctx, highlight = null) {
   const { account, sound } = ctx;
   const tier = ctx.game.difficulty, accent = TIER_COLOR[tier], ink = TIER_INK[tier];
@@ -49,9 +74,9 @@ export async function mountPremium(ctx, highlight = null) {
       <div class="pfill"></div>
       ${error ? `<p class="perr">${esc(error)}</p>` : ''}
       ${has ? `<button class="btn primary" data-act="manage" data-press>You're premium — manage</button>`
-        : cfg.stripe ? `<button class="btn primary" data-act="buy" data-press ${working ? 'disabled' : ''}>${working ? 'One moment…' : plan === 'monthly' ? `Go premium — ${cfg.monthly}/month` : `Go premium — ${cfg.lifetime} once`}</button>`
+        : cfg.stripe ? `<button class="btn primary" data-act="buy" data-press ${working ? 'disabled' : ''}>${working ? 'One moment…' : guest ? 'Sign in to go premium' : plan === 'monthly' ? `Go premium — ${cfg.monthly}/month` : `Go premium — ${cfg.lifetime} once`}</button>`
         : `<button class="btn primary" disabled>Premium on the web is coming soon</button><a class="pios" href="https://songspotapp.com/get" target="_blank" rel="noopener">Get it now in the <b>iPhone app</b></a>`}
-      ${!has && cfg.stripe && guest ? `<p class="pguest">Right after paying you make a profile, so premium is yours on every device.</p>` : ''}
+      ${!has && cfg.stripe && guest ? `<p class="pguest">Premium is saved to your profile, so you have it on every device. Sign in first, then pay.</p>` : ''}
       ${has ? '' : `<button class="prestore" data-act="restore" data-press>Restore purchases</button>`}
       ${plan === 'monthly' && !has && cfg.stripe ? `<p class="prenew">Renews at ${cfg.monthly}/month until cancelled. Payments by Stripe.</p>` : ''}
       <div class="plinks"><a href="/support" target="_blank">Terms</a><a href="/privacy" target="_blank">Privacy</a></div>
@@ -72,16 +97,11 @@ export async function mountPremium(ctx, highlight = null) {
     }
     if (act === 'manage') return openPortal();
     if (act === 'buy' && !working) {
+      // Premium belongs to a profile: signed out, sign in first, then straight on to Stripe.
+      if (!account.signedIn) { sh.close(); rememberPending({ kind: 'buy', plan }); return ctx.signIn(); }
       working = true; error = ''; paint();
-      try {
-        await account.ensureUser();
-        const token = await auth.token();
-        const r = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ plan, return: location.origin + '/' }) });
-        const d = await r.json().catch(() => ({}));
-        if (r.status === 503) { config = { ...cfg, stripe: false }; cfg.stripe = false; working = false; return paint(); }
-        if (!r.ok || !d.url) throw new Error(d.error || 'checkout');
-        location.href = d.url;
-      } catch (err) { working = false; error = "Couldn't start the payment. Check your connection and try again."; paint(); }
+      const msg = await startCheckout(ctx, plan);
+      if (msg) { working = false; error = msg; paint(); }
     }
   });
   async function openPortal() {

@@ -341,3 +341,9 @@ html.xwide {
 }
 /* the PC / phone switch sits in the top-right corner: keep the close button clear of it */
 @media (max-width: 1140px) { html.xwide body.has-viewtoggle .ranked .rk-idle .rk-bar .xbtn { margin-right: 96px; } }
+
+/* desktop: the four answers sit centred under the timer, not against the left of the column */
+html.wide {
+  .rk-choices { width: 100%; max-width: 560px; align-self: center; margin-inline: auto; }
+  .rk-choices .rk-status { align-self: center; text-align: center; }
+}

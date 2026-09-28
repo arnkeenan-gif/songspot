@@ -594,3 +594,9 @@ html.wide {
   .psettings .psongs { grid-column: 1 / -1; }
   .psettings .psblock.teams { grid-row: span 2; }
 }
+
+/* desktop: the four answers sit centred under the timer, not against the left of the column */
+html.wide {
+  .pchoices { width: 100%; max-width: 560px; align-self: center; margin-inline: auto; }
+  .pchoices > p { padding-left: 0; text-align: center; }
+}
