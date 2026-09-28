@@ -75,8 +75,9 @@ export const Daily = {
     } catch (e) {}
     return null;
   },
+  /** Huge songs only (no hints, so the daily is easy): Easy, most famous, each artist's signature song. Offline fallback; the server plans the days. */
   localPick(pool, day) {
-    const c = pool.songs.filter(s => (s.tier === 'easy' || s.tier === 'medium') && !Pool.excludedFromAll(s))
+    const c = pool.songs.filter(s => s.tier === 'easy' && s.fame === 1 && s.artistRank === 0 && !Pool.excludedFromAll(s))
       .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     if (!c.length) return null;
     let h = (BigInt(day) * 0x9E3779B97F4A7C15n) & M64;
@@ -155,9 +156,8 @@ export function mountDaily(ctx) {
   let scr = node.querySelector('.screen');
   const toastEl = node.querySelector('.d-toast');
 
-  // ---- hints: the decade (when the song has a year), then the artist
-  const hintKinds = song ? [...(song.year ? ['Decade'] : []), 'Artist'] : [];
-  const hintTexts = song ? [...(song.year ? [eraOf(song.year)] : []), song.artist] : [];
+  // ---- no hints: the daily is huge songs only, so it stays easy without them (the owner's call, 28 Sep)
+  const hintKinds = [], hintTexts = [];
   const artistPicture = (() => {
     if (!song) return null;
     const o = pool.songs.filter(s => s.artist === song.artist && s.id !== song.id && s.artwork && s.artwork !== song.artwork)
@@ -196,7 +196,6 @@ export function mountDaily(ctx) {
         <div class="guessrow">
           <div class="keys">
             <div class="field"><input type="text" placeholder="Name that track" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="send" value="${esc(query)}" aria-label="Name that track"></div>
-            <button class="key hintkey${left ? '' : ' used'}" data-press data-act="hint" aria-label="${left ? 'Hint, costs a quarter of the points' : 'Show the hints again'}">${left ? I.bulb : I.bulbOff}${left ? `<span class="d-badge">${hintTexts.length - hints}</span>` : ''}</button>
             <button class="key skip${armed() ? ' armed' : ''}" data-press data-act="skip">${skipInner()}</button>
           </div>
           <div class="hits" hidden></div>
@@ -265,7 +264,6 @@ export function mountDaily(ctx) {
     const old = scr.querySelector('.guessrow, .offer'); if (!old) return renderRound();
     const tmp = document.createElement('div');
     tmp.innerHTML = secondChance ? offerHTML() : `<div class="guessrow"><div class="keys"><div class="field"><input type="text" placeholder="Name that track" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="send" aria-label="Name that track"></div>
-      <button class="key hintkey${hints < hintTexts.length ? '' : ' used'}" data-press data-act="hint">${hints < hintTexts.length ? I.bulb + `<span class="d-badge">${hintTexts.length - hints}</span>` : I.bulbOff}</button>
       <button class="key skip${armed() ? ' armed' : ''}" data-press data-act="skip">${skipInner()}</button></div><div class="hits" hidden></div></div>`;
     const nu = tmp.firstElementChild;
     old.replaceWith(nu); if (fade) fadeIn(nu, 250);
