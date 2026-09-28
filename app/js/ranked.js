@@ -384,26 +384,35 @@ export function mountRanked(ctx) {
   function entryHTML() {
     const s = account.stats, p = place(), tint = p.tier.color;
     const streak = (s.winStreak || 0) >= 2 ? `<span class="rk-hot">${I.flame}<b>${s.winStreak} win streak</b></span>` : '';
+    const best = Ladder.place(s.bestRP || 0).tier;
+    const recent = (s.recentRanked || []).length
+      ? `<i class="rk-gline"></i><div class="rk-last"><span>LAST 5</span>${formRow(s.recentRanked)}</div>` : '';
+    // .rk-home and .rk-side only matter on a desktop (the rank on the left, the season and the
+    // buttons on the right); on a phone they are display: contents and the column is unchanged.
     return `<div class="rk-entry-all">${bar()}<div class="rk-fill"></div>
+      <div class="rk-home">
       <div class="rk-entry" style="--tint:${tint}">
         <div class="rk-hbadge">${badge(s.rp, 136)}</div>
         <div class="rk-rankname">${esc(p.name)}</div>
         <div class="rk-rp">${s.rp || 0} RP</div>
         ${rankProgress(s.rp || 0)}
+      </div>
+      <div class="rk-side">
         <div class="rk-glass">
           <div class="rk-gtop">${I.calendar}<span>${esc(Ladder.seasonCountdown())}</span><div class="rk-fill"></div>${streak}</div>
-          <div class="rk-record">${[['Played', s.rankedPlayed || 0], ['Won', s.rankedWon || 0], ['Best', Ladder.place(s.bestRP || 0).tier.name]].map(([l, v]) => `<div><b>${esc(v)}</b><span>${l}</span></div>`).join('')}</div>
-          ${formRow(s.recentRanked)}
+          <div class="rk-record"><div><b>${s.rankedPlayed || 0}</b><span>Played</span></div><div><b>${s.rankedWon || 0}</b><span>Won</span></div>
+            <div><b class="word" style="${(s.bestRP || 0) > 0 ? `color:${best.color}` : ''}">${esc(best.name)}</b><span>Best</span></div></div>
+          ${recent}
         </div>
-      </div>
-      <div class="rk-fill"></div>
-      <button class="rk-btn2 rk-lb rk-glassbtn" data-press data-act="board">${LIST}<span>Leaderboard</span></button>
-      <button class="rk-go" data-press data-act="find">${rankedOpen() ? (freeMatch() ? 'Play your free match' : 'Find a match') : 'Unlock ranked with Premium'}</button></div>`;
+        <div class="rk-fill rk-gap"></div>
+        <button class="rk-btn2 rk-lb rk-glassbtn" data-press data-act="board">${LIST}<span>Leaderboard</span></button>
+        <button class="rk-go" data-press data-act="find">${rankedOpen() ? (freeMatch() ? 'Play your free match' : 'Find a match') : 'Unlock ranked with Premium'}</button>
+      </div></div></div>`;
   }
   function rankProgress(rp) {
     const p = Ladder.place(rp);
     return `<div class="rk-progress"><div class="rk-track"><i style="width:max(4px, ${p.fraction * 100}%)"></i></div>
-      <div class="rk-to">${p.nextAt != null ? `${p.nextAt - rp} RP to ${esc(Ladder.place(p.nextAt).name)}` : 'Top rank'}</div></div>`;
+      <div class="rk-to">${p.nextAt != null ? `<b>${p.nextAt - rp} RP</b> to ${esc(Ladder.place(p.nextAt).name)}` : 'Top rank'}</div></div>`;
   }
 
   // matchmaking: you, in your rank's ring, in front of the wall, with the clock running
@@ -819,9 +828,12 @@ export function mountRanked(ctx) {
       const colour = medal || hueColor(seed);
       const name = (r.display_name || '').trim() || 'Someone';
       const m = r.matches > 0 ? `<em>${r.matches} ${r.matches === 1 ? 'match' : 'matches'}</em>` : '';
+      // The desktop table's extra columns: matches and points a match (hidden on a phone, where the count sits under the points).
+      const avg = r.matches > 0 ? Math.round(r.points / r.matches) : null;
       return `<div class="rk-lbrow${isMe ? ' me' : ''}"><b class="pl" style="${medal ? `color:${medal}` : ''}">${place}</b>
         ${face(name, r.avatar, alpha(colour, 0.9), 34, PILL_INK)}
-        <span class="nm">${esc(isMe ? `${name} (you)` : name)}</span><span class="rk-fill"></span>
+        <span class="nm">${esc(name)}</span>${isMe ? '<span class="you">YOU</span>' : ''}<span class="rk-fill"></span>
+        <span class="col mt">${r.matches > 0 ? r.matches : '—'}</span><span class="col av">${avg ?? '—'}</span>
         <span class="pts"><b style="${medal ? `color:${medal}` : ''}">${r.points}</b>${m}</span></div>`;
     };
     async function load() {
@@ -840,7 +852,7 @@ export function mountRanked(ctx) {
       if (token !== loadToken || !sh.node.isConnected) return;
       if (rows == null) { body.innerHTML = message("The board couldn't load. Check your connection."); return; }
       if (!rows.length) { body.innerHTML = message(days === 1 ? 'Nobody has played today yet. Be the first.' : 'No matches this week yet. Be the first.'); return; }
-      body.innerHTML = `<div class="rk-lblist">${rows.map((r, i) => row(r, i + 1, r.user_id === me)).join('')}</div>`;
+      body.innerHTML = `<div class="rk-lblist"><div class="rk-lbcols" aria-hidden="true"><span class="pl">#</span><span class="nm">Player</span><span class="rk-fill"></span><span class="col">Matches</span><span class="col">Per match</span><span class="pts">Points</span></div>${rows.map((r, i) => row(r, i + 1, r.user_id === me)).join('')}</div>`;
       const i = rows.findIndex(r => r.user_id === me);
       if (i >= 10) mineHost.innerHTML = row(rows[i], i + 1, true);
     }

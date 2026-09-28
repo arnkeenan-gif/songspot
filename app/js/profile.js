@@ -162,7 +162,8 @@ export function mountProfile(ctx) {
     return `<div class="pf-tier" style="background:${alpha(c, n === 0 ? 0.04 : 0.1)}"><i style="background:${c}"></i><b style="color:${n === 0 ? 'var(--dim)' : c}">${n}</b><small>${t === 'impossible' ? 'Imposs.' : cap(t)}</small></div>`;
   }).join('')}</div>`;
 
-  /** Your rank as a player card in its own colour: the name big, the RP and the road to the next rank, the record and season badges. */
+  /** Your rank, drawn like the daily card under it: the crown on a tile, the rank's name, the RP, the road to the
+   *  next rank, the record and the season badges. One flat surface, no gradient, no glow. */
   function rankedHTML(s) {
     const rp = s.rp || 0, p = Ladder.place(rp), tint = p.tier.color;
     const next = p.nextAt != null ? `${fmt(p.nextAt - rp)} RP to ${Ladder.place(p.nextAt).name}` : 'Top rank';
@@ -172,11 +173,12 @@ export function mountProfile(ctx) {
       const c = (Ladder.tiers.find(t => name.startsWith(t.name)) || {}).color || 'var(--muted)';
       return `<span class="pf-badge" style="color:${c}">${ROSETTE}${esc(`${Ladder.seasonName(key)} · ${name}`)}</span>`;
     }).join('');
-    return `<div class="pf-rankwrap"><div class="pf-rank" style="--rc:${tint}">
-      <div class="pf-rtop"><div class="pf-rname"><em>RANKED</em><b>${esc(p.name)}</b><span>${fmt(rp)} RP</span></div><span class="pf-crown">${I.crown}</span></div>
-      <div class="pf-rtrack"><i data-w="max(6px, ${(p.fraction * 100).toFixed(2)}%)"></i></div>
-      <div class="pf-rfoot"><span>${esc(next)}</span>${record}</div>
-      ${badges ? `<div class="pf-badges">${badges}</div>` : ''}</div></div>`;
+    return `<div class="pf-card pf-rank" style="--rc:${tint}">
+      <div class="pf-hero"><span class="pf-big" style="color:${tint};background:${alpha(tint, 0.14)}">${I.crown}</span>
+        <span class="pf-herot"><em style="color:${tint}">RANKED</em><b>${esc(p.name)}</b><small class="pf-mono">${fmt(rp)} RP</small></span></div>
+      <div class="pf-rline"><div class="pf-rtrack"><i data-w="max(6px, ${(p.fraction * 100).toFixed(2)}%)"></i></div>
+      <div class="pf-rfoot"><span>${esc(next)}</span>${record}</div></div>
+      ${badges ? `${divider}<div class="pf-badges">${badges}</div>` : ''}</div>`;
   }
 
   /** What you've done, as one clean list; nothing you haven't done yet. */
@@ -225,12 +227,14 @@ export function mountProfile(ctx) {
     node.style.setProperty('--pf-accent', accent());
     const counts = STAGES.map((_, i) => (s.wonByStage && s.wonByStage[i]) || 0);
     const career = careerRows(s);
-    body.innerHTML = whoHTML() + levelHTML(s) + gridHTML(s) + friendsRowHTML()
-      + rankedHTML(s) + dailyHTML(s)
-      + (total > 0 ? section('How fast you name them', `<div class="pf-stack">${speedHTML(s, counts, total)}${difficultyHTML(s)}</div>`, `${fmt(total)} named`) : '')
+    // Grouped for the desktop layout (the header across the top, then two columns); on a phone the
+    // groups are display: contents and the page is the one column it always was.
+    body.innerHTML = `<div class="pf-top">${whoHTML() + levelHTML(s)}</div>`
+      + `<div class="pf-split"><div class="pf-left">${gridHTML(s) + friendsRowHTML() + rankedHTML(s) + dailyHTML(s)}</div>`
+      + `<div class="pf-right">${(total > 0 ? section('How fast you name them', `<div class="pf-stack">${speedHTML(s, counts, total)}${difficultyHTML(s)}</div>`, `${fmt(total)} named`) : '')
       + (career.length ? section('Career', careerHTML(career)) : '')
       + section('Account', `<div class="pf-card pf-acct">${accountHTML()}</div>`)
-      + (deleteError ? `<p class="pf-err">${esc(deleteError)}</p>` : '');
+      + (deleteError ? `<p class="pf-err">${esc(deleteError)}</p>` : '')}</div></div>`;
     const f = body.querySelector('.pf-field');
     if (f) {
       f.value = draft ?? account.name;

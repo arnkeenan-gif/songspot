@@ -74,17 +74,18 @@
 .d-board { margin-top: 26px; width: 100%; padding: 16px; border-radius: 12px; text-align: left; }
 .d-bhead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 .d-bhead span { font-size: 10px; font-weight: 600; letter-spacing: 1.8px; color: var(--muted); }
-.d-bhead small { font-size: 11px; color: var(--dim); white-space: nowrap; }
+.d-bhead small { font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .d-spin { display: grid; place-items: center; padding: 24px 0; color: var(--accent); }
-.d-row { height: 46px; display: flex; align-items: center; gap: 12px; }
+.d-row { height: 46px; display: flex; align-items: center; gap: 10px; }
 .d-row + .d-row { border-top: 1px solid var(--line); }
-.d-row .pl { width: 22px; flex: none; font: 800 12.5px var(--mono); color: var(--dim); }
+.d-row .pl { width: 20px; flex: none; font: 800 12.5px var(--mono); color: var(--dim); }
 .d-row .pl.top { color: var(--accent); }
 .d-row .face { width: 30px; height: 30px; font-size: 12px !important; }
-.d-row .nm { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.d-row .nm { flex: 0 1 auto; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .d-row.me .nm { font-weight: 800; color: var(--accent); }
 .d-row .hb { display: inline-flex; gap: 2px; color: var(--gold); font-size: 11px; flex: none; }
-.pill-t { flex: none; height: 28px; padding: 0 12px; border-radius: 999px; display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; color: var(--muted); background: var(--surface2); }
+/* one width, so the points line up down the list */
+.pill-t { flex: none; width: 62px; height: 26px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--muted); background: var(--surface2); white-space: nowrap; }
 .pill-t.won { color: #08120c; background: #1ed760; box-shadow: 0 0 3px rgba(30,215,96,.42); }
 .noglow .pill-t.won { box-shadow: none; }
 .d-row .pts { flex: none; font: 800 12.5px var(--mono); color: var(--text); }
@@ -96,11 +97,10 @@
 .d-bhead:has(.d-tabs) { align-items: center; }
 .d-tab { height: 30px; padding: 0 12px; border-radius: 15px; background: var(--surface2); color: var(--muted); font-size: 12.5px; font-weight: 800; letter-spacing: 0; transition: background .2s var(--easeOut), color .2s var(--easeOut), transform .16s var(--easeOut), opacity .16s var(--easeOut); }
 .d-tab.on { background: var(--accent); color: var(--accent-ink); }
-.d-friend .nm { flex: 0 1 auto; }
-.d-friend .fs { display: inline-flex; align-items: center; gap: 2px; color: var(--hard); flex: none; }
-.d-friend .fs .i { font-size: 10px; } .d-friend .fs b { font: 800 11.5px var(--mono); }
-.d-friend .rk-fill { flex: 1; min-width: 8px; }
-.pill-t.yet { opacity: .7; }
+.d-row .rk-fill { flex: 1; min-width: 6px; }
+.d-row.yet { opacity: .6; }
+.d-row .fs { display: inline-flex; align-items: center; gap: 2px; color: var(--hard); flex: none; }
+.d-row .fs .i { font-size: 10px; } .d-row .fs b { font: 800 11.5px var(--mono); }
 /* the skeleton rows while the board loads, with a sweep of light */
 .d-skel > div { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
 .d-skel i { display: block; background: var(--surface2); border-radius: 4px; }
@@ -140,3 +140,20 @@ html.wide {
   .daily .timeline { margin-bottom: 55px; }
   .daily .playrow { margin-bottom: 24px; }
 }
+
+/* ---------- desktop: the result on the left, today's board beside it ---------- */
+.d-rmain, .d-rside { display: contents; }
+html.xwide {
+  .daily .screen:has(.d-result) { max-width: 1040px; }
+  .daily .screen:has(.d-result) .d-bar { padding-left: 40px; padding-right: 40px; }
+  .d-result { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); column-gap: 56px; align-items: start; padding: 12px 40px 48px; margin-block: auto; width: 100%; box-sizing: border-box; }
+  .d-rmain { display: flex; flex-direction: column; align-items: center; }
+  .d-rside { display: flex; flex-direction: column; align-items: stretch; }
+  .d-art { width: 180px; height: 180px; border-radius: 16px; }
+  .d-result h2 { font-size: 28px; }
+  .d-rside .d-board { margin-top: 18px; padding: 20px 22px; border-radius: 16px; }
+  .d-rside .d-row { height: 52px; }
+  .d-rside .d-next { text-align: left; margin-bottom: 40px; }
+}
+/* the PC / phone switch sits in the top-right corner: keep the close button clear of it */
+@media (max-width: 1200px) { html.xwide body.has-viewtoggle .daily .screen:has(.d-result) .d-bar .xbtn { margin-right: 96px; } }

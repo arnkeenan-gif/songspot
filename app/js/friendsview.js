@@ -26,16 +26,36 @@ function avatar(f, size) {
   return `<span class="fv-av">${inner}${dot}</span>`;
 }
 
+// Test knob, this machine only (the app's -demoFriends): ?friendsDemo=1 fills the list with sample friends.
+const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+function demoFriends() {
+  const ago = m => new Date(Date.now() - m * 60000).toISOString();
+  Friends.code = 'K7QX4M'; Friends.loaded = true;
+  Friends.list = [
+    { id: 'd1', name: 'Mia', avatar: null, rating: 1180, last_active: ago(0), status: 'accepted', incoming: false },
+    { id: 'd2', name: 'Noah', avatar: null, rating: 980, last_active: ago(0), status: 'accepted', incoming: false },
+    { id: 'd3', name: 'Liv', avatar: null, rating: 760, last_active: ago(180), status: 'accepted', incoming: false },
+    { id: 'd4', name: 'Theo', avatar: null, rating: 900, last_active: null, status: 'pending', incoming: true },
+    { id: 'd5', name: 'Sofia', avatar: null, rating: 900, last_active: null, status: 'pending', incoming: false },
+  ];
+}
+
 export function openFriends(ctx) {
   const { account } = ctx;
   if (document.querySelector('.friends-sheet')) return;
+  const demo = local && new URLSearchParams(location.search).has('friendsDemo');
+  if (demo) demoFriends();
+  const signedIn = () => demo || account.signedIn;
   let entry = '', note = null, adding = false, copied = false, closed = false, confirmOpen = false, signingIn = false;
+  // The QR drawn inline in the desktop layout's side panel (the phone keeps it behind the QR button).
+  let qrInline = '', qrFor = null;
+  const wide = () => document.documentElement.classList.contains('xwide');
 
   const sh = openSheet(`<div class="friends-v"><div class="fv-head"><span class="fv-title">Friends</span><button class="xbtn" data-press data-act="close" aria-label="Close">${I.x}</button></div><div class="fv-main"></div></div>`,
     { cls: 'tall friends-sheet', label: 'Friends', onClose: () => {
       closed = true; cleanup();
       // A friend's link, turned down: don't reopen Friends on every visit. Kept through a sign-in.
-      if (!account.signedIn && !signingIn) Friends.pendingCode = null;
+      if (!signedIn() && !signingIn) Friends.pendingCode = null;
     } });
   const main = sh.body.querySelector('.fv-main');
   const label = t => `<p class="fv-label">${esc(t)}</p>`;
@@ -43,16 +63,21 @@ export function openFriends(ctx) {
 
   const codeCard = () => {
     const c = Friends.code;
+    if (c && wide() && qrFor !== c) {
+      qrFor = c;
+      qrSVG(friendLink(c)).then(svg => { qrInline = svg; render(); }, () => {});
+    }
     return `<div class="fv-code" data-k="code">
       <div class="fv-codehd">${label('Your friend code')}<small>Share it so friends can add you</small></div>
       <div class="fv-coderow"><span class="fv-codev ${c ? '' : 'none'}">${esc(c || '······')}</span>
       ${c ? `<button class="fv-cbtn" data-press data-act="qr" aria-label="Show my QR code">${QR}</button>
         <button class="fv-cbtn ${copied ? 'copied' : ''}" data-press data-act="copy" aria-label="Copy my friend code">${copied ? I.check : COPY}</button>
-        <button class="fv-cbtn" data-press data-act="share" aria-label="Share my friend code">${I.share}</button>` : ''}</div></div>`;
+        <button class="fv-cbtn" data-press data-act="share" aria-label="Share my friend code">${I.share}</button>` : ''}</div>
+      ${c && qrInline && qrFor === c ? `<div class="fv-qrin"><div class="fv-qrbox" role="img" aria-label="QR code to add me">${qrInline}</div><small>Or let them scan it with their camera</small></div>` : ''}</div>`;
   };
   const addBox = () => `<div class="fv-add" data-k="add"><div class="fv-addrow">
       <input class="fv-in" value="${esc(entry)}" placeholder="Add a friend's code" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="send" aria-label="Add a friend's code">
-      <button class="fv-addbtn ${entry.length === 6 ? 'on' : ''}" data-press data-act="add" ${entry.length !== 6 || adding ? 'disabled' : ''}>${adding ? '<span class="fv-spin"></span>' : 'Add'}</button></div>
+      <button class="fv-addbtn ${entry.length === 6 || adding ? 'on' : ''}" data-press data-act="add" ${entry.length !== 6 || adding ? 'disabled' : ''}>${adding ? '<span class="fv-spin"></span>' : 'Add'}</button></div>
       ${note ? `<p class="fv-note">${esc(note)}</p>` : ''}</div>`;
   const friendRow = f => `<div class="fv-row" data-k="f-${esc(f.id)}" data-id="${esc(f.id)}">${avatar(f, 44)}
       <span class="fv-tx"><b>${esc(f.name)}</b><small><span class="${isOnline(f) ? 'on' : ''}">${isBot(f) ? 'Bot' : esc(seenLabel(f))}</span><span class="dim">${isBot(f) ? ' · always ready' : ` · ${esc(Ladder.place(f.rating).name)}`}</span></small></span>
@@ -69,16 +94,18 @@ export function openFriends(ctx) {
 
   function render() {
     if (closed) return;
-    if (!account.signedIn) {
-      morph(main, `<div class="fv-empty" data-k="out"><p>Sign in to add friends.</p><button class="fv-get" data-press data-act="signin">Sign in</button></div>`);
+    if (!signedIn()) {
+      morph(main, `<div class="fv-empty" data-k="out"><span class="fv-etile">${I.people}</span><b>Sign in to add friends</b><p>Your friends, who's online and a 1v1 with any of them, in one place.</p><button class="fv-get" data-press data-act="signin">Sign in</button></div>`);
       return;
     }
     const fr = Friends.friends, req = Friends.requests, sent = Friends.sent;
-    morph(main, `<div class="fv-scroll" data-k="in">${codeCard()}${addBox()}
-      ${req.length ? `<div data-k="req">${label('Requests')}${grouped(req, requestRow)}</div>` : ''}
-      <div data-k="fr">${label(fr.length ? `Your friends · ${Friends.onlineCount} online` : 'Your friends')}
-      ${!Friends.loaded ? skeleton(3) : grouped(fr, friendRow)}</div>
-      ${sent.length ? `<div data-k="sent">${label('Sent')}${grouped(sent, sentRow)}</div>` : ''}</div>`);
+    // Two groups: your code, theirs and the requests (a side panel on a desktop), then the
+    // list. On a phone both are display: contents, so the page reads top to bottom as before.
+    morph(main, `<div class="fv-scroll" data-k="in"><div class="fv-side" data-k="side">${codeCard()}${addBox()}
+      ${req.length ? `<div data-k="req">${label('Requests')}${grouped(req, requestRow)}</div>` : ''}</div>
+      <div class="fv-list" data-k="list"><div data-k="fr">${label(fr.length ? `Your friends · ${Friends.onlineCount} online` : 'Your friends')}
+      ${!Friends.loaded ? skeleton(3) : fr.length ? grouped(fr, friendRow) : '<p class="fv-none">No friends yet. Share your code, or add theirs.</p>'}</div>
+      ${sent.length ? `<div data-k="sent">${label('Sent')}${grouped(sent, sentRow)}</div>` : ''}</div></div>`);
   }
 
   async function add() {
@@ -161,13 +188,13 @@ export function openFriends(ctx) {
   const offFriends = Friends.onChange(() => render());
   const offAccount = account.onChange(() => { render(); if (account.signedIn) Friends.refresh().then(takePending); });
   // The list again every 15 s while it is open, so online dots stay true.
-  const tick = setInterval(() => { if (!document.hidden) Friends.refresh(); }, 15000);
+  const tick = setInterval(() => { if (!document.hidden && !demo) Friends.refresh(); }, 15000);
   const closer = () => sh.close();
   Friends.closers.add(closer);
   function cleanup() { offFriends(); offAccount(); clearInterval(tick); Friends.closers.delete(closer); }
 
   render();
-  Friends.refresh().then(takePending);
+  if (!demo) Friends.refresh().then(takePending);
   return sh;
 }
 

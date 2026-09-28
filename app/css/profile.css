@@ -112,26 +112,17 @@
 /* career */
 .pf-ctile { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; flex: none; }
 
-/* the ranked player card, in its rank's colour */
-.pf-rankwrap { margin-top: 30px; padding: 4px; border-radius: 26px; background: rgba(255,255,255,.03); }
-.pf-rank { padding: 18px; display: flex; flex-direction: column; gap: 14px; border-radius: 22px; border: 1px solid color-mix(in srgb, var(--rc) 35%, transparent);
-  background: linear-gradient(to bottom left, color-mix(in srgb, var(--rc) 42%, transparent), color-mix(in srgb, var(--rc) 12%, transparent), var(--surface)); }
-.pf-rtop { display: flex; align-items: flex-start; gap: 12px; }
-.pf-rname { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.pf-rname em { font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: 2px; color: color-mix(in srgb, var(--rc) 90%, transparent); }
-.pf-rname b { font-size: 34px; font-weight: 800; font-style: italic; letter-spacing: -1.2px; line-height: 1.19; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pf-rname span { font: 800 13px/1.2 var(--mono); color: rgba(255,255,255,.7); }
-.pf-crown { width: 58px; height: 58px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 26px; color: var(--rc);
-  background: color-mix(in srgb, var(--rc) 16%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rc) 50%, transparent); }
-.pf-crown .i { width: 1.1em; height: 1.1em; filter: drop-shadow(0 1px 0 rgba(255,255,255,.25)); }
-.pf-rank .pf-rtrack { height: 6px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: visible; }
-.pf-rank .pf-rtrack i { display: block; height: 100%; width: 6px; border-radius: 3px; background: var(--rc); box-shadow: 0 0 12px color-mix(in srgb, var(--rc) 60%, transparent); }
-.pf-rank .pf-rfoot { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 600; color: rgba(255,255,255,.6); line-height: 1.2; }
+/* the ranked card: drawn like the daily card under it, one flat surface */
+.profile .pf-rank { margin-top: 30px; padding: 18px; border-radius: 22px; display: flex; flex-direction: column; gap: 16px; }
+.pf-rline { display: flex; flex-direction: column; gap: 8px; }
+.pf-rank .pf-rtrack { height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
+.pf-rank .pf-rtrack i { display: block; height: 100%; width: 6px; border-radius: 3px; background: var(--rc); }
+.pf-rank .pf-rfoot { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); line-height: 1.2; }
 .pf-rank .pf-rfoot > span { flex: 1; min-width: 0; }
-.pf-wl { font: 800 12px/1.2 var(--mono); color: rgba(255,255,255,.8); white-space: nowrap; }
+.pf-wl { font: 800 12px/1.2 var(--mono); color: rgba(242,242,242,.8); white-space: nowrap; }
 .pf-badges { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .pf-badges::-webkit-scrollbar { display: none; }
-.pf-badge { flex: none; height: 24px; padding: 0 9px; display: inline-flex; align-items: center; gap: 5px; border-radius: 12px; background: rgba(0,0,0,.3); font-size: 11px; font-weight: 700; white-space: nowrap; }
+.pf-badge { flex: none; height: 24px; padding: 0 9px; display: inline-flex; align-items: center; gap: 5px; border-radius: 12px; background: color-mix(in srgb, currentColor 12%, transparent); font-size: 11px; font-weight: 700; white-space: nowrap; }
 .pf-badge .i { font-size: 10px; }
 /* the compact daily card */
 .profile .pf-daily { margin-top: 12px; padding: 18px; border-radius: 22px; }
@@ -167,3 +158,24 @@
 
 /* SF Symbols draw larger than their point size on a 24-box SVG: scale the glyphs in the tiles up to match */
 .profile .pf-tile .i, .profile .pf-ctile .i, .profile .pf-big .i { width: 1.35em; height: 1.35em; }
+
+/* ---------- desktop: the header across the top, then two columns ---------- */
+.pf-top, .pf-split, .pf-left, .pf-right { display: contents; }
+html.xwide {
+  .profile .pf-barin { max-width: 1040px; padding-left: 40px; padding-right: 40px; }
+  .profile .pf-screen { max-width: 1040px; padding: 0 40px calc(48px + var(--sab)); }
+  .pf-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); align-items: end; column-gap: 48px; padding-top: 26px; }
+  .pf-top .pf-who { padding-top: 0; }
+  .pf-top .pf-level { padding-top: 0; padding-bottom: 8px; }
+  .pf-pic { width: 92px; height: 92px; }
+  .pf-init { font-size: 36px; }
+  .pf-name b { font-size: 32px; letter-spacing: -1px; }
+  .pf-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 32px; align-items: start; margin-top: 34px; }
+  .pf-left, .pf-right { display: flex; flex-direction: column; min-width: 0; }
+  .pf-left > .pf-grid { padding-top: 0; }
+  .pf-left > .pf-rank { margin-top: 12px; }
+  .pf-right > .pf-sec:first-child { padding-top: 0; }
+  .pf-right > .pf-sec { padding-top: 26px; }
+}
+/* the PC / phone switch sits in the top-right corner: keep the close button clear of it */
+@media (max-width: 1200px) { html.xwide body.has-viewtoggle .profile .pf-barin .xbtn { margin-right: 96px; } }

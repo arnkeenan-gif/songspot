@@ -23,19 +23,22 @@
 .ranked.glow .rk-badge svg { filter: drop-shadow(0 0 11px var(--glow)); }
 .rk-badge .face { position: relative; }
 /* the badge springs in (.55/.7) and wears its rank's glow */
-.rk-hbadge { align-self: center; flex: none; filter: drop-shadow(0 0 24px color-mix(in srgb, var(--tint, var(--rk-accent)) 45%, transparent)); }
+.rk-hbadge { align-self: center; flex: none; }
+.ranked.glow .rk-hbadge { filter: drop-shadow(0 0 24px color-mix(in srgb, var(--tint, var(--rk-accent)) 45%, transparent)); }
 .rk-entry-all.fadein .rk-hbadge { animation: rk-badgein var(--sp-badge) both; }
 @keyframes rk-badgein { from { transform: scale(.85); opacity: 0; } }
 .rk-hbadge.breathe { animation: rk-breathe 1.3s var(--easeInOut) infinite alternate; filter: none; }
 @keyframes rk-breathe { from { transform: scale(.97); } to { transform: scale(1.03); } }
-.rk-rankname { margin-top: 18px; font-size: 42px; font-weight: 800; font-style: italic; letter-spacing: -1.6px; line-height: 1.19; color: var(--tint); text-shadow: 0 0 28px color-mix(in srgb, var(--tint) 35%, transparent); white-space: nowrap; }
+.rk-rankname { margin-top: 18px; font-size: 42px; font-weight: 800; font-style: italic; letter-spacing: -1.6px; line-height: 1.19; color: var(--tint); white-space: nowrap; }
+.ranked.glow .rk-rankname { text-shadow: 0 0 28px color-mix(in srgb, var(--tint) 35%, transparent); }
 .rk-rp { font: 800 15px/1.2 var(--mono); color: rgba(242,242,242,.85); font-variant-numeric: tabular-nums; }
 .rk-progress { align-self: stretch; margin: 16px 36px 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .rk-track { position: relative; width: 100%; height: 5px; border-radius: 3px; background: var(--track); overflow: hidden; }
 .rk-track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--rk-accent); }
-.rk-to { font-size: 11px; color: var(--dim); }
+.rk-to { font-size: 12px; color: var(--muted); }
+.rk-to b { font: 700 12px var(--mono); color: rgba(242,242,242,.8); }
 /* the season and your record, on glass */
-.rk-glass { align-self: stretch; margin-top: 22px; padding: 14px; display: flex; flex-direction: column; gap: 12px; border-radius: 18px; background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.08); }
+.rk-glass { align-self: stretch; margin-top: 22px; padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; border-radius: 18px; background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.08); }
 .rk-gtop { display: flex; align-items: center; gap: 6px; color: var(--muted); }
 .rk-gtop > .i { font-size: 11px; }
 .rk-gtop > span { font-size: 12px; font-weight: 600; }
@@ -44,8 +47,12 @@
 .rk-record { display: flex; align-self: stretch; }
 .rk-record div { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .rk-record b { font: 800 20px/1.2 var(--mono); color: var(--text); font-variant-numeric: tabular-nums; }
+.rk-record b.word { font: italic 800 20px/1.2 Inter, system-ui, sans-serif; letter-spacing: -.6px; white-space: nowrap; }
 .rk-record span { font-size: 9px; font-weight: 600; letter-spacing: 1.6px; color: var(--muted); text-transform: uppercase; }
 .rk-form { display: flex; gap: 5px; justify-content: center; }
+.rk-gline { display: block; height: 1px; background: rgba(255,255,255,.07); }
+.rk-last { display: flex; align-items: center; justify-content: space-between; }
+.rk-last > span { font-size: 9px; font-weight: 600; letter-spacing: 1.6px; color: var(--muted); }
 .rk-form span { width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; }
 .rk-form svg { width: 8px; height: 8px; }
 
@@ -56,7 +63,8 @@
 .rk-lb { margin-bottom: 12px; }
 .rk-btn2.rk-glassbtn { background: rgba(0,0,0,.5); border-color: rgba(255,255,255,.08); }
 .rk-go { display: flex; align-items: center; justify-content: center; width: 100%; height: 54px; flex: none; border-radius: 16px; background: var(--rk-accent); color: var(--rk-ink); font-size: 16px; font-weight: 800; margin-bottom: 24px; }
-.rk-go { box-shadow: 0 6px 36px color-mix(in srgb, var(--rk-accent) 45%, transparent); transition: background .3s var(--easeOut), color .3s var(--easeOut), transform .16s var(--easeOut), opacity .16s var(--easeOut); }
+.ranked.glow .rk-go { box-shadow: 0 6px 36px color-mix(in srgb, var(--rk-accent) 45%, transparent); }
+.rk-go { transition: background .3s var(--easeOut), color .3s var(--easeOut), transform .16s var(--easeOut), opacity .16s var(--easeOut); }
 
 /* ---------- matchmaking: you in your rank's ring, the clock running ---------- */
 .rk-find { margin-top: 26px; text-align: center; font-size: 28px; font-weight: 800; font-style: italic; letter-spacing: -1px; line-height: 1.2; color: var(--text); flex: none; }
@@ -206,7 +214,7 @@
 .rk-vd b { font-size: 46px; font-weight: 800; font-style: italic; letter-spacing: -2px; line-height: 1.19; color: var(--text); white-space: nowrap; }
 .rk-verdict.won .rk-vd b { color: var(--c); }
 .ranked.glow .rk-verdict.won .rk-vd b { text-shadow: 0 0 48px var(--glow); }
-.rk-vd span { font-size: 13px; color: var(--dim); text-align: center; }
+.rk-vd span { font-size: 13px; font-weight: 500; color: var(--muted); text-align: center; }
 /* you and them on one line, the scores counting up; the winner lit: spring(.45,.6) */
 .rk-final { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
 .rk-sside { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
@@ -246,7 +254,8 @@
 .rk-chip i { font-style: normal; font-size: 9px; }
 .rk-chip b { font: 800 17px/1 var(--rounded); }
 .rk-pbar { position: relative; height: 6px; border-radius: 3px; background: rgba(255,255,255,.1); }
-.rk-pbar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--pc); box-shadow: 0 0 12px color-mix(in srgb, var(--pc) 60%, transparent); transition: width .04s linear; }
+.rk-pbar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--pc); transition: width .04s linear; }
+.ranked.glow .rk-pbar i { box-shadow: 0 0 12px color-mix(in srgb, var(--pc) 60%, transparent); }
 .rk-endbtns { display: flex; flex-direction: column; gap: 14px; flex: none; opacity: 0; transform: translateY(16px); transition: opacity var(--sp-plate), transform var(--sp-plate); }
 .rk-endbtns.in { opacity: 1; transform: none; }
 .rk-endbtns .rk-go { margin-bottom: 0; }
@@ -263,21 +272,26 @@
 .rk-lbhead { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 0; }
 .rk-lbhead h1 { margin: 0; font-size: 19px; font-weight: 800; font-style: italic; letter-spacing: -.57px; color: rgba(255,255,255,.55); }
 .rk-lbhead .xbtn { font-size: 13px; }
-.rk-period { display: flex; gap: 6px; padding: 14px 20px 0; }
-.rk-period button { flex: 1; height: 40px; border-radius: 12px; background: var(--surface); color: var(--muted); font-size: 13.5px; font-weight: 800; text-align: center; transition: background .2s, color .2s, transform .12s, opacity .12s; }
+.rk-period { display: flex; gap: 4px; margin: 14px 20px 0; padding: 4px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.rk-period button { flex: 1; height: 36px; border-radius: 10px; background: transparent; color: var(--muted); font-size: 13.5px; font-weight: 800; text-align: center; transition: background .2s, color .2s, transform .12s, opacity .12s; }
 .rk-period button.on { background: var(--rk-accent); color: var(--rk-ink); }
 .rk-lbbody { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; scrollbar-width: none; }
-.rk-lblist { display: flex; flex-direction: column; gap: 8px; padding: 14px 20px 24px; }
-.rk-lbrow { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
-.rk-lbrow.me { background: color-mix(in srgb, var(--rk-accent) 12%, transparent); border-color: color-mix(in srgb, var(--rk-accent) 50%, transparent); }
+/* one surface, rows split by hairlines, like the friends list */
+.rk-lblist { display: flex; flex-direction: column; margin: 14px 20px 24px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); overflow: hidden; flex: none; }
+.rk-lbrow { position: relative; display: flex; align-items: center; gap: 12px; height: 58px; padding: 0 12px; flex: none; }
+.rk-lblist .rk-lbrow + .rk-lbrow::before { content: ""; position: absolute; top: 0; left: 96px; right: 0; height: 1px; background: var(--line); }
+.rk-lbrow.me { background: color-mix(in srgb, var(--rk-accent) 10%, transparent); }
+.rk-lbmine .rk-lbrow { border-radius: 16px; border: 1px solid color-mix(in srgb, var(--rk-accent) 40%, transparent); }
+.rk-lbrow .you { font-size: 9px; font-weight: 800; letter-spacing: 1.2px; color: var(--rk-accent); padding: 0 6px; height: 18px; display: inline-flex; align-items: center; border-radius: 9px; background: color-mix(in srgb, var(--rk-accent) 14%, transparent); flex: none; }
+.rk-lbrow .col, .rk-lbcols { display: none; }
 .rk-lbrow .pl { width: 26px; text-align: right; font: 800 14px/1 var(--mono); color: var(--dim); flex: none; }
 .rk-lbrow .face { width: 34px; height: 34px; font-size: 14px; }
 .rk-lbrow .nm { font-size: 14.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.rk-lbrow.me .nm { font-weight: 800; }
+.rk-lbrow.me .nm { font-weight: 800; color: var(--rk-accent); }
 .rk-lbrow .rk-fill { min-width: 6px; }
 .rk-lbrow .pts { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex: none; }
 .rk-lbrow .pts b { font: 800 15px/1.2 var(--mono); color: var(--text); }
-.rk-lbrow .pts em { font-style: normal; font-size: 9.5px; color: var(--dim); }
+.rk-lbrow .pts em { font-style: normal; font-size: 10px; color: var(--muted); }
 .rk-lbmine:not(:empty) { padding: 8px 20px 4px; }
 .rk-lbmsg { margin: auto; padding: 0 40px; font-size: 14px; color: var(--muted); text-align: center; }
 .rk-pulse { margin: auto; position: relative; width: 64px; height: 64px; display: grid; place-items: center; }
@@ -303,3 +317,37 @@ body.nomotion .ranked *, body.nomotion .rk-confirm * { animation-duration: .01ms
 @media (prefers-reduced-motion: reduce) {
   .ranked *, .rk-confirm * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* ---------- desktop: the rank on the left, the season and the buttons on the right ---------- */
+.rk-home, .rk-side { display: contents; }
+html.xwide {
+  .ranked .rk-screen.rk-idle { max-width: 1000px; padding-left: 48px; padding-right: 48px; }
+  .rk-home { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); column-gap: 72px; align-items: center; }
+  .rk-home .rk-entry { align-self: center; }
+  .rk-home .rk-hbadge .rk-badge { transform: scale(1.18); margin: 12px 0; }
+  .rk-home .rk-rankname { font-size: 52px; letter-spacing: -2px; }
+  .rk-home .rk-progress { align-self: center; width: min(100%, 340px); margin: 18px 0 0; }
+  .rk-side { display: flex; flex-direction: column; }
+  .rk-side .rk-glass { margin-top: 0; }
+  .rk-side .rk-gap { flex: none; height: 22px; }
+  .rk-side .rk-go { margin-bottom: 0; }
+  .rk-entry-all:has(.rk-home)::after { content: ""; flex: 1 1 0; }
+  .rk-home { padding-bottom: 24px; }
+  /* the leaderboard as a table: place, player, matches, points a match, points */
+  .view.sheet.rk-board .sheet-body { width: min(760px, calc(100vw - 64px)); }
+  .rk-lbhead { padding: 22px 28px 0; }
+  .rk-period { margin: 16px 28px 0; max-width: 320px; }
+  .rk-lblist { margin: 16px 28px 28px; }
+  .rk-lbcols { display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 16px; border-bottom: 1px solid var(--line); font-size: 9.5px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); flex: none; }
+  .rk-lbcols .pl { width: 26px; text-align: right; }
+  .rk-lbcols .nm { margin-left: 46px; }
+  .rk-lbrow { padding: 0 16px; }
+  .rk-lblist .rk-lbrow + .rk-lbrow::before { left: 100px; }
+  .rk-lbrow .col, .rk-lbcols .col { display: block; width: 96px; text-align: right; font: 700 13px var(--mono); color: var(--muted); flex: none; }
+  .rk-lbcols .col { font: inherit; }
+  .rk-lbrow .pts, .rk-lbcols .pts { width: 96px; text-align: right; }
+  .rk-lbrow .pts em { display: none; }
+  .rk-lbmine:not(:empty) { padding: 0 28px 20px; }
+}
+/* the PC / phone switch sits in the top-right corner: keep the close button clear of it */
+@media (max-width: 1140px) { html.xwide body.has-viewtoggle .ranked .rk-idle .rk-bar .xbtn { margin-right: 96px; } }

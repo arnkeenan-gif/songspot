@@ -491,30 +491,33 @@ export function mountDaily(ctx) {
   }
   const initialOf = r => esc(((r.display_name || '').trim() || 'P')[0].toUpperCase());
   const smallFace = r => (r.avatar ? `<img class="face" src="data:image/jpeg;base64,${esc(r.avatar)}" alt="" style="width:30px;height:30px">` : `<span class="face d-noface">${initialOf(r)}</span>`);
-  function rowHTML(r, place) {
-    const me = r.user_id === myId();
-    const name = (r.display_name || '').trim() || 'Someone';
-    return `<div class="d-row${me ? ' me' : ''}">
-      <span class="pl${place <= 3 ? ' top' : ''}">${place}</span>
+  /** One line on either board: the place, the face and name (and the streak on the friends board), then
+   *  the hints taken, the points and the stage's pill. The pill has one width so the points line up. */
+  function lineHTML({ place, r, name, me, streak = 0, points, pill, lit, yet = false }) {
+    return `<div class="d-row${me ? ' me' : ''}${yet ? ' yet' : ''}">
+      <span class="pl${place != null && place <= 3 ? ' top' : ''}">${place ?? '–'}</span>
       ${smallFace(r)}
       <span class="nm">${esc(name)}</span>
-      ${r.hints > 0 ? `<span class="hb">${I.bulb.repeat(r.hints)}</span>` : ''}
-      ${r.won && r.points != null ? `<span class="pts">${r.points}</span>` : ''}
-      <span class="pill-t${r.won ? ' won' : ''}">${r.won ? `in ${Daily.stageLabel(r.stage)}` : 'missed'}</span>
+      ${streak > 0 ? `<span class="fs">${I.flame}<b>${streak}</b></span>` : ''}
+      <span class="rk-fill"></span>
+      ${r.hints > 0 && !yet ? `<span class="hb">${I.bulb.repeat(r.hints)}</span>` : ''}
+      ${points != null ? `<span class="pts">${points}</span>` : ''}
+      <span class="pill-t${lit ? ' won' : ''}">${pill}</span>
     </div>`;
   }
-  /** You and your friends: who named it and how fast, each one's streak, and who hasn't played yet. */
-  function friendHTML(r) {
+  function rowHTML(r, place) {
+    return lineHTML({ place, r, name: (r.display_name || '').trim() || 'Someone', me: r.user_id === myId(),
+      points: r.won && r.points != null ? r.points : null, pill: r.won ? `in ${Daily.stageLabel(r.stage)}` : 'missed', lit: r.won });
+  }
+  const friendPoints = r => (r.played ? Daily.points(r.stage, r.won, r.hints || 0, r.ms) : 0);
+  /** Friends ranked the way the everyone board is: by points, the time breaking ties; who hasn't played yet, last. */
+  const rankedFriends = () => friends.rows.slice().sort((a, b) => (Number(b.played) - Number(a.played)) || (friendPoints(b) - friendPoints(a)) || (a.ms - b.ms));
+  /** You and your friends: the place and points, each one's streak, and who hasn't played yet. */
+  function friendHTML(r, place) {
     const me = r.user_id === myId();
-    const name = (r.display_name || '').trim() || 'Player';
-    const pill = !r.played ? 'not yet' : r.won ? `in ${Daily.stageLabel(r.stage)}` : 'missed';
-    return `<div class="d-row d-friend${me ? ' me' : ''}">
-      ${smallFace(r)}
-      <span class="nm">${esc(me ? 'You' : name)}</span>
-      ${r.streak > 0 ? `<span class="fs">${I.flame}<b>${r.streak}</b></span>` : ''}
-      <span class="rk-fill"></span>
-      <span class="pill-t${r.played && r.won ? ' won' : ''}${r.played ? '' : ' yet'}">${pill}</span>
-    </div>`;
+    return lineHTML({ place: r.played ? place : null, r, name: me ? 'You' : (r.display_name || '').trim() || 'Player', me, streak: r.streak,
+      points: r.played && r.won ? friendPoints(r) : null, pill: !r.played ? 'not yet' : r.won ? `in ${Daily.stageLabel(r.stage)}` : 'missed',
+      lit: r.played && r.won, yet: !r.played });
   }
   function renderBoard() {
     const panel = scr.querySelector('.d-board'); if (!panel) return;
@@ -528,10 +531,10 @@ export function mountDaily(ctx) {
       ? `<span class="d-tabs"><button class="d-tab${everyone ? '' : ' on'}" data-press data-act="tab-friends">Friends</button><button class="d-tab${everyone ? ' on' : ''}" data-press data-act="tab-everyone">Everyone</button></span>`
       : '<span>FIRST TODAY</span>';
     const played = friends.rows.filter(r => r.played).length;
-    const count = everyone ? (board.players ? `${board.players} played · ${board.named} named it` : '') : `${played} of ${friends.rows.length} played`;
+    const count = everyone ? (board.players ? `${board.players.toLocaleString()} played · ${board.named.toLocaleString()} named` : '') : `${played} of ${friends.rows.length} played`;
     const head = `<div class="d-bhead">${tabs}<small>${count}</small></div>`;
     let body;
-    if (!everyone) body = friends.rows.map(friendHTML).join('');
+    if (!everyone) body = rankedFriends().map((r, k) => friendHTML(r, k + 1)).join('');
     else if (board.failed) body = '<p class="d-bmsg">The board couldn\'t load. Check your connection.</p>';
     else if (board.loading && !board.rows.length) body = skeleton(4);
     else {
@@ -581,7 +584,7 @@ export function mountDaily(ctx) {
       scr.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 280, easing: CURVE.easeOut });
     }
     scr.innerHTML = `${bar()}
-      <div class="d-result">
+      <div class="d-result"><div class="d-rmain">
         ${song && artwork ? `<img class="d-art" src="${esc(art(song.artwork, 400))}" alt="">` : ''}
         ${song ? `<h2>${esc(song.title)}</h2><div class="d-artist">${esc(song.artist)}</div>` : ''}
         <div class="d-stamp" style="--s:${state}">${r.won ? `NAMED AT ${Daily.stageLabel(r.stage).toUpperCase()}` : 'MISSED IT'}${r.hints > 0 ? ` · ${r.hints} HINT${r.hints === 1 ? '' : 'S'}` : ''}</div>
@@ -592,8 +595,9 @@ export function mountDaily(ctx) {
         </div>
         <button class="d-share" data-press data-act="share">${I.share}Share</button>
         ${restoreHTML()}
+        </div><div class="d-rside">
         <div class="d-board card"></div>
-        <div class="d-next"></div>
+        <div class="d-next"></div></div>
       </div>`;
     renderBoard();
     countdown();
