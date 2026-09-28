@@ -1,0 +1,111 @@
+/* FriendsView.swift, FriendQRSheet and ChallengeBanner. Loaded at boot: the banner can drop in on any screen. */
+
+/* ---- the sheet ---- */
+.friends-sheet .sheet-body { background: var(--page); display: flex; flex-direction: column; }
+.friends-v { flex: 1; display: flex; flex-direction: column; min-height: 100%; }
+.fv-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px 0; flex: none; }
+.fv-title { font-size: 19px; font-weight: 800; font-style: italic; letter-spacing: -.57px; color: rgba(255,255,255,.55); }
+.fv-main { flex: 1; display: flex; flex-direction: column; }
+.fv-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 40px 32px; text-align: center; }
+.fv-empty p { margin: 0; font-size: 15px; font-weight: 600; color: var(--muted); }
+.fv-get { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 22px; background: var(--easy); color: #04160b; font-size: 14px; font-weight: 800; text-decoration: none; }
+.fv-scroll { padding: 22px 24px 40px; }
+.fv-label { margin: 26px 0 10px; font-size: 10px; font-weight: 600; letter-spacing: 1.8px; text-transform: uppercase; color: var(--muted); }
+
+/* your code: one card, the code big in mono, three round buttons */
+.fv-code { padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.fv-codehd { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.fv-codehd .fv-label { margin: 0 0 10px; }
+.fv-codehd small { font-size: 11px; color: var(--dim); margin-bottom: 10px; text-align: right; }
+.fv-coderow { display: flex; align-items: center; gap: 8px; }
+.fv-codev { flex: 1; min-width: 0; font: 800 30px/1 var(--mono); letter-spacing: 3px; color: var(--text); user-select: all; -webkit-user-select: all; }
+.fv-codev.none { color: var(--dim); user-select: none; }
+.fv-cbtn { width: 40px; height: 40px; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); display: grid; place-items: center; color: var(--text); font-size: 15px; flex: none; }
+.fv-cbtn[aria-label^="Copy"] { color: var(--muted); font-size: 14px; }
+.fv-cbtn.copied { color: var(--easy); }
+.fv-cbtn .i { width: 1.1em; height: 1.1em; }
+
+/* add a friend's code */
+.fv-add { margin-top: 14px; }
+.fv-addrow { display: flex; gap: 8px; }
+.fv-in { flex: 1; min-width: 0; height: 48px; padding: 0 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); outline: 0; font: 600 15px var(--mono); color: var(--text); text-transform: uppercase; }
+.fv-in::placeholder { font: 15px Inter, -apple-system, system-ui, sans-serif; color: var(--muted); opacity: 1; text-transform: none; }
+.fv-in:focus { border-color: color-mix(in srgb, var(--easy) 45%, var(--line)); }
+.fv-addbtn { width: 74px; height: 48px; flex: none; border-radius: 14px; background: var(--easy); color: #04160b; font-size: 14px; font-weight: 700; opacity: .45; display: grid; place-items: center; transition: opacity .2s; }
+.fv-addbtn.on { opacity: 1; }
+.fv-addbtn[disabled] { pointer-events: none; }
+.fv-spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(4,22,11,.3); border-top-color: #04160b; animation: fv-spin .8s linear infinite; }
+@keyframes fv-spin { to { transform: rotate(360deg); } }
+.fv-note { margin: 8px 0 0 4px; font-size: 12.5px; font-weight: 600; color: var(--muted); animation: fv-fade .25s ease-out; }
+@keyframes fv-fade { from { opacity: 0; } }
+
+/* one surface, rows split by hairlines — a list, not a stack of boxes */
+.fv-group { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.fv-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; position: relative; -webkit-touch-callout: none; }
+.fv-row + .fv-row::before { content: ''; position: absolute; top: 0; left: 68px; right: 0; height: 1px; background: var(--line); }
+.fv-row.sent { padding: 8px 12px; }
+.fv-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fv-tx b { font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fv-row.sent .fv-tx b { font-size: 14px; color: rgba(242,242,242,.8); }
+.fv-tx small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fv-tx small .on { color: var(--easy); }
+.fv-tx small .dim { color: var(--dim); }
+.fv-av { position: relative; flex: none; display: inline-flex; }
+.fv-face { border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: rgba(0,0,0,.75); object-fit: cover; opacity: .9; }
+img.fv-face { opacity: 1; }
+.fv-face.bot { background: var(--surface2); color: var(--easy); opacity: 1; }
+.fv-face.bot .i { width: 1em; height: 1em; }
+.fv-dot { position: absolute; right: 0; bottom: 0; border-radius: 50%; background: var(--dim); box-shadow: 0 0 0 2.5px var(--page); box-sizing: border-box; }
+.fv-dot.on { background: var(--easy); }
+.fv-chal { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 13px; border-radius: 999px; color: var(--easy); background: rgba(25,223,112,.14); border: 1px solid rgba(25,223,112,.35); font-size: 13px; font-weight: 800; flex: none; }
+.fv-chal .i { width: 10px; height: 10px; }
+.fv-chal[disabled] { opacity: .4; pointer-events: none; }
+.fv-no { width: 36px; height: 36px; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); color: var(--muted); display: grid; place-items: center; font-size: 13px; flex: none; }
+.fv-yes { height: 36px; padding: 0 14px; border-radius: 999px; background: var(--easy); color: #04160b; font-size: 13px; font-weight: 700; flex: none; }
+.fv-wait { font-size: 12px; color: var(--muted); flex: none; }
+.fv-cancel { height: 30px; padding: 0 10px; font-size: 12.5px; font-weight: 600; color: var(--muted); flex: none; }
+.fv-confirm { padding: 26px 22px 22px; display: flex; flex-direction: column; gap: 10px; text-align: center; }
+.fv-confirm h3 { margin: 0; font-size: 17px; font-weight: 800; }
+.fv-confirm p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.4; color: var(--muted); }
+.fv-confirm .fv-danger { background: var(--surface); border: 1px solid var(--line); color: var(--expert); height: 48px; font-size: 15px; font-weight: 700; }
+
+/* skeleton rows while the list loads, with a sweep of light */
+.fv-skel { padding: 0 12px; -webkit-mask-image: linear-gradient(90deg, #000 35%, rgba(0,0,0,.55) 50%, #000 65%); mask-image: linear-gradient(90deg, #000 35%, rgba(0,0,0,.55) 50%, #000 65%); -webkit-mask-size: 250% 100%; mask-size: 250% 100%; animation: fv-shimmer 1.25s linear infinite; }
+.fv-skel > div { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
+.fv-skel i { display: block; background: var(--surface2); border-radius: 4px; }
+.fv-skel .c { width: 44px; height: 44px; border-radius: 50%; flex: none; }
+.fv-skel span { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+.fv-skel span i { height: 10px; } .fv-skel span i + i { height: 8px; opacity: .6; }
+@keyframes fv-shimmer { from { -webkit-mask-position: 150% 0; mask-position: 150% 0; } to { -webkit-mask-position: -50% 0; mask-position: -50% 0; } }
+
+/* ---- FriendQRSheet ---- */
+.fq { flex: 1; display: flex; flex-direction: column; padding: 0 24px 20px; min-height: 100%; box-sizing: border-box; }
+.fq .fq-head { padding: 18px 0 0; }
+.fq-mid { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px 0; }
+.fq-box { position: relative; width: 256px; height: 256px; padding: 18px; box-sizing: border-box; background: #fff; border-radius: 26px; flex: none; }
+.fq-code, .fq-code svg { width: 100%; height: 100%; display: block; }
+.fq-err { margin: 0; color: #444; font-size: 13px; padding-top: 80px; }
+.fq-disc { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: #fff; display: grid; place-items: center; }
+.fq-disc i { width: 40px; height: 40px; border-radius: 50%; background: var(--easy); color: #04160b; display: grid; place-items: center; font-size: 15px; }
+.fq-disc .i { width: 1em; height: 1em; margin-left: 2px; }
+.fq-mid h2 { margin: 26px 0 0; font-size: 20px; font-weight: 800; font-style: italic; letter-spacing: -.6px; color: var(--text); }
+.fq-c { margin-top: 6px; font: 800 17px var(--mono); letter-spacing: 4px; color: var(--muted); }
+.fq-mid p { margin: 14px 20px 0; font-size: 12.5px; line-height: 1.4; color: var(--dim); max-width: 320px; }
+.fq-share { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 52px; border-radius: 16px; background: var(--easy); color: #04160b; font-size: 15.5px; font-weight: 800; flex: none; }
+.fq-share .i { width: 14px; height: 14px; }
+
+/* ---- ChallengeBanner: drops in from the top on any screen ---- */
+.cb-wrap { position: fixed; left: 0; right: 0; top: calc(6px + var(--sat, 0px)); z-index: 60; display: flex; justify-content: center; padding: 0 14px; pointer-events: none; transform: translateY(calc(-100% - 20px)); opacity: 0; transition: transform .4s cubic-bezier(.34,1.3,.64,1), opacity .25s; }
+.cb-wrap.on { transform: none; opacity: 1; }
+.cb-wrap.on .cb { pointer-events: auto; }
+.cb { width: 100%; max-width: 440px; display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 12px; box-sizing: border-box; background: #161616; border: 1px solid rgba(25,223,112,.45); border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+.cb-av { flex: none; display: inline-flex; }
+.cb-av .face { border-radius: 50%; object-fit: cover; font-weight: 800; }
+.cb-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.cb-tx b { font-size: 14.5px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cb-tx small { font-size: 12px; color: var(--muted); }
+.cb-no { width: 34px; height: 34px; border-radius: 50%; background: var(--surface); color: var(--muted); display: grid; place-items: center; font-size: 13px; flex: none; }
+.cb-yes { height: 34px; padding: 0 16px; border-radius: 999px; background: var(--easy); color: #04160b; font-size: 13.5px; font-weight: 700; flex: none; }
+
+/* the drawer's Friends row: requests waiting, as a count in a circle */
+.prow .num.fbadge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; display: inline-grid; place-items: center; box-sizing: border-box; font-size: 11px; font-weight: 700; flex: none; }

@@ -11,6 +11,7 @@ import { Ladder } from './ladder.js';
 import { CoverWall } from './coverwall.js';
 import { spring } from './motion.js';
 import { Haptics } from './haptics.js';
+import { Friends } from './friends.js';
 
 const STAGES = [0.1, 0.5, 2, 8, 15];
 /** SF "target", which icons.js does not carry. */
@@ -103,12 +104,17 @@ export function mountProfile(ctx) {
       ${statCard(String(s.bestStreak || 0), 'Best streak', I.trophy, TIER_COLOR.medium)}</div>`;
   }
 
-  /** Friends: the phone's row. The web has no friend list yet, so a tap signs a guest in or points at the app. */
+  /** Friends: the phone's row — who's online, requests waiting, or Songbot to 1v1 now. A tap opens the list. */
   function friendsRowHTML() {
-    const g = TIER_COLOR.easy;
-    const line = account.signedIn ? 'Add friends in the Songspot app' : 'Sign in to add friends';
+    const g = TIER_COLOR.easy, req = Friends.requests.length, online = Friends.onlineCount;
+    const real = Friends.friends.length - 1;          // Songbot is always there
+    const line = !account.signedIn ? 'Sign in to add friends'
+      : req ? `${req} friend request${req === 1 ? '' : 's'}`
+      : real === 0 ? 'Add friends, or 1v1 Songbot now'
+      : online > 0 ? `${online} online now` : `${real} friend${real === 1 ? '' : 's'}`;
+    const lit = account.signedIn && (online > 0 || req > 0);
     return `<button class="pf-row" data-act="friends" data-press><span class="pf-tile" style="background:${alpha(g, 0.16)};color:${g}">${I.people}</span>
-      <span class="pf-sv pf-rowtext"><b>Friends</b><small>${line}</small></span><span class="pf-chev">${I.chevron}</span></button>`;
+      <span class="pf-sv pf-rowtext"><b>Friends</b><small${lit ? ` style="color:${g}"` : ''}>${line}</small></span><span class="pf-chev">${I.chevron}</span></button>`;
   }
 
   /** A section the iOS way: its title above, its content on one surface. */
@@ -297,7 +303,7 @@ export function mountProfile(ctx) {
       case 'signin': return ctx.signIn();
       case 'friends': Haptics.select();
         if (!account.signedIn) { ctx.toast('Sign in to add friends.'); return ctx.signIn(); }
-        return ctx.toast('Friends live in the Songspot app for now.');
+        return ctx.openFriends();
       case 'signout': return confirm({ title: 'Sign out of Songspot?', message: 'Your stats stay on your account. Sign in again any time to pick them up.', action: 'Sign out',
         run: async () => { await account.signOut(); close(); ctx.toast('Signed out.'); } });
       case 'delete': return confirm({ title: 'Delete your account?', message: 'Your name, picture and every stat are erased from Songspot for good. This cannot be undone.', action: 'Delete account',
@@ -314,11 +320,20 @@ export function mountProfile(ctx) {
     if (editing) { e.preventDefault(); editing = false; render(); return; }
     close();
   };
-  const off = account.onChange(() => { if (!closed) render(); });
+  const offAccount = account.onChange(() => { if (!closed) render(); });
+  // The Friends row's line: the list again as the profile opens (ProfileView's .task { refresh }).
+  let friendsLine = '';
+  const offFriends = Friends.onChange(() => {
+    const row = body.querySelector('.pf-row[data-act="friends"]'); if (closed || !row) return;
+    const html = friendsRowHTML(); if (html === friendsLine) return; friendsLine = html;
+    row.replaceWith(el(html));
+  });
+  const off = () => { offAccount(); offFriends(); };
   function close() { if (closed) return; closed = true; off(); document.removeEventListener('keydown', onKey); popView(node); }
 
   document.addEventListener('keydown', onKey);
   render();
   pushView(node);
+  if (account.signedIn) Friends.refresh();
   return { close };
 }

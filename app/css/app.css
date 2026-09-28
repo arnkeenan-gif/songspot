@@ -410,15 +410,6 @@ html:not(.wide) { .picker.tall .sheet-body, .picker .sheet-body { top: 0; height
 .prenew { font-size: 10.5px; color: var(--dim); text-align: center; margin: 10px 0 0; }
 .plinks { display: flex; gap: 14px; justify-content: center; margin-top: 8px; font-size: 11px; font-weight: 600; }
 .plinks a { color: var(--dim); text-decoration: none; }
-/* FriendsView — the header and the signed-out line (the web has no friend system). */
-.friends-sheet .sheet-body { background: var(--page); display: flex; flex-direction: column; }
-.friends-v { flex: 1; display: flex; flex-direction: column; min-height: 100%; }
-.fv-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px 0; }
-.fv-title { font-size: 19px; font-weight: 800; font-style: italic; letter-spacing: -.57px; color: rgba(255,255,255,.55); }
-.fv-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 40px 32px; text-align: center; }
-.fv-empty p { margin: 0; font-size: 15px; font-weight: 600; color: var(--muted); }
-.fv-get { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 22px; background: var(--easy); color: #04160b; font-size: 14px; font-weight: 800; text-decoration: none; }
-.fv-get .i { font-size: 14px; }
 
 /* ---------- desktop: a little wider, and the PC / phone switch ---------- */
 html.xwide {

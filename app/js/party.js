@@ -11,6 +11,7 @@ import { spring, still } from './motion.js';
 import { I } from './icons.js';
 import { el, pushView, popView, openSheet, hueColor, shareText, esc, art, cap, settings, TIER_COLOR, TIER_INK, PILL_FILL, PILL_INK, LevelTheme } from './ui.js';
 import { CoverWall } from './coverwall.js';
+import { Friends } from './friends.js';
 
 const SHAZAM_TAIL = 12;           // seconds a clip stays muted after the tab was away on the results screen
 const STRIP_MAX = 10;
@@ -174,10 +175,11 @@ export function mountParty(ctx, opts = {}) {
   const wallPreset = CoverWall.randomPreset();
   let slamRound = -1;
   // A friend's 1v1 (PartyLaunch on the iPhone): two seats, five rounds, the host's settings.
+  // { name, bot, friendId } hosts and invites (.challenge); { join: code, name } answers one (.join).
   const launch = opts.duel || (knob('showDuel') || demoDuelResult ? { name: 'Songbot', bot: true } : null);
   const isDuel = !!launch;
   let recordedGame = demoDuelResult;   // a demo result is not a game played
-  let challengeNote = null;
+  let challengeNote = null, challengeID = null;
   view.style.cssText = Object.entries(MOTION).map(([k, v]) => `${k}:${v.css}`).join(';');
 
   const tier = () => (['countdown', 'playing', 'result'].includes(game.phase) ? game.tier(game.round) : 'easy');
@@ -754,6 +756,7 @@ export function mountParty(ctx, opts = {}) {
     document.removeEventListener('visibilitychange', onVis);
     document.removeEventListener('keydown', onKey);
     off();
+    if (challengeID != null) { Friends.cancel(challengeID); challengeID = null; }
     game.leave().catch(() => {}).finally(() => player.stop());
     popView(view);
   }
@@ -783,14 +786,36 @@ export function mountParty(ctx, opts = {}) {
     if (game.phase !== 'idle' || demoDuelResult) return;
     if (needName()) return;
     game.seatLimit = 2;
+    // Answering a friend's challenge: into their room.
+    if (launch.join) {
+      codeEntry = normaliseCode(launch.join);
+      challengeNote = `${launch.name}'s 1v1`;
+      join();
+      return;
+    }
     player.ensure();
     await game.host(account.displayName, account.avatar);
     if (game.phase !== 'lobby' || closed) return;
     game.settings.rounds = 5;
     await game.pushSettings();
-    if (launch.bot) { await game.addBot(launch.name); challengeNote = `${launch.name} accepted. Start when you're ready.`; }
-    else challengeNote = `Invited ${launch.name}. Waiting for them…`;
-    render();
+    if (launch.bot || !launch.friendId) { await game.addBot(launch.name); challengeNote = `${launch.name} accepted. Start when you're ready.`; render(); return; }
+    const f = launch.name;
+    const say = t => { if (!closed) { challengeNote = t; render(); } };
+    say(`Invited ${f}. Waiting for them…`);
+    const id = await Friends.challenge(launch.friendId, game.code);
+    if (closed) { if (id != null) Friends.cancel(id); return; }
+    if (id == null) return say(`Couldn't reach ${f}. Share the code instead.`);
+    challengeID = id;
+    // Watch for an answer for up to two minutes.
+    for (let i = 0; i < 40; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+      if (closed || challengeID !== id) return;
+      const st = await Friends.status(id);
+      if (closed || challengeID !== id) return;
+      if (st === 'declined') { challengeID = null; return say(`${f} can't play right now.`); }
+      if (st === 'accepted' && challengeNote !== `${f} is on the way…`) say(`${f} is on the way…`);
+    }
+    if (challengeID === id) { challengeID = null; say(`${f} didn't answer.`); }
   }
   function share() {
     const c = game.code;

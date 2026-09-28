@@ -26,6 +26,7 @@
   <div class="code" id="code">······</div>
   <p>Open Songspot to add this friend, or type the code in Friends.</p>
   <a id="open" href="#">Open Songspot</a>
+  <a class="alt" id="web" href="/">Add them in your browser</a>
   <a class="alt" href="https://apps.apple.com/app/id6808657554">Get the app</a>
 </main>
 <script>
@@ -34,6 +35,8 @@
   document.getElementById('code').textContent = c || '——';
   var app = 'songspot://add?c=' + encodeURIComponent(c);
   document.getElementById('open').href = app;
+  // The web game: opens Friends and adds the code (after a sign-in if needed).
+  if (c) document.getElementById('web').href = '/?add=' + encodeURIComponent(c);
   // Straight into the app when it's installed; this page stays for everyone else.
   var ua = navigator.userAgent || '';
   if (c && /iPhone|iPad|iPod/.test(ua) && !/bot|crawler|facebookexternalhit|WhatsApp|Twitterbot/i.test(ua)) {

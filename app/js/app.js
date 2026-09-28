@@ -10,17 +10,21 @@ import { Ads } from './ads.js';
 import { mountStage } from './stage.js';
 import { toast, pressable, settings, TIER_COLOR, TIER_INK } from './ui.js';
 import { mountViewToggle } from './view.js';
+import { Friends, codeFrom } from './friends.js';
 
 const root = document.getElementById('app');
 pressable(document);
 const q = new URLSearchParams(location.search);
 const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 
+/** Bumped with every deploy that changes CSS, so browsers drop the old files. */
+const CSS_V = 12;
+
 /** A module's own stylesheet, loaded once when the module first opens. */
 export function loadCSS(name) {
   const id = 'css-' + name;
   if (document.getElementById(id)) return;
-  const l = document.createElement('link'); l.id = id; l.rel = 'stylesheet'; l.href = `/app/css/${name}.css`; document.head.appendChild(l);
+  const l = document.createElement('link'); l.id = id; l.rel = 'stylesheet'; l.href = `/app/css/${name}.css?v=${CSS_V}`; document.head.appendChild(l);
 }
 
 (async function boot() {
@@ -47,7 +51,7 @@ export function loadCSS(name) {
 
   const debugPremium = local && q.get('premium') === '1';
   const ads = new Ads({ player, isPremium: () => ctx.premium });
-  let stage = null;
+  let stage = null, drawer = null;
   const lazy = async (name, fn, css = name) => { loadCSS(css); const m = await import(`./${name}.js`); return m[fn]; };
 
   const ctx = {
@@ -63,13 +67,15 @@ export function loadCSS(name) {
       const s = pool.byId.get(String(id)); if (s) return s;
       try { const r = await fetch('/api/itunes?id=' + encodeURIComponent(id)); if (!r.ok) return null; const d = await r.json(); return d.songs?.[0] || null; } catch (e) { return null; }
     },
-    openDrawer: async () => (await lazy('drawer', 'openDrawer', 'app'))(ctx),
+    openDrawer: async () => { const d = await (await lazy('drawer', 'openDrawer', 'app'))(ctx); if (d) drawer = d; return d; },
     // A profile needs an account: a guest is sent to sign in first.
     openProfile: async () => {
       if (!ctx.account.signedIn) { ctx.toast('Sign in to get a profile.'); return ctx.signIn(); }
       ctx.stopStage(); (await lazy('profile', 'mountProfile'))(ctx);
     },
     openParty: async (opts) => { ctx.stopStage(); (await lazy('party', 'mountParty'))(ctx, opts); },
+    /** Friends (FriendsView): anyone can open it; a guest sees the sign-in line. */
+    openFriends: async () => (await lazy('friendsview', 'openFriends', 'friends'))(ctx),
     // Ranked is premium, with one free match for a new player (StageView.rankedOpen).
     openRanked: async () => { if (!ctx.premium && (account.stats.rankedPlayed || 0) > 0) return ctx.openPremium('ranked'); ctx.stopStage(); (await lazy('ranked', 'mountRanked'))(ctx); },
     openDaily: async () => { ctx.stopStage(); (await lazy('daily', 'mountDaily'))(ctx); },
@@ -85,6 +91,11 @@ export function loadCSS(name) {
   };
   window.__songspot = ctx;                                   // for poking at it from the console
   account.onChange(() => { stage?.render(); ads.sync(); });
+  // Friends: the heartbeat (online + incoming challenges) and the challenge banner.
+  // A 1v1 opens out of whatever is on screen: the menu closes, the stage goes quiet.
+  loadCSS('friends');
+  Friends.onLaunch = launch => { drawer?.close(); drawer = null; ctx.openParty({ duel: launch }); };
+  Friends.init(account);
 
   stage = mountStage(root, ctx);
   ads.sync();
@@ -102,7 +113,14 @@ export function loadCSS(name) {
   // A party link: songspotapp.com/?party=CODE opens the room.
   const party = (q.get('party') || '').toUpperCase();
   if (party) ctx.openParty({ join: party });
+  // A friend's link: songspotapp.com/?add=CODE (from /add?c=CODE) opens Friends and adds them.
+  // The code is kept through a sign-in, which comes back to a bare URL.
+  {
+    const c = codeFrom(q.get('add') || '');
+    if (c) { Friends.pendingCode = c; const u = new URL(location.href); u.searchParams.delete('add'); history.replaceState(null, '', u.pathname + u.search + u.hash); }
+    if (!party && Friends.pendingCode) setTimeout(() => ctx.openFriends(), 400);
+  }
   // Test knobs (the screenshots are taken from the real game).
   const open = q.get('open');
-  if (open) setTimeout(() => ({ daily: ctx.openDaily, ranked: ctx.openRanked, party: ctx.openParty, profile: ctx.openProfile, premium: () => ctx.openPremium(null), drawer: ctx.openDrawer, genres: ctx.openGenres, artists: ctx.openArtists, faq: ctx.openFAQ, login: ctx.signIn }[open] || (() => {}))(), 300);
+  if (open) setTimeout(() => ({ daily: ctx.openDaily, ranked: ctx.openRanked, party: ctx.openParty, profile: ctx.openProfile, friends: ctx.openFriends, premium: () => ctx.openPremium(null), drawer: ctx.openDrawer, genres: ctx.openGenres, artists: ctx.openArtists, faq: ctx.openFAQ, login: ctx.signIn }[open] || (() => {}))(), 300);
 })();

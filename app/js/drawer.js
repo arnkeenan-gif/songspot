@@ -3,10 +3,11 @@
 // artist and genre, the spotlight, the settings, and a quiet footer that
 // holds the only link out of the game: Get the app.
 import { TIERS } from './pool.js';
-import { el, face, TIER_COLOR, TIER_INK, cap, esc, settings, LINKS, LevelTheme, openSheet } from './ui.js';
+import { el, face, TIER_COLOR, TIER_INK, cap, esc, settings, LINKS, LevelTheme } from './ui.js';
 import { I } from './icons.js';
 import { Level } from './account.js';
 import { Haptics } from './haptics.js';
+import { Friends } from './friends.js';
 
 let dailyMod = null;
 import('./daily.js').then(m => { dailyMod = m; }).catch(() => {});
@@ -32,6 +33,7 @@ export async function openDrawer(ctx) {
     const playedToday = D ? !!D.todayRecord() : false;
     const avatar = account.avatar ? face(account.name, account.avatar, accent, 46) : account.initial ? `<span class="face" style="width:46px;height:46px;background:${accent};color:#08120c;font-size:18px">${esc(account.initial)}</span>` : '';
     const top = ['all', ...pool.categoryCounts.slice(0, 8).map(c => c.name)];
+    const online = Friends.onlineCount, requests = Friends.requests.length;
     d.innerHTML = `
       <div class="brand"><span class="wordmark">songspot</span><button class="xbtn" data-press data-act="close" aria-label="Close menu">${I.x}</button></div>
       <button class="hero card" data-press data-act="profile">
@@ -46,7 +48,8 @@ export async function openDrawer(ctx) {
         playedToday ? `<span class="tick">${I.check}</span>` : D ? `<span class="num">#${D.displayNumber()}</span>` : `<span class="chev">${I.chevron}</span>`)}
       ${prow('party', 'Play with friends', 'Up to 50 players', I.people, TIER_COLOR.impossible, false, `<span class="chev">${I.chevron}</span>`)}
       ${prow('ranked', 'Play ranked', ctx.premium ? 'Climb the ladder' : freeMatch ? 'Your first match is free' : 'Premium · climb the ladder', I.trophy, TIER_COLOR.medium, false, rankedOpen ? `<span class="chev">${I.chevron}</span>` : `<span class="tick">${I.lock}</span>`)}
-      ${prow('friends', 'Friends', 'Challenge a friend to a 1v1', I.people, TIER_COLOR.hard, false, `<span class="chev">${I.chevron}</span>`)}
+      ${prow('friends', 'Friends', online > 0 ? `${online} online · challenge a 1v1` : 'Challenge a friend to a 1v1', I.people, TIER_COLOR.hard, false,
+        requests ? `<span class="num fbadge" style="background:${TIER_COLOR.hard};color:#08120c">${requests}</span>` : `<span class="chev">${I.chevron}</span>`)}
       <div class="rule"></div>
       <div class="dhead"><p class="dlabel">Difficulty</p><button data-press data-act="reroll">${I.reroll}Reroll</button></div>
       <div class="ladder">${TIERS.map(t => `<button class="rung card ${t === game.difficulty ? 'on' : ''} ${counts[t] === 0 ? 'dead' : ''}" style="--t:${TIER_COLOR[t]}" data-tier="${t}">${cap(t)}${t === game.difficulty ? I.check : ''}</button>`).join('')}</div>
@@ -95,7 +98,11 @@ export async function openDrawer(ctx) {
   render();
   document.body.appendChild(wrap);
   requestAnimationFrame(() => requestAnimationFrame(() => wrap.classList.add('in')));
-  const off = account.onChange(() => render());
+  const offAccount = account.onChange(() => render());
+  // Who's online, for the Friends row (it redraws when the list comes back).
+  const offFriends = Friends.onChange(() => render());
+  const off = () => { offAccount(); offFriends(); };
+  if (account.signedIn) Friends.refresh();
   const onKey = e => { if (e.key === 'Escape') close(); };
   document.addEventListener('keydown', onKey);
   let closing = false;
@@ -121,7 +128,7 @@ export async function openDrawer(ctx) {
     else if (act === 'ranked') rankedOpen() ? (close(), ctx.openRanked()) : ctx.openPremium('ranked');
     else if (act === 'reroll') { ctx.toast('New song.'); ctx.newRound(); }
     else if (act === 'anyera') { Haptics.select(); game.era = 'all'; ctx.newRound(); render(); }
-    else if (act === 'friends') { close(); openFriends(ctx); }
+    else if (act === 'friends') { close(); ctx.openFriends(); }
     else if (act === 'privacy') { try { window.googlefc.showRevocationMessage(); } catch (err) {} }
     else if (act === 'noartist') { e.stopPropagation(); game.artist = null; game.setArtistSongs([]); ctx.newRound(); render(); }
     else if (act === 'artist') { close(); ctx.openArtists(); }
@@ -143,18 +150,4 @@ export async function openDrawer(ctx) {
     ctx.refresh(); render();
   }
   return { close };
-}
-
-/** FriendsView: the header, and — with no friend system on the web — the
- *  app's own signed-out line, or where friends live for a signed-in player. */
-function openFriends(ctx) {
-  const signedIn = !!ctx.account.signedIn;
-  const sh = openSheet(`<div class="friends-v"><div class="fv-head"><span class="fv-title">Friends</span><button class="xbtn" data-press data-act="close" aria-label="Close">${I.x}</button></div>
-    <div class="fv-empty"><p>${signedIn ? 'Friends and 1v1 challenges are in the Songspot app for now.' : 'Sign in to add friends.'}</p>
-    ${signedIn ? `<a class="fv-get" href="${LINKS.get}" target="_blank" rel="noopener">${I.apple}Get the app</a>` : `<button class="fv-get" data-press data-act="signin">Sign in</button>`}</div></div>`, { cls: 'tall friends-sheet', label: 'Friends' });
-  sh.body.addEventListener('click', e => {
-    const a = e.target.closest('[data-act]')?.dataset.act;
-    if (a === 'close') sh.close();
-    if (a === 'signin') { sh.close(); ctx.signIn(); }
-  });
 }
