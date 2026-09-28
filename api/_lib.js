@@ -59,7 +59,8 @@ export async function db(method, path, body, prefer) {
   const key = env('SUPABASE_SERVICE_ROLE_KEY');
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     method,
-    headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', ...(prefer ? { Prefer: prefer } : {}) },
+    // A legacy service_role key is a JWT and goes in both headers; a new sb_secret_ key goes in apikey only.
+    headers: { apikey: key, ...(key.startsWith('eyJ') ? { Authorization: `Bearer ${key}` } : {}), 'Content-Type': 'application/json', ...(prefer ? { Prefer: prefer } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
   const text = await r.text();
