@@ -234,7 +234,7 @@ export function mountStage(root, ctx) {
   let winRaf = 0, winT = null, lamp = 1, lampTimers = [];
     function paintLight() {
     const spot = S('spotlight') !== 'off', t = winT;
-    const narrow = innerWidth < 600, foot = narrow ? 0.52 : 0.5;
+    const narrow = !document.documentElement.classList.contains('wide'), foot = narrow ? 0.52 : 0.5;
     const r = t == null ? 1 : Win.ratio(t), gl = t == null ? 0 : Win.glow(t);
     const w = t == null || !S('motion') ? null : Win.wave(t, Win.payoff(game.isLastStage));
     const tint = mix(accent(), '#edf2ee', 0.64);

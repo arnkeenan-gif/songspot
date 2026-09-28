@@ -14,7 +14,7 @@ export const label = s => (s < 1 ? s.toFixed(1) + 's' : Math.round(s) + 's');
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const art = (url, size = 300) => (url || '').replace('{w}x{h}', `${size}x${size}`);
 export const sleep = ms => new Promise(r => setTimeout(r, ms));
-export const isPhone = () => innerWidth < 600;
+export const isPhone = () => !document.documentElement.classList.contains('wide');
 
 /** sRGB mix, like the app's srgbMix: a toward b by t (0..1). Hex in, hex out. */
 export function mix(a, b, t) {

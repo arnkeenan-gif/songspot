@@ -426,4 +426,4 @@
 .pdfoot .pwait.dw { padding: 14px 0; }
 .dleave { width: 100%; height: 44px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); font-size: 14.5px; font-weight: 800; text-align: center; }
 /* the host's settings: a full-height sheet on a phone, as iOS presents a sheet with no detents */
-@media (max-width: 599px) { .view.sheet.party-sheet.full .sheet-body { height: calc(100% - 44px - var(--sat)); } }
+html:not(.wide) { .view.sheet.party-sheet.full .sheet-body { height: calc(100% - 44px - var(--sat)); } }

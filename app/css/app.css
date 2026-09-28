@@ -48,7 +48,7 @@ body.spot .cone { display: block; }
 .cone i .sweep { position: absolute; left: 0; right: 0; filter: blur(1.5px); mix-blend-mode: screen; pointer-events: none; }
 /* with the cone off it sweeps the full width as a soft band (StageView.bareWave) */
 .bare-wave { position: fixed; left: 0; right: 0; filter: blur(26px); mix-blend-mode: screen; pointer-events: none; z-index: 0; }
-@media (min-width: 600px) { .cone { width: min(1000px, calc(100vw + 96px)); } .cone i { clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%); } }
+html.wide { .cone { width: min(1000px, calc(100vw + 96px)); } .cone i { clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%); } }
 
 /* ---------- the stage ---------- */
 .stage { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 16px 74px; z-index: 1; }
@@ -250,13 +250,13 @@ body.spot .cone { display: block; }
 .view.sheet .sheet-body { position: absolute; left: 0; right: 0; bottom: 0; max-height: calc(100% - 44px - var(--sat)); background: var(--stage); border-radius: 18px 18px 0 0; overflow-y: auto; overscroll-behavior: contain; transform: translateY(100%); transition: transform .5s var(--ease); padding-bottom: var(--sab); }
 .view.sheet.in .sheet-body { transform: none; }
 .view.sheet.tall .sheet-body { height: calc(100% - 44px - var(--sat)); }
-@media (min-width: 600px) {
+html.wide {
   .view.sheet .sheet-body { left: 50%; right: auto; bottom: auto; top: 50%; width: min(460px, calc(100vw - 48px)); max-height: min(760px, calc(100vh - 48px)); border-radius: 18px; border: 1px solid var(--line); transform: translate(-50%, -46%); opacity: 0; transition: transform .28s var(--ease), opacity .2s; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
   .view.sheet.in .sheet-body { transform: translate(-50%, -50%); opacity: 1; }
   .view.sheet.tall .sheet-body { height: min(760px, calc(100vh - 48px)); }
 }
 .grab { width: 36px; height: 4px; border-radius: 2px; background: var(--dim); margin: 10px auto 0; }
-@media (min-width: 600px) { .grab { visibility: hidden; } }
+html.wide { .grab { visibility: hidden; } }
 /* a full-screen mode (daily, ranked, party, profile): a centred column on a wide screen */
 .screen { width: 100%; max-width: 440px; margin: 0 auto; min-height: 100%; padding: calc(14px + var(--sat)) 20px calc(28px + var(--sab)); display: flex; flex-direction: column; position: relative; }
 .screen-bar { display: flex; align-items: center; justify-content: space-between; min-height: 43px; }
@@ -311,8 +311,8 @@ body.spot .cone { display: block; }
 .boot .err { color: var(--expert); font-size: 13px; margin-top: 16px; text-align: center; padding: 0 20px; }
 
 /* ---------- wide screens: the app's own desktop metrics, a 400pt column ---------- */
-@media (min-width: 600px) {
-  :root { --col: 400px; }
+html.wide {
+  & { --col: 400px; }
   .stage { padding: 60px 16px 82px; }
   .stage .wordmark { font-size: 58px; height: 64px; line-height: 64px; letter-spacing: -1.74px; }
   .reel { height: 19.75px; margin-bottom: 18px; }
@@ -341,7 +341,7 @@ body.spot .cone { display: block; }
 /* ---------- pickers (genres, artists) and the FAQ ---------- */
 .picker .sheet-body, .faq .sheet-body { background: var(--page); display: flex; flex-direction: column; }
 /* The genre and artist pickers cover the whole phone, as the app's full-screen cover does. */
-@media (max-width: 599px) { .picker.tall .sheet-body, .picker .sheet-body { top: 0; height: 100%; max-height: 100%; border-radius: 0; padding-top: var(--sat); } }
+html:not(.wide) { .picker.tall .sheet-body, .picker .sheet-body { top: 0; height: 100%; max-height: 100%; border-radius: 0; padding-top: var(--sat); } }
 .phead { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 0; }
 .phead h2 { margin: 0; font-size: 19px; font-weight: 800; font-style: italic; letter-spacing: -.57px; color: rgba(255,255,255,.55); }
 .psearch { margin: 12px 20px 0; display: flex; align-items: center; gap: 8px; padding: 0 14px; height: 42px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); flex: none; }
@@ -419,8 +419,8 @@ body.spot .cone { display: block; }
 .fv-get .i { font-size: 14px; }
 
 /* ---------- desktop: a little wider, and the PC / phone switch ---------- */
-@media (min-width: 900px) {
-  :root { --col: 520px; }
+html.xwide {
+  & { --col: 520px; }
   .screen { max-width: 600px; }
   .view.sheet .sheet-body { width: min(560px, calc(100vw - 48px)); }
 }
@@ -460,3 +460,11 @@ body.phone-shell { background: #000; overflow: hidden; }
 @keyframes cw-down { from { transform: translateY(-50%); } to { transform: translateY(0); } }
 .nomotion .cw-col { animation-play-state: paused !important; }
 @media (prefers-reduced-motion: reduce) { .cw-col { animation-play-state: paused !important; } }
+
+/* phone mode (desktop): the phone layout in a 430px column in the middle, while
+   the stage, the light and the colours still fill the whole screen. */
+html.phonemode { --col: 398px; }
+html.phonemode .screen { max-width: 430px; }
+html.phonemode .view.sheet .sheet-body { left: calc(50% - 215px); right: auto; width: 430px; }
+html.phonemode .menu-btn { left: calc(50% - 215px + 18px); }
+html.phonemode .crown-btn, html.phonemode.has-viewtoggle .crown-btn, html.phonemode body.has-viewtoggle .crown-btn { right: calc(50% - 215px + 18px); }

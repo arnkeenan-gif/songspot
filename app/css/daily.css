@@ -134,7 +134,7 @@
 @media (prefers-reduced-motion: reduce) { .d-confirm * { transition-duration: .01ms !important; } }
 
 /* wide screens: the stage's own 400pt column and desktop metrics */
-@media (min-width: 600px) {
+html.wide {
   .daily .d-round { padding: 0 20px; }
   .daily .d-round .wordmark { font-size: 58px; height: 64px; line-height: 64px; letter-spacing: -1.74px; }
   .daily .timeline { margin-bottom: 55px; }
