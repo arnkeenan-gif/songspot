@@ -713,7 +713,10 @@ export function mountDaily(ctx) {
   // ---- open
   if (record) {
     renderResult();
-    loadBoard();
+    // Sent again on every open: a round played as a guest, or on an account
+    // since switched, would otherwise read "Not yet" on the friends board.
+    // A repeat is a 409 the post ignores.
+    (record.demo ? Promise.resolve() : post(record)).then(() => loadBoard());
   } else if (!song) {
     scr.innerHTML = `${bar()}<div class="d-round"><div class="wordmark">songspot</div><div class="d-err">Today's song couldn't be found. Try again later.</div></div>`;
   } else {

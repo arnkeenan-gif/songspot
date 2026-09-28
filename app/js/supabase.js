@@ -6,6 +6,8 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 export const SUPABASE_URL = 'https://ytqjphkydvzpfecbehko.supabase.co';
 export const SUPABASE_ANON = 'sb_publishable_peO3Uwcw4z_nwGDZ2iRE8g_pE0uGY0X';
 
+const GUEST_KEY = 'songspot.guestRefresh';
+
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'songspot.auth' } });
 
 /** Which OAuth providers are set up for the web (a provider with no client secret answers 400). */
@@ -34,7 +36,26 @@ export const auth = {
       const r = await supabase.auth.linkIdentity({ provider, options }).catch(e => ({ error: e }));
       if (!r?.error) return r;
     }
+    // Signing in lands on a different account than the guest one; keep the
+    // guest's key so its daily can be handed over once we're back.
+    if (s?.user?.is_anonymous && s.refresh_token) { try { localStorage.setItem(GUEST_KEY, s.refresh_token); } catch (e) {} }
     return supabase.auth.signInWithOAuth({ provider, options });
+  },
+  /**
+   * After a sign-in that left a guest account behind: as that guest, hand its
+   * daily results to `toId`, so the friends board shows today's round and the
+   * everyone board doesn't show the player twice. Once, then the key is gone.
+   */
+  async handOverGuest(toId) {
+    let refresh = null;
+    try { refresh = localStorage.getItem(GUEST_KEY); localStorage.removeItem(GUEST_KEY); } catch (e) {}
+    if (!refresh || !toId) return;
+    try {
+      const h = { apikey: SUPABASE_ANON, 'Content-Type': 'application/json' };
+      const t = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, { method: 'POST', headers: h, body: JSON.stringify({ refresh_token: refresh }) }).then(r => r.ok ? r.json() : null);
+      if (!t?.access_token || t.user?.id === toId) return;
+      await fetch(`${SUPABASE_URL}/rest/v1/rpc/hand_over_daily`, { method: 'POST', headers: { ...h, Authorization: `Bearer ${t.access_token}` }, body: JSON.stringify({ p_to: toId }) });
+    } catch (e) {}
   },
   /** A guest account: a real user id with no email, so boards and premium have somewhere to live. */
   async ensureGuest() {

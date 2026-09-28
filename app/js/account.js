@@ -111,6 +111,7 @@ export class Account {
   async adopt(user) {
     this.user = user; this.syncing = true; this.emit();
     try {
+      if (!user.is_anonymous) await auth.handOverGuest(user.id);
       let remote = null, read = false;
       try { remote = await profiles.fetch(user.id); read = true; } catch (e) {}
       if (remote) {
