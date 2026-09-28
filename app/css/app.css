@@ -466,5 +466,3 @@ body.phone-shell { background: #000; overflow: hidden; }
 html.phonemode { --col: 398px; }
 html.phonemode .screen { max-width: 430px; }
 html.phonemode .view.sheet .sheet-body { left: calc(50% - 215px); right: auto; width: 430px; }
-html.phonemode .menu-btn { left: calc(50% - 215px + 18px); }
-html.phonemode .crown-btn, html.phonemode.has-viewtoggle .crown-btn, html.phonemode body.has-viewtoggle .crown-btn { right: calc(50% - 215px + 18px); }
