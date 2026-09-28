@@ -31,6 +31,15 @@ export function loadCSS(name) {
   catch (e) { root.innerHTML = `<div class="boot"><div><div class="wordmark">songspot</div><p class="err">Couldn't load the songs. Check your connection and reload.</p></div></div>`; return; }
   // Today's daily song from the server, the same one everyone plays.
   import('./daily.js').then(m => m.Daily.syncSong(pool)).catch(() => {});
+  // Back from a sign-in that failed at the provider: say so, rather than
+  // landing quietly as a guest as if it had worked.
+  {
+    const err = q.get('error_description') || new URLSearchParams(location.hash.slice(1)).get('error_description');
+    if (err) {
+      setTimeout(() => toast("Sign-in didn't go through. Try again in a minute.", 6), 800);
+      history.replaceState(null, '', location.pathname);
+    }
+  }
   const game = new Game(pool);
   // The filters of the last round, as the app remembers them.
   game.difficulty = settings.get('difficulty', 'easy'); game.era = settings.get('era', 'all'); game.category = settings.get('category', 'all');
@@ -55,7 +64,11 @@ export function loadCSS(name) {
       try { const r = await fetch('/api/itunes?id=' + encodeURIComponent(id)); if (!r.ok) return null; const d = await r.json(); return d.songs?.[0] || null; } catch (e) { return null; }
     },
     openDrawer: async () => (await lazy('drawer', 'openDrawer', 'app'))(ctx),
-    openProfile: async () => { ctx.stopStage(); (await lazy('profile', 'mountProfile'))(ctx); },
+    // A profile needs an account: a guest is sent to sign in first.
+    openProfile: async () => {
+      if (!ctx.account.signedIn) { ctx.toast('Sign in to get a profile.'); return ctx.signIn(); }
+      ctx.stopStage(); (await lazy('profile', 'mountProfile'))(ctx);
+    },
     openParty: async (opts) => { ctx.stopStage(); (await lazy('party', 'mountParty'))(ctx, opts); },
     // Ranked is premium, with one free match for a new player (StageView.rankedOpen).
     openRanked: async () => { if (!ctx.premium && (account.stats.rankedPlayed || 0) > 0) return ctx.openPremium('ranked'); ctx.stopStage(); (await lazy('ranked', 'mountRanked'))(ctx); },
