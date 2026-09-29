@@ -535,3 +535,14 @@ html.phonemode { --col: 398px; }
 html.phonemode .cone { width: min(100vw, 700px); }
 html.phonemode .screen { max-width: 430px; }
 html.phonemode .view.sheet .sheet-body { left: calc(50% - 215px); right: auto; width: 430px; }
+
+/* Three plans as rows, yearly first (Premium.swift planCard). */
+.plans.rows { flex-direction: column; gap: 8px; }
+.plans.rows .plan { flex-direction: row; align-items: center; gap: 12px; padding: 13px 14px; text-align: left; }
+.plans.rows .plan.on { padding: 12px 13px; }
+.plans.rows .plan .pt { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.plans.rows .plan .pt b { font-size: 15px; }
+.plans.rows .plan .pt span { font-size: 11.5px; }
+.plans.rows .plan strong { font-size: 18px; white-space: nowrap; }
+.plans.rows .plan .radio { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--dim, #666); flex: none; box-sizing: border-box; }
+.plans.rows .plan.on .radio { border: 6px solid var(--accent); }

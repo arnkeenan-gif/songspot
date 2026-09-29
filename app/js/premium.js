@@ -19,7 +19,8 @@ export async function premiumConfig() {
   if (config) return config;
   try { const r = await fetch('/api/config', { cache: 'no-store' }); config = r.ok ? await r.json() : { stripe: false }; }
   catch (e) { config = { stripe: false }; }
-  config.monthly = config.monthly || '$4.99'; config.lifetime = config.lifetime || '$14.99';
+  config.monthly = config.monthly || '$6.99'; config.lifetime = config.lifetime || '$49.99';
+  config.trialDays = config.trialDays || 0;
   return config;
 }
 
@@ -52,12 +53,20 @@ export async function mountPremium(ctx, highlight = null) {
   const { account, sound } = ctx;
   const tier = ctx.game.difficulty, accent = TIER_COLOR[tier], ink = TIER_INK[tier];
   const cfg = await premiumConfig();
-  let plan = 'monthly', working = false, error = '';
+  // Yearly (with the free trial) is the default, as in the app; the other two sit under it.
+  let plan = cfg.yearly ? 'yearly' : 'monthly', working = false, error = '';
   let off = null;
   const sh = openSheet('', { cls: 'premium tall', label: 'Premium', onClose: () => off && off() });
   sh.node.style.setProperty('--accent', accent); sh.node.style.setProperty('--accent-ink', ink);
   const b = sh.body;
-  const price = () => (plan === 'monthly' ? cfg.monthly : cfg.lifetime);
+  const price = () => (plan === 'yearly' ? cfg.yearly : plan === 'monthly' ? cfg.monthly : cfg.lifetime);
+  const trial = () => (plan === 'yearly' && cfg.trialDays ? `${cfg.trialDays}-day free trial` : null);
+  const subtitle = () => plan === 'lifetime' ? 'Once. Nothing renews, nothing to cancel.'
+    : plan === 'yearly' ? (trial() ? `${cap(trial())}, then ${cfg.yearly} a year. Cancel any time.` : `${cfg.yearlyPerMonth} a month, billed once a year. Cancel any time.`)
+    : 'A month at a time. Cancel any time.';
+  const buyLabel = () => trial() ? `Start my ${trial()}` : plan === 'yearly' ? `Go premium — ${cfg.yearly}/year` : plan === 'monthly' ? `Go premium — ${cfg.monthly}/month` : `Unlock for good — ${cfg.lifetime}`;
+  const fine = () => plan === 'lifetime' ? 'One payment. Nothing renews, nothing to cancel. Payments by Stripe.'
+    : `${trial() ? cap(trial()) + ', then ' : ''}${plan === 'yearly' ? cfg.yearly + '/year' : cfg.monthly + '/month'}. Renews until cancelled. Payments by Stripe.`;
   const paint = () => {
     const has = ctx.premium;
     const guest = !account.signedIn;
@@ -65,24 +74,26 @@ export async function mountPremium(ctx, highlight = null) {
       <div class="grab"></div>
       <div class="pk">${I.crown}<span>PREMIUM</span></div>
       <div class="pprice">${price()}</div>
-      <div class="ponce">${plan === 'monthly' ? 'A month at a time. Cancel any time.' : 'Once. Nothing renews, nothing to cancel.'}</div>
-      <div class="plans">
-        ${card('monthly', 'Monthly', cfg.monthly + '/mo', 'cancel any time', 'Most popular')}
-        ${card('lifetime', 'Lifetime', cfg.lifetime, 'pay once', null)}
+      <div class="ponce">${subtitle()}</div>
+      <div class="plans rows">
+        ${cfg.yearly ? card('yearly', 'Yearly', cfg.yearly + '/yr', cfg.trialDays ? `Then ${cfg.yearlyPerMonth}/mo, billed yearly` : `${cfg.yearlyPerMonth}/mo, billed yearly`, cfg.trialDays ? `${cfg.trialDays}-day free trial` : 'Best value') : ''}
+        ${card('monthly', 'Monthly', cfg.monthly + '/mo', 'Cancel any time', cfg.yearly ? null : 'Most popular')}
+        ${card('lifetime', 'Lifetime', cfg.lifetime, 'Pay once, keep it for good', null)}
       </div>
       <div class="ledger card"><p>WHAT YOU GET</p>${PERKS.map(p => `<div class="perk ${p.key === highlight ? 'lit' : ''}"><i>${p.icon}</i><div><b>${esc(p.title)}</b><span>${esc(p.detail)}</span></div></div>`).join('')}</div>
       <div class="pfill"></div>
       ${error ? `<p class="perr">${esc(error)}</p>` : ''}
       ${has ? `<button class="btn primary" data-act="manage" data-press>You're premium — manage</button>`
-        : cfg.stripe ? `<button class="btn primary" data-act="buy" data-press ${working ? 'disabled' : ''}>${working ? 'One moment…' : guest ? 'Sign in to go premium' : plan === 'monthly' ? `Go premium — ${cfg.monthly}/month` : `Go premium — ${cfg.lifetime} once`}</button>`
+        : cfg.stripe ? `<button class="btn primary" data-act="buy" data-press ${working ? 'disabled' : ''}>${working ? 'One moment…' : guest ? 'Sign in to go premium' : buyLabel()}</button>`
         : `<button class="btn primary" disabled>Premium on the web is coming soon</button><a class="pios" href="https://songspotapp.com/get" target="_blank" rel="noopener">Get it now in the <b>iPhone app</b></a>`}
       ${!has && cfg.stripe && guest ? `<p class="pguest">Premium is saved to your profile, so you have it on every device. Sign in first, then pay.</p>` : ''}
       ${has ? '' : `<button class="prestore" data-act="restore" data-press>Restore purchases</button>`}
-      ${plan === 'monthly' && !has && cfg.stripe ? `<p class="prenew">Renews at ${cfg.monthly}/month until cancelled. Payments by Stripe.</p>` : ''}
+      ${!has && cfg.stripe ? `<p class="prenew">${fine()}</p>` : ''}
       <div class="plinks"><a href="/support" target="_blank">Terms</a><a href="/privacy" target="_blank">Privacy</a></div>
     </div>`;
   };
-  const card = (p, title, pr, note, badge) => `<button class="plan ${plan === p ? 'on' : ''}" data-plan="${p}" data-press><b>${title}</b><strong>${pr}</strong><span>${note}</span>${badge ? `<em>${badge.toUpperCase()}</em>` : ''}</button>`;
+  const card = (p, title, pr, note, badge) => `<button class="plan ${plan === p ? 'on' : ''}" data-plan="${p}" data-press><i class="radio"></i><div class="pt"><b>${title}</b><span>${note}</span></div><strong>${pr}</strong>${badge ? `<em>${badge.toUpperCase()}</em>` : ''}</button>`;
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
   paint();
   off = account.onChange(() => paint());
   b.addEventListener('click', async e => {

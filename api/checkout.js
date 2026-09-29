@@ -1,7 +1,8 @@
-// POST /api/checkout { plan: 'monthly' | 'lifetime' } with the player's
-// Supabase access token → a Stripe Checkout Session URL. Monthly is a
-// subscription, lifetime a one-off payment; both carry the Supabase user id
-// so the webhook knows whose premium to switch on.
+// POST /api/checkout { plan: 'yearly' | 'monthly' | 'lifetime' } with the
+// player's Supabase access token → a Stripe Checkout Session URL. Yearly and
+// monthly are subscriptions (yearly with a free trial for first-time
+// subscribers), lifetime a one-off payment; all carry the Supabase user id so
+// the webhook knows whose premium to switch on.
 import { stripeReady, prices, send, userFrom, stripe, db, readJSON, safeReturn } from './_lib.js';
 
 export default async function handler(req, res) {
@@ -12,7 +13,8 @@ export default async function handler(req, res) {
   // Premium belongs to a profile: a guest (anonymous) account is lost with the browser's storage.
   if (user.is_anonymous) return send(res, 403, { error: 'Sign in to buy premium.' });
   const body = await readJSON(req);
-  const plan = body.plan === 'lifetime' ? 'lifetime' : 'monthly';
+  const plan = ['yearly', 'monthly', 'lifetime'].includes(body.plan) ? body.plan : 'yearly';
+  if (!prices()[plan]) return send(res, 400, { error: 'That plan is not available right now.' });
   const back = safeReturn(req, body.return);
   try {
     // One Stripe customer per player, remembered so the billing portal can find it.
@@ -29,8 +31,15 @@ export default async function handler(req, res) {
       metadata: { user_id: user.id, plan },
       success_url: `${back}?checkout=success`, cancel_url: `${back}?checkout=cancel`,
     };
-    const session = await stripe('POST', 'checkout/sessions', plan === 'monthly'
-      ? { ...common, mode: 'subscription', subscription_data: { metadata: { user_id: user.id, plan } } }
+    // The free trial is for a first subscription only, as on the App Store.
+    let trial = 0;
+    if (plan === 'yearly') {
+      const days = Number(process.env.PREMIUM_TRIAL_DAYS || 3);
+      const past = await stripe('GET', `subscriptions?customer=${customer}&status=all&limit=1`).catch(() => null);
+      if (days > 0 && !(past?.data?.length)) trial = days;
+    }
+    const session = await stripe('POST', 'checkout/sessions', plan !== 'lifetime'
+      ? { ...common, mode: 'subscription', subscription_data: { metadata: { user_id: user.id, plan }, ...(trial ? { trial_period_days: trial } : {}) } }
       : { ...common, mode: 'payment', payment_intent_data: { metadata: { user_id: user.id, plan } } });
     return send(res, 200, { url: session.url });
   } catch (e) {

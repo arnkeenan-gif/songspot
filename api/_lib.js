@@ -10,7 +10,7 @@ const env = k => (process.env[k] || '').trim();
 export function stripeReady() {
   return !!(env('STRIPE_SECRET_KEY') && env('STRIPE_WEBHOOK_SECRET') && env('STRIPE_PRICE_MONTHLY') && env('STRIPE_PRICE_LIFETIME') && env('SUPABASE_SERVICE_ROLE_KEY'));
 }
-export const prices = () => ({ monthly: env('STRIPE_PRICE_MONTHLY'), lifetime: env('STRIPE_PRICE_LIFETIME') });
+export const prices = () => ({ monthly: env('STRIPE_PRICE_MONTHLY'), yearly: env('STRIPE_PRICE_YEARLY'), lifetime: env('STRIPE_PRICE_LIFETIME') });
 
 export function send(res, status, body) {
   res.statusCode = status;
