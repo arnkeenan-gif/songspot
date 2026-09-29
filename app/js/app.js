@@ -104,7 +104,7 @@ export function loadCSS(name) {
     if (!raw) return;
     premiumResumed = true;
     const m = await import('./premium.js'); const p = m.takePending(); if (!p) return;
-    if (p.kind === 'buy' && (p.plan === 'monthly' || p.plan === 'lifetime')) { toast('Taking you to checkout…'); const msg = await m.startCheckout(ctx, p.plan); if (msg) { toast(msg, 5); ctx.openPremium(null); } }
+    if (p.kind === 'buy' && ['yearly', 'monthly', 'lifetime'].includes(p.plan)) { toast('Taking you to checkout…'); const msg = await m.startCheckout(ctx, p.plan); if (msg) { toast(msg, 5); ctx.openPremium(null); } }
     else ctx.openPremium(p.perk ?? null);
   }
   /** Paid as a guest: the sign-in screen without a way out, until premium sits on a real profile. */
