@@ -31,7 +31,7 @@
 </div>
 <main class="doc">
   <h1>songspot</h1>
-  <p class="updated">Privacy Policy — last updated 24 September 2026</p>
+  <p class="updated">Privacy Policy — last updated 2 October 2026</p>
 
   <p class="lead">Songspot keeps a small profile so your stats follow you, shows an occasional ad
      in free play, and nothing else. Here is exactly what that means, on iPhone and Android.</p>
@@ -40,22 +40,37 @@
   <p>You sign in with Apple or Google. Songspot receives only what the sign-in provider hands
      over: a user identifier and, if you allow it, your name. No password ever reaches us and
      Songspot never sees your Apple or Google credentials.</p>
-  <p>Your profile holds a display name you can edit, an optional picture you choose, the date
-     you joined and your game statistics (rounds played and won, streaks, party and ranked results).
-     It is stored on servers run by Supabase in the European Union and used for one thing: showing
-     your stats and picture back to you, and to the friends you play a party with or the opponent in
-     a ranked match.</p>
+  <p>Your profile holds a display name you can edit, the character you pick to represent you, the
+     date you joined and your game statistics (rounds played and won, streaks, daily, party and
+     ranked results). It is stored on servers run by Supabase in the European Union and used to show
+     your stats and character back to you, to your friends, to the people you play a party with and
+     to your opponent in a ranked match.</p>
   <p>You can delete your account at any time from the Profile screen (<em>Delete account</em>).
-     That erases your profile, your picture and every stat from our servers immediately and
+     That erases your profile, your friends list, your notification token and every stat from our servers immediately and
      cannot be undone.</p>
 
+  <h2>Friends</h2>
+  <p>Every account has a friend code. When you add someone with theirs, or accept their request,
+     each of you can see the other's display name, character, whether they are online and their
+     daily results, and you can challenge each other to a 1v1. The list of who your friends are is
+     stored with your account; you can remove a friend at any time, and deleting your account
+     removes the list.</p>
+
+  <h2>Notifications</h2>
+  <p>If you allow notifications, your phone gives Songspot a push token: an address Apple uses to
+     deliver notifications to this device. It is stored with your account and used only to tell you
+     that a friend sent you a request, accepted yours or challenged you to a 1v1. It is removed when
+     you sign out or delete your account, and you can turn notifications off in your phone's
+     Settings at any time. Daily reminders are scheduled on your phone itself and send nothing to
+     us.</p>
+
   <h2>Party and ranked</h2>
-  <p>When you host or join a party, your display name and picture are shared with the other
+  <p>When you host or join a party, your display name and character are shared with the other
      players in that room for the length of the game, and your answers and scores are relayed
      between the devices. Rooms are identified by a short code; nothing from a party is kept
      once it ends, apart from the totals in your own stats. A finished ranked match stores its
      points against your account so the daily and weekly leaderboards can be built; the board
-     shows your display name and picture to other players.</p>
+     shows your display name and character to other players.</p>
 
   <h2>Advertising</h2>
   <p>Free play shows a short ad after every five rounds, served by Google AdMob. On iPhone you are asked whether Songspot may track you across other apps;
@@ -66,10 +81,16 @@
      Premium removes ads entirely.</p>
 
   <h2>Purchases</h2>
-  <p>Premium is a monthly subscription or a one-time purchase. On iPhone it is handled by Apple through the App Store, on
-     Android by Google through Google Play. Songspot never sees your
-     payment details; the store or Stripe tells us only that the purchase exists, so it can be
-     switched on for your account.</p>
+  <p>Premium is a monthly or yearly subscription (the yearly plan can start with a free trial) or
+     a one-time lifetime purchase. On iPhone it is handled by Apple through the App Store, on
+     Android by Google through Google Play, and on the web by Stripe. Songspot never sees your
+     payment details; the store tells us only that the purchase exists, so it can be switched on for
+     your account. On iPhone, purchase records are also passed to RevenueCat, a subscription
+     service that keeps count of plans, renewals and trials for us; it receives your Songspot user
+     identifier and the purchase, never your payment details.</p>
+  <p>To learn which premium offers work, the app records a few events with your
+     account: that the premium page was opened, which plan was tapped and whether a purchase
+     finished. Nothing else about how you play is recorded for this.</p>
 
   <h2>Music</h2>
   <p>Song previews, artwork and track information come from Apple. When you play a clip, your
@@ -88,9 +109,9 @@
   <ul>
     <li>No analytics or usage tracking beyond what is described above.</li>
     <li>No selling of data, and no sharing with anyone other than the providers named here
-        (Apple, Google, Stripe, Supabase), each only for the purpose described.</li>
-    <li>No reading of your contacts, photo library (you pick a single picture; only that one
-        is used), location or messages.</li>
+        (Apple, Google, Stripe, Supabase, RevenueCat), each only for the purpose described.</li>
+    <li>No reading of your contacts, photo library, location or messages. Saving a result card to
+        Photos only happens when you choose Save Image, and only adds that one picture.</li>
   </ul>
 
   <h2>Children</h2>
@@ -98,8 +119,8 @@
      for anyone who declines tracking.</p>
 
   <h2>Your rights</h2>
-  <p>You can see everything Songspot holds about you on the Profile screen, edit your name and
-     picture there, and delete all of it with one tap. For anything else, write to us.</p>
+  <p>You can see everything Songspot holds about you on the Profile and Friends screens, edit
+     your name and character there, and delete all of it with one tap. For anything else, write to us.</p>
 
   <h2>Changes</h2>
   <p>If a future version collects anything new, this page is updated before that version is
