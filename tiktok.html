@@ -35,17 +35,12 @@
   .stuck.on{opacity:1;transform:none}
 </style>
 <script>
-  // The TikTok bio link. It carries the App Store campaign tag (ct=tiktok), so
-  // App Store Connect counts these downloads under "tiktok".
-  //
-  // Safari and other browsers go straight on to the App Store. TikTok's own
-  // in-app browser often won't open the App Store by itself, so there the page
-  // stays and the player taps the button (a tap is always let through).
-  var STORE = 'https://apps.apple.com/app/apple-store/id6808657554?pt=129407387&ct=tiktok&mt=8'
-  var ua = navigator.userAgent || ''
-  var inApp = /musical_ly|BytedanceWebview|TikTok|Bytedance|Instagram|FBAN|FBAV/i.test(ua)
-  var bot = /facebookexternalhit|Facebot|Twitterbot|WhatsApp|Slackbot|Discordbot|TelegramBot|LinkedInBot|bot|crawler|spider/i.test(ua)
-  if (!inApp && !bot && /iPhone|iPad|iPod|Macintosh/i.test(ua)) location.replace(STORE)
+  // The TikTok bio link. The button carries the App Store campaign tag
+  // (ct=tiktok), so App Store Connect counts these downloads under "tiktok".
+  // No automatic redirect: TikTok's link checker opens the page itself, and a
+  // page that bounces straight on to another site looks like a redirect hop
+  // (what spam links do), so it gets the "link safety" screen. A plain page
+  // with a button is what passes, and a tap always opens the App Store.
 </script>
 <link rel="icon" href="/img/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
