@@ -21,14 +21,29 @@
   .icon{width:104px;height:104px;display:block;margin:0 auto}
   h1{font-size:40px;font-weight:800;font-style:italic;letter-spacing:-.04em;margin:18px 0 4px;line-height:1}
     .tag{color:var(--mute);margin:0 0 30px;font-size:16px}
-  /* Frosted glass: a soft, milky see-through pane, blurred behind, with a thin light edge. */
-  .get{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:58px;border-radius:999px;
-    color:#fff;font-weight:600;font-size:17px;letter-spacing:-.01em;text-decoration:none;
-    background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);
-    -webkit-backdrop-filter:blur(30px) saturate(160%);backdrop-filter:blur(30px) saturate(160%);
-    box-shadow:0 8px 28px rgba(0,0,0,.35);
-    -webkit-tap-highlight-color:transparent;transition:transform .15s ease,background .2s ease}
-  .get:active{transform:scale(.97);background:rgba(255,255,255,.22)}
+  /* Liquid glass, after Apple's (iOS 26): a nearly clear, thick-looking pane. Barely
+     tinted; what's behind is lightly blurred and lifted; a bright specular rim that is
+     strongest at the top-left and bottom-right edges, the way light catches a lens; a
+     soft inner glow for depth; a highlight that follows the finger. */
+  .get{--x:50%;--y:0%;position:relative;isolation:isolate;display:flex;align-items:center;justify-content:center;gap:10px;
+    width:100%;height:60px;border-radius:999px;color:#fff;font-weight:600;font-size:17px;letter-spacing:-.01em;text-decoration:none;
+    background:rgba(255,255,255,.07);
+    -webkit-backdrop-filter:blur(6px) saturate(190%) brightness(1.12);backdrop-filter:blur(6px) saturate(190%) brightness(1.12);
+    box-shadow:inset 0 0 0 .5px rgba(255,255,255,.22),inset 0 1px 1px rgba(255,255,255,.35),inset 0 -1px 1px rgba(255,255,255,.12),
+      inset 0 0 22px rgba(255,255,255,.06),0 12px 32px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.35);
+    text-shadow:0 1px 2px rgba(0,0,0,.35);
+    -webkit-tap-highlight-color:transparent;transition:transform .35s cubic-bezier(.2,.9,.3,1.25),background .25s ease}
+  /* the specular rim: a gradient ring, bright where the light hits */
+  .get::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1.5px;pointer-events:none;
+    background:linear-gradient(135deg,rgba(255,255,255,.85),rgba(255,255,255,.18) 28%,rgba(255,255,255,.04) 50%,rgba(255,255,255,.14) 72%,rgba(255,255,255,.6));
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+  /* the curved top of the glass, and a highlight that follows the touch */
+  .get::after{content:"";position:absolute;inset:1.5px;border-radius:inherit;z-index:-1;pointer-events:none;
+    background:radial-gradient(70% 140% at 50% -30%,rgba(255,255,255,.20),transparent 60%),
+      radial-gradient(40% 120% at var(--x) var(--y),rgba(255,255,255,.16),transparent 70%);
+    transition:opacity .25s ease}
+  .get:active{transform:scale(.965);background:rgba(255,255,255,.12)}
   .get svg{width:20px;height:20px;fill:currentColor;margin-top:-2px}
   .free{margin-top:12px;font-size:13px;color:var(--mute)}
   .stuck{margin-top:22px;padding:16px 18px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
@@ -38,12 +53,18 @@
   .stuck.on{opacity:1;transform:none}
 </style>
 <script>
-  // The TikTok bio link. The button carries the App Store campaign tag
-  // (ct=tiktok), so App Store Connect counts these downloads under "tiktok".
-  // No automatic redirect: TikTok's link checker opens the page itself, and a
-  // page that bounces straight on to another site looks like a redirect hop
-  // (what spam links do), so it gets the "link safety" screen. A plain page
-  // with a button is what passes, and a tap always opens the App Store.
+  // The TikTok bio link. It carries the App Store campaign tag (ct=tiktok), so
+  // App Store Connect counts these downloads under "tiktok".
+  //
+  // Opened in a real browser (Safari, after "Open in browser"), it goes straight
+  // on to the App Store. TikTok's and Instagram's in-app browsers often won't open
+  // the App Store by themselves, so there the page stays and the player taps the
+  // button (a tap is always let through). Link checkers stay on the page too.
+  var STORE = 'https://apps.apple.com/app/apple-store/id6808657554?pt=129407387&ct=tiktok&mt=8'
+  var ua = navigator.userAgent || ''
+  var inApp = /musical_ly|BytedanceWebview|TikTok|Bytedance|Instagram|FBAN|FBAV/i.test(ua)
+  var bot = /facebookexternalhit|Facebot|Twitterbot|WhatsApp|Slackbot|Discordbot|TelegramBot|LinkedInBot|bot|crawler|spider|preview|fetch/i.test(ua)
+  if (!inApp && !bot && /iPhone|iPad|iPod|Macintosh/i.test(ua)) location.replace(STORE)
 </script>
 <link rel="icon" href="/img/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
@@ -60,6 +81,16 @@
   <div class="stuck" id="stuck"><span class="t">Nothing happening?</span>Tap <b>•••</b> in the top corner, then <b>Open in browser</b>.</div>
 </main>
 <script>
+  // the glass's highlight follows the finger (or mouse) across the button
+  var btn = document.getElementById('get')
+  function glint(e) {
+    var r = btn.getBoundingClientRect(), p = e.touches ? e.touches[0] : e
+    btn.style.setProperty('--x', ((p.clientX - r.left) / r.width * 100).toFixed(1) + '%')
+    btn.style.setProperty('--y', ((p.clientY - r.top) / r.height * 100).toFixed(1) + '%')
+  }
+  btn.addEventListener('pointermove', glint)
+  btn.addEventListener('touchstart', glint, { passive: true })
+  btn.addEventListener('touchmove', glint, { passive: true })
   document.getElementById('get').addEventListener('click', function () {
     document.getElementById('stuck').classList.add('on')
   })
