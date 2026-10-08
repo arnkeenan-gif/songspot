@@ -1,109 +1,125 @@
 /* Ranked — RankedView.swift, LeaderboardView.swift and EraReel.swift in CSS.
    1pt = 1px; Inter stands in for SF, var(--mono) for SF Mono, ui-rounded for SF Rounded.
-   Tokens, .view/.screen/.xbtn/.choices come from app.css. */
-.ranked { --rk-accent: var(--easy); --rk-ink: #04160b; --rounded: ui-rounded, "SF Pro Rounded", Inter, system-ui, sans-serif; overflow-x: hidden; }
-.ranked .rk-screen { padding: calc(14px + var(--sat)) 24px calc(18px + var(--sab)); line-height: 1.2; isolation: isolate; z-index: 1; }
+   Tokens, .view/.screen/.choices come from app.css; panels, glossy buttons, the round banner,
+   the stage light, CapsLine and the count from kit.css; faces and figures from characters.css. */
+.ranked { --rk-accent: var(--easy); --rk-ink: #04160b; --rounded: ui-rounded, "SF Pro Rounded", Nunito, Inter, system-ui, sans-serif; overflow-x: hidden; }
+.ranked .rk-screen { padding: calc(14px + var(--sat)) 24px calc(0px + var(--sab)); line-height: 1.2; isolation: isolate; z-index: 1; max-width: 100%; }
 .rk-fill { flex: 1 1 0; min-height: 0; min-width: 0; }
 .ranked .i { width: 1em; height: 1em; }
+.rk-backdrop { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+.ranked .cwall { z-index: 0; }
+/* StageLight behind the fight card and the result (kit's .k-stagelight), cross-faded between colours */
+.rk-light { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity .6s var(--easeOut); }
+/* the lobby's pool of the rank's colour: RadialGradient 0.3 → 0.09 → clear, centre (0.5, 0.31), radius 340 */
+.rk-pool { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity .28s var(--easeOut);
+  background: radial-gradient(circle 340px at 50% 31%, color-mix(in srgb, var(--tint, #ff8a3d) 30%, transparent), color-mix(in srgb, var(--tint, #ff8a3d) 9%, transparent) 50%, transparent 100%); }
+.rk-pool.on { opacity: 1; }
 
-/* the bar: "Ranked" + the round X */
+/* the bar: "Ranked" + the X */
 .rk-bar { display: flex; align-items: center; justify-content: space-between; min-height: 35px; flex: none; }
 .rk-bar h1 { margin: 0; font-size: 19px; font-weight: 800; font-style: italic; letter-spacing: -.57px; color: rgba(255,255,255,.55); }
-.rk-bar .xbtn { font-size: 13px; }
+.rk-xbtn { width: 35px; height: 35px; border-radius: 50%; background: var(--surface); color: var(--muted); display: grid; place-items: center; font-size: 13px; flex: none; }
+.rk-xbtn .i { width: 13px; height: 13px; }
 
 /* every phase is its own view, cross-faded: .transition(.opacity), .easeOut(duration: 0.28) */
 .ranked .rk-screen { transition: opacity .28s var(--easeOut); }
 .ranked .rk-screen.rk-leaving { position: absolute; top: 0; left: 0; right: 0; pointer-events: none; }
 .nt { display: inline-grid; } .nt > span { grid-area: 1 / 1; } .nt > .nt-o { justify-self: center; }
+.rk-emblem { display: block; object-fit: contain; flex: none; user-select: none; -webkit-user-drag: none; }
 
-/* ---------- entry: the ranked home on the album wall ---------- */
-.rk-entry { display: flex; flex-direction: column; align-items: center; flex: none; }
+/* ---------- entry: the ranked home, as it first was ---------- */
+.rk-entry-all { display: flex; flex-direction: column; align-items: center; flex: 1; min-height: 0; }
+.rk-entry-all > .rk-bar { align-self: stretch; }
+.rk-entry-all.fadein { animation: rk-fade .4s var(--easeOut) both; }
+@keyframes rk-fade { from { opacity: 0; } }
 .rk-badge { position: relative; display: grid; place-items: center; flex: none; }
 .rk-badge svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.ranked.glow .rk-badge svg { filter: drop-shadow(0 0 11px var(--glow)); }
-.rk-badge .face { position: relative; }
-/* the badge springs in (.55/.7) and wears its rank's glow */
-.rk-hbadge { align-self: center; flex: none; }
-.ranked.glow .rk-hbadge { filter: drop-shadow(0 0 24px color-mix(in srgb, var(--tint, var(--rk-accent)) 45%, transparent)); }
+.ranked.glow .rk-badge { filter: drop-shadow(0 0 22px var(--glow)); }
+.rk-badge .cface { position: relative; }
+.rk-hbadge { position: relative; flex: none; }
 .rk-entry-all.fadein .rk-hbadge { animation: rk-badgein var(--sp-badge) both; }
-@keyframes rk-badgein { from { transform: scale(.85); opacity: 0; } }
-.rk-hbadge.breathe { animation: rk-breathe 1.3s var(--easeInOut) infinite alternate; filter: none; }
-@keyframes rk-breathe { from { transform: scale(.97); } to { transform: scale(1.03); } }
-.rk-rankname { margin-top: 18px; font-size: 42px; font-weight: 800; font-style: italic; letter-spacing: -1.6px; line-height: 1.19; color: var(--tint); white-space: nowrap; }
-.ranked.glow .rk-rankname { text-shadow: 0 0 28px color-mix(in srgb, var(--tint) 35%, transparent); }
-.rk-rp { font: 800 15px/1.2 var(--mono); color: rgba(242,242,242,.85); font-variant-numeric: tabular-nums; }
-.rk-progress { align-self: stretch; margin: 16px 36px 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.rk-track { position: relative; width: 100%; height: 5px; border-radius: 3px; background: var(--track); overflow: hidden; }
-.rk-track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--rk-accent); }
-.rk-to { font-size: 12px; color: var(--muted); }
-.rk-to b { font: 700 12px var(--mono); color: rgba(242,242,242,.8); }
-/* the season and your record, on glass */
-.rk-glass { align-self: stretch; margin-top: 22px; padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; border-radius: 18px; background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.08); }
-.rk-gtop { display: flex; align-items: center; gap: 6px; color: var(--muted); }
-.rk-gtop > .i { font-size: 11px; }
-.rk-gtop > span { font-size: 12px; font-weight: 600; }
+@keyframes rk-badgein { from { transform: scale(.85); } }
+/* RankEmblem 62 at the bottom-right, offset (16, 12), its own small shadow */
+.rk-hemb { position: absolute; right: -16px; bottom: -12px; filter: drop-shadow(0 3px 5px rgba(0,0,0,.35)); }
+.rk-rankname { margin-top: 24px; max-width: 100%; font-size: 44px; font-weight: 800; font-style: italic; letter-spacing: -1.7px; line-height: 1.19; color: var(--tint); white-space: nowrap; text-align: center; }
+.ranked.glow .rk-rankname { text-shadow: 0 0 16px color-mix(in srgb, var(--tint) 40%, transparent); }
+.rk-rp { margin-top: 2px; font: 800 15px/1.2 var(--mono); color: rgba(242,242,242,.85); font-variant-numeric: tabular-nums; }
+.rk-progress { align-self: stretch; margin: 18px 40px 0; display: flex; flex-direction: column; align-items: center; gap: 7px; }
+.rk-track { position: relative; width: 100%; height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
+.rk-track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; }
+.rk-to { font-size: 12.5px; color: var(--muted); }
+.rk-to b { font: 700 12.5px var(--mono); color: rgba(242,242,242,.85); }
+/* your record: three figures on one line, no box */
+.rk-record { display: flex; align-items: center; align-self: stretch; margin-top: 34px; }
+.rk-record > div { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.rk-record > i { width: 1px; height: 26px; background: rgba(255,255,255,.12); flex: none; }
+.rk-record b { font: 800 21px/1.2 var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; max-width: 100%; }
+.rk-record b.word { font: italic 800 21px/1.2 Inter, system-ui, sans-serif; letter-spacing: -.6px; }
+.rk-record span { font-size: 9.5px; font-weight: 700; letter-spacing: 1.6px; color: var(--muted); text-transform: uppercase; }
+/* the season, and a win streak, on one centred line */
+.rk-season { margin-top: 20px; display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--muted); font-size: 12.5px; font-weight: 600; flex-wrap: wrap; }
+.rk-season > .i { font-size: 11px; }
 .rk-hot { display: inline-flex; align-items: center; gap: 6px; color: var(--hard); }
-.rk-hot .i { font-size: 11px; } .rk-hot b { font-size: 12px; font-weight: 700; }
-.rk-record { display: flex; align-self: stretch; }
-.rk-record div { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.rk-record b { font: 800 20px/1.2 var(--mono); color: var(--text); font-variant-numeric: tabular-nums; }
-.rk-record b.word { font: italic 800 20px/1.2 Inter, system-ui, sans-serif; letter-spacing: -.6px; white-space: nowrap; }
-.rk-record span { font-size: 9px; font-weight: 600; letter-spacing: 1.6px; color: var(--muted); text-transform: uppercase; }
+.rk-hot .i { font-size: 11px; } .rk-hot b { font-size: 12.5px; font-weight: 700; }
+/* the leaderboard: a plain text row, no box */
+.rk-lb { height: 44px; margin-bottom: 6px; display: inline-flex; align-items: center; gap: 7px; color: rgba(255,255,255,.9); flex: none; }
+.rk-lb > .i { font-size: 12px; }
+.rk-lb span { font-size: 14.5px; font-weight: 800; }
+.rk-lb > i { display: inline-flex; font-size: 10px; color: var(--dim); }
+.rk-gowrap { align-self: stretch; margin-bottom: 24px; flex: none; }
 .rk-form { display: flex; gap: 5px; justify-content: center; }
-.rk-gline { display: block; height: 1px; background: rgba(255,255,255,.07); }
-.rk-last { display: flex; align-items: center; justify-content: space-between; }
-.rk-last > span { font-size: 9px; font-weight: 600; letter-spacing: 1.6px; color: var(--muted); }
 .rk-form span { width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; }
 .rk-form svg { width: 8px; height: 8px; }
 
-/* buttons */
-.rk-btn2 { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: 46px; flex: none; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); color: var(--text); font-size: 14px; font-weight: 800; }
-.rk-btn2 .i { font-size: 11.5px; }
-.rk-btn2.muted { color: var(--muted); }
-.rk-lb { margin-bottom: 12px; }
-.rk-btn2.rk-glassbtn { background: rgba(0,0,0,.5); border-color: rgba(255,255,255,.08); }
-.rk-go { display: flex; align-items: center; justify-content: center; width: 100%; height: 54px; flex: none; border-radius: 16px; background: var(--rk-accent); color: var(--rk-ink); font-size: 16px; font-weight: 800; margin-bottom: 24px; }
-.ranked.glow .rk-go { box-shadow: 0 6px 36px color-mix(in srgb, var(--rk-accent) 45%, transparent); }
-.rk-go { transition: background .3s var(--easeOut), color .3s var(--easeOut), transform .16s var(--easeOut), opacity .16s var(--easeOut); }
-
-/* ---------- matchmaking: you in your rank's ring, the clock running ---------- */
+/* ---------- the search: no avatar ---------- */
 .rk-find { margin-top: 26px; text-align: center; font-size: 28px; font-weight: 800; font-style: italic; letter-spacing: -1px; line-height: 1.2; color: var(--text); flex: none; }
 .rk-findsub { margin-top: 6px; text-align: center; font-size: 14px; font-weight: 600; flex: none; }
 .rk-clock { margin-top: 22px; align-self: center; height: 38px; padding: 0 16px; display: flex; align-items: center; gap: 8px; border-radius: 19px; background: rgba(0,0,0,.45); border: 1px solid var(--line); flex: none; }
-.rk-clock .rk-eq { width: 30px; height: 14px; opacity: 1; gap: 2px; }
-.rk-clock .rk-eq i { width: 4px; animation: rk-eq14 .34s var(--easeInOut) infinite alternate; }
-@keyframes rk-eq14 { from { height: 3px; } to { height: calc(14px * var(--p)); } }
 .rk-clockt { font: 800 15px/1 var(--mono); color: var(--text); font-variant-numeric: tabular-nums; min-width: 34px; }
+.rk-testq { margin-top: 12px; align-self: center; font: 600 11px var(--mono); color: var(--hard); }
 .rk-cancel { width: 100%; height: 48px; margin-bottom: 24px; border-radius: 14px; background: rgba(0,0,0,.45); border: 1px solid var(--line); color: var(--text); font-size: 14.5px; font-weight: 700; text-align: center; flex: none; }
+/* Equalizer: five bars; the small one (30×14) in the search clock and the card's footer */
+.rk-eq { height: 18px; display: flex; align-items: flex-end; gap: 4px; opacity: 0; transition: opacity .2s var(--easeOut); }
+.rk-eq i { width: 5px; height: 6px; border-radius: 2px; background: var(--rk-accent); }
+.rk-eq i:nth-child(1) { --p: .55; } .rk-eq i:nth-child(2) { --p: .95; animation-duration: .39s !important; animation-delay: .07s !important; }
+.rk-eq i:nth-child(3) { --p: .7; animation-duration: .44s !important; animation-delay: .14s !important; } .rk-eq i:nth-child(4) { --p: 1; animation-duration: .49s !important; animation-delay: .21s !important; }
+.rk-eq i:nth-child(5) { --p: .6; animation-duration: .54s !important; animation-delay: .28s !important; }
+.rk-eq.on { opacity: 1; }
+.rk-eq.rk-eq14 { width: 30px; height: 14px; gap: 2px; }
+.rk-eq.rk-eq14 i { width: 4px; animation: rk-eq14 .34s var(--easeInOut) infinite alternate; }
+@keyframes rk-eq14 { from { height: 3px; } to { height: calc(14px * var(--p)); } }
 
 /* ---------- the fight card (runCardAnimation) ---------- */
-.rk-mf { align-self: center; font-size: 11px; font-weight: 800; letter-spacing: 4px; color: var(--rk-accent); margin-bottom: 30px; flex: none; opacity: 0; transform: scale(.8); transition: opacity var(--sp-card), transform var(--sp-card); }
+.rk-mf { align-self: center; height: 14px; font-size: 11px; font-weight: 800; letter-spacing: 4px; color: var(--rk-accent); margin-bottom: 30px; flex: none; opacity: 0; transform: scale(.8); transition: opacity var(--sp-card), transform var(--sp-card); }
 .rk-found.s1 .rk-mf { opacity: 1; transform: none; }
 .rk-versus { position: relative; display: flex; align-items: flex-start; flex: none; }
 .rk-fighter { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; opacity: 0; transition: transform var(--sp-card), opacity var(--sp-card); }
 .rk-fighter.me { transform: translateX(-260px); }
 .rk-fighter.them { transform: translateX(260px); }
 .rk-found.s1 .rk-fighter { opacity: 1; transform: none; }
-.rk-fface { position: relative; width: 96px; height: 96px; margin-bottom: 4px; flex: none; }
-.rk-fface .face { width: 96px; height: 96px; }
-.rk-fface::after { content: ""; position: absolute; inset: -6.5px; border: 3px solid var(--c); border-radius: 50%; }
-.ranked.glow .rk-fface { filter: drop-shadow(0 0 18px var(--glow)); }
+/* CharacterFigure 210 tall (the figure 196, 14 under its feet), mirrored on the right */
+.rk-ffig { width: 100%; height: 210px; padding-bottom: 14px; margin-bottom: 2px; box-sizing: border-box; flex: none; }
+.rk-ffig.mirror { transform: scaleX(-1); }
+.ranked.glow .rk-ffig { filter: drop-shadow(0 0 18px var(--glow)); }
 .rk-fname { font-size: 16px; font-weight: 800; color: var(--text); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rk-pill { font-size: 9px; font-weight: 800; letter-spacing: 1.4px; color: #08120c; padding: 4px 8px; border-radius: 5px; line-height: 11px; white-space: nowrap; }
-.rk-frating { font-size: 22px; font-weight: 800; font-style: italic; letter-spacing: -.8px; color: var(--text); line-height: 26px; }
+.rk-fplate { display: flex; align-items: center; gap: 6px; }
+.rk-pill { font-size: 9px; font-weight: 800; letter-spacing: 1.4px; padding: 4px 8px; border-radius: 5px; line-height: 11px; white-space: nowrap; }
+.rk-frating { font-size: 22px; font-weight: 800; font-style: italic; letter-spacing: -.8px; color: var(--text); line-height: 26px; white-space: nowrap; }
 .rk-fform { opacity: 0; transform: translateY(6px); transition: opacity .3s var(--easeOut), transform .3s var(--easeOut); }
 .rk-found.s3 .rk-fform { opacity: 1; transform: none; }
-/* VS: no circle — the word lands last and hardest (offset → scale → rotation, as SwiftUI applies them) */
-.rk-vs { position: absolute; left: 50%; top: 50%; font-size: 34px; font-weight: 800; font-style: italic; letter-spacing: -1.5px; line-height: 1.2; color: var(--text); white-space: nowrap; pointer-events: none;
-  text-shadow: 0 4px 20px rgba(0,0,0,.7); opacity: 0; transform: translate(-50%, -50%) rotate(-12deg) scale(2.6) translateY(-61px); transition: transform var(--sp-vs), opacity var(--sp-vs); }
-.rk-found.s2 .rk-vs { opacity: 1; transform: translate(-50%, -50%) rotate(0deg) scale(1) translateY(-61px); }
-.rk-terms { display: flex; align-items: center; padding: 12px 0; margin-top: 34px; flex: none; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); opacity: 0; transform: translateY(8px); transition: opacity .3s var(--easeOut), transform .3s var(--easeOut); }
-.rk-found.s3 .rk-terms { opacity: 1; transform: none; }
+/* VS: 44 black italic at head height (-110 from the middle of the row), landing last and hardest from 2.6×, -12°, transparent */
+.rk-vs { position: absolute; left: 50%; top: 50%; font-size: 44px; font-weight: 900; font-style: italic; letter-spacing: -1.5px; line-height: 1.2; color: var(--text); white-space: nowrap; pointer-events: none;
+  text-shadow: 0 4px 12px rgba(0,0,0,.8); opacity: 0; transform: translate(-50%, -50%) translateY(-110px) scale(2.6) rotate(-12deg); transition: transform var(--sp-vs), opacity var(--sp-vs); }
+.rk-found.s2 .rk-vs { opacity: 1; transform: translate(-50%, -50%) translateY(-110px); }
+/* the terms of the match, shown at once */
+.rk-terms { display: flex; align-items: center; padding: 12px 0; margin-top: 34px; flex: none; border-radius: 14px; background: rgba(0,0,0,.5); border: 1px solid color-mix(in srgb, var(--rk-accent) 30%, transparent); }
 .rk-terms div { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .rk-terms b { font-size: 17px; font-weight: 800; font-style: italic; color: var(--text); }
 .rk-terms span { font-size: 8.5px; font-weight: 800; letter-spacing: 1.4px; color: var(--muted); text-transform: uppercase; }
 .rk-terms > i { width: 1px; height: 26px; background: var(--line); flex: none; }
-.rk-coming { align-self: center; font-size: 12.5px; color: var(--dim); margin-bottom: 26px; flex: none; opacity: 0; transition: opacity .3s var(--easeOut); }
+.rk-cardfoot { height: 100px; margin-bottom: 24px; display: grid; place-items: center; flex: none; }
+.rk-coming { height: 38px; padding: 0 16px; display: flex; align-items: center; gap: 8px; border-radius: 19px; background: rgba(0,0,0,.5); border: 1px solid color-mix(in srgb, var(--rk-accent) 30%, transparent);
+  font-size: 13px; font-weight: 800; color: var(--text); opacity: 0; transition: opacity .3s var(--easeOut); }
 .rk-found.s3 .rk-coming { opacity: 1; }
 
 /* ---------- the round bar ---------- */
@@ -113,64 +129,66 @@
 .rk-rno b { font: 800 26px/1.1 var(--mono); color: var(--text); }
 .rk-rno em { font: normal 600 13px/1 var(--mono); color: var(--dim); }
 .rk-era { font-size: 11px; font-weight: 700; color: var(--muted); padding: 0 11px; height: 28px; display: inline-flex; align-items: center; border-radius: 14px; background: var(--surface); margin-right: 6px; }
-.rk-tier { font-size: 11px; font-weight: 700; color: #08120c; padding: 0 12px; height: 28px; display: inline-flex; align-items: center; border-radius: 14px; }
+.rk-tier { font-size: 11px; font-weight: 700; padding: 0 12px; height: 28px; display: inline-flex; align-items: center; border-radius: 14px; }
 .rk-rx { width: 34px; height: 34px; border-radius: 50%; background: var(--surface); color: var(--muted); display: grid; place-items: center; font-size: 12px; margin-left: 6px; flex: none; }
 
-/* ---------- the round intro: the round slams in, the decade reel, one popping count ---------- */
-.rk-screen.rk-countdown { overflow: visible; }  /* the reel runs to the screen edge; .ranked clips it */
+/* ---------- the round intro: the title card, the decade reel, the count ---------- */
+.rk-screen.rk-countdown { overflow: visible; }
 .rk-title { display: flex; flex-direction: column; align-items: center; flex: none; }
-.rk-title b { font-size: 58px; font-weight: 800; font-style: italic; letter-spacing: -2.5px; line-height: 1.19; color: var(--text); white-space: nowrap; transform: translateX(-420px); transition: transform var(--sp-intro); }
-.rk-title span { font-size: 26px; font-weight: 800; font-style: italic; letter-spacing: 4px; line-height: 1.19; color: var(--rk-accent); margin-top: -4px; transform: translateX(420px); transition: transform var(--sp-intro); }
+.rk-title b { font-size: 58px; font-weight: 800; font-style: italic; letter-spacing: -2.5px; line-height: 1.19; color: var(--text); white-space: nowrap; transform: translateX(-420px); transition: transform var(--sp-title); }
+.rk-title span { font-size: 26px; font-weight: 800; font-style: italic; letter-spacing: 4px; line-height: 1.19; color: var(--rk-accent); margin-top: -4px; transform: translateX(420px); transition: transform var(--sp-title); }
 .rk-countdown.in .rk-title b, .rk-countdown.in .rk-title span { transform: none; }
-.rk-reelwrap { display: flex; flex-direction: column; align-items: center; gap: 12px; flex: none; margin: 0 -24px; opacity: 0; transform: translateY(30px); transition: opacity var(--sp-intro), transform var(--sp-intro); }
+.rk-reelwrap { display: flex; flex-direction: column; align-items: center; gap: 12px; flex: none; margin: 0 -24px; opacity: 0; transform: translateY(30px); transition: opacity var(--sp-reel), transform var(--sp-reel); }
 .rk-countdown.in .rk-reelwrap { opacity: 1; transform: none; }
-.rk-reelwrap > span { font-size: 10.5px; font-weight: 800; letter-spacing: 3.5px; color: var(--muted); }
-/* CoverEraReel: nine sleeves, coverflow; drawReel moves them (transform + opacity only) */
-.rk-cf { position: relative; align-self: stretch; height: 190px; }
-.rk-cv { position: absolute; left: 50%; top: 50%; width: 132px; height: 132px; margin: -66px 0 0 -66px; will-change: transform, opacity; }
-.rk-cvin { position: absolute; inset: 0; border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.5); transition: box-shadow .2s var(--easeOut); }
+.rk-reelwrap .k-caps { color: var(--muted); }
+/* CoverEraReel: nine cards, 168 square, 132 apart, in a 230-tall strip; drawReel moves them */
+.rk-cf { position: relative; align-self: stretch; height: 230px; }
+.rk-cv { position: absolute; left: 50%; top: 50%; width: 168px; height: 168px; margin: -84px 0 0 -84px; will-change: transform, opacity; }
+.rk-cvin { position: absolute; inset: 0; border-radius: 14px; overflow: hidden; box-shadow: 0 6px 10px rgba(0,0,0,.5); transition: box-shadow .2s var(--easeOut); }
 .rk-cvshade { position: absolute; inset: 0; border-radius: 14px; background: #000; opacity: 0; pointer-events: none; }
-.rk-cv.lit .rk-cvin { box-shadow: 0 6px 44px color-mix(in srgb, var(--rk-accent) 55%, transparent), 0 0 0 1.5px rgba(255,255,255,.9); }
-.rk-cv.lit .rk-sleeve { box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.9); }
-/* DecadeSleeve: the gradient, the record half out, the decade bottom-left */
-.rk-sleeve { position: absolute; inset: 0; border-radius: 14px; overflow: hidden; }
+.rk-cv.lit .rk-cvin { box-shadow: 0 6px 12px color-mix(in srgb, var(--rk-accent) 28%, transparent); }
+.rk-cv.sleeve .rk-cvin::after { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.2px; pointer-events: none;
+  background: linear-gradient(rgba(255,255,255,.42), rgba(255,255,255,.06)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.rk-cv.sleeve.lit .rk-cvin::after { padding: 3px; background: rgba(255,255,255,.9); }
+/* DecadeMosaic: 4×4 covers edge to edge, a shade from the foot, the decade in big black italic */
+.rk-mosaic { position: absolute; inset: 0; }
+.rk-mgrid { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); }
+.rk-mgrid img { width: 100%; height: 100%; object-fit: cover; display: block; background: rgba(0,0,0,.2); }
+.rk-mshade { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,.75), rgba(0,0,0,0) 50%); }
+.rk-mosaic b, .rk-sleeve b { position: absolute; left: 13.4px; bottom: 8.4px; font-size: 50.4px; font-weight: 900; font-style: italic; letter-spacing: -2px; line-height: 1; color: #fff; white-space: nowrap; text-shadow: 0 2.35px 0 rgba(0,0,0,.5); }
+.rk-mosaic b.long { font-size: 40.3px; }
+/* DecadeSleeve (no covers): gradient, grooves, vinyl, sheen */
+.rk-sleeve { position: absolute; inset: 0; overflow: hidden; }
 .rk-sleeve svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.rk-sleeve b { position: absolute; left: 10.5px; bottom: 6px; font-size: 45px; font-weight: 800; font-style: italic; letter-spacing: -1.6px; line-height: 1.19; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.35); white-space: nowrap; }
-.rk-sleeve b.long { font-size: 35.6px; }
+.rk-ssheen { position: absolute; inset: 0; background: linear-gradient(rgba(255,255,255,.18), rgba(255,255,255,0) 50%); }
+.rk-sleeve b { bottom: 10px; font-size: 57px; text-shadow: 0 2.35px 0 rgba(0,0,0,.3); }
+.rk-sleeve b.long { font-size: 45.4px; }
 /* one number that pops each second */
 .rk-cnum-slot { height: 80px; margin-bottom: 30px; display: grid; place-items: center; flex: none; }
 .rk-cnum { font: 800 64px/1 var(--rounded); color: var(--rk-accent); }
 
 /* ---------- playing ---------- */
-.rk-play { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-.rk-play.shake { animation: shake .42s var(--easeInOut); }
+.rk-play { display: flex; flex-direction: column; flex: 1; min-height: 0; padding-bottom: 18px; }
 .rk-scores { display: flex; gap: 12px; margin-top: 14px; flex: none; }
 .rk-side { flex: 1 1 0; min-width: 0; padding: 10px 14px; border-radius: 14px; display: flex; flex-direction: column; gap: 4px; transition: background var(--sp-side); }
 .rk-side.trail { align-items: flex-end; }
 .rk-sname { display: flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; }
 .rk-sname span { font-size: 12.5px; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rk-ok { display: inline-flex; font-size: 11px; }
-.rk-ok svg circle { fill: currentColor; }
 .rk-side > b { font: 800 22px/1.2 var(--mono); color: var(--text); font-variant-numeric: tabular-nums; }
-/* The opponent's side mid-match: whether they have answered, never their total (that waits for full time). */
 .rk-side > b.rk-sstate { font: 800 15px/26px Inter, system-ui, sans-serif; height: 26px; font-variant-numeric: normal; transition: color var(--sp-side); }
 .rk-ring { --ring: clamp(132px, calc(100dvh - 500px), 196px); position: relative; width: var(--ring); height: var(--ring); align-self: center; flex: none; border-radius: 50%; display: grid; place-items: center; }
-.rk-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.ranked.glow .rk-ring .arc { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--rk-accent) 45%, transparent)); }
+.rk-ring svg { position: absolute; inset: 5px; width: calc(100% - 10px); height: calc(100% - 10px); overflow: visible; }
+.ranked.glow .rk-ring .arc { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--rk-accent) 45%, transparent)); }
 .rk-ring-in { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; max-width: calc(var(--ring) - 30px); }
 .rk-secs { font: 800 calc(var(--ring) * .306)/1 var(--rounded); color: var(--text); font-variant-numeric: tabular-nums; }
 .rk-state { font-size: 10.5px; font-weight: 600; color: var(--dim); text-align: center; }
 .rk-state.on { color: var(--rk-accent); } .rk-state.bad { color: var(--expert); }
 .rk-why { font-size: 10px; color: var(--muted); text-align: center; padding: 2px 18px 0; }
 .rk-why:empty { display: none; }
-.rk-eq { height: 18px; display: flex; align-items: flex-end; gap: 4px; opacity: 0; transition: opacity .2s var(--easeOut); }
 .rk-ring.playing .rk-eq { opacity: 1; }
-.rk-eq i { width: 5px; height: 6px; border-radius: 2px; background: var(--rk-accent); }
 .rk-ring.playing .rk-eq i { animation: rk-eq .34s var(--easeInOut) infinite alternate; }
-.rk-eq i:nth-child(1) { --p: .55; } .rk-eq i:nth-child(2) { --p: .95; animation-duration: .39s !important; animation-delay: .07s !important; }
-.rk-eq i:nth-child(3) { --p: .7; animation-duration: .44s !important; animation-delay: .14s !important; } .rk-eq i:nth-child(4) { --p: 1; animation-duration: .49s !important; animation-delay: .21s !important; }
-.rk-eq i:nth-child(5) { --p: .6; animation-duration: .54s !important; animation-delay: .28s !important; }
-@keyframes rk-eq { to { height: calc(30px * var(--p)); } }
+@keyframes rk-eq { to { height: calc(18px * var(--p)); } }
 .rk-choices { display: flex; flex-direction: column; gap: 10px; flex: none; }
 .rk-status { min-height: 50px; display: grid; align-items: center; justify-items: start; padding-left: 4px; }
 .rk-status > * { grid-area: 1 / 1; }
@@ -181,7 +199,8 @@
 .rk-got b { font-size: 13.5px; font-weight: 800; }
 .rk-got em { font-style: normal; font-size: 12.5px; color: var(--muted); }
 
-/* ---------- between rounds: the song big over the wall, what each of you took, the count ---------- */
+/* ---------- between rounds ---------- */
+.ranked .rk-roundResult { padding-bottom: calc(18px + var(--sab)); }
 .rk-answer { display: flex; flex-direction: column; align-items: center; text-align: center; flex: none; }
 .rk-bigart { position: relative; width: 190px; height: 190px; margin-bottom: 22px; flex: none; }
 .rk-bigart img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 20px; object-fit: cover; display: block; background: var(--surface2); }
@@ -192,74 +211,79 @@
 .rk-answer > em { margin-top: 2px; font-style: normal; font-size: 15px; font-weight: 600; color: var(--muted); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rk-gains { display: flex; gap: 10px; margin-top: 26px; flex: none; }
 .rk-gain { flex: 1 1 0; min-width: 0; height: 54px; padding: 0 12px; display: flex; align-items: center; gap: 10px; border-radius: 16px; background: rgba(0,0,0,.5); border: 1px solid; }
-.rk-gain .face { width: 26px; height: 26px; font-size: 10px !important; }
 .rk-gain b { font: 800 19px/1 var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .rk-gain b.sm { font-size: 15px; }
-.rk-next { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 26px; flex: none; }
-.rk-next > span { font-size: 10.5px; font-weight: 800; letter-spacing: 3px; color: var(--muted); }
-.rk-next > b { font: 800 52px/1.2 var(--rounded); color: var(--rk-accent); font-variant-numeric: tabular-nums; }
+.rk-next { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 22px; flex: none; }
+.rk-next .k-caps { color: var(--muted); }
 
-/* ---------- the end: verdict, one score line, the rank plate, one button ---------- */
-/* the verdict's colour opens behind it, over the wall: .easeOut(duration: 0.8) */
-.rk-bloom { position: absolute; z-index: -1; left: 50%; top: 50%; width: 520px; height: 360px; margin: -270px 0 0 -260px; border-radius: 50%; filter: blur(80px); pointer-events: none;
-  transform: scale(.2); opacity: 0; transition: transform .8s var(--easeOut), opacity .8s var(--easeOut); }
-.rk-bloom.on { transform: none; opacity: 1; }
-.rk-end { display: flex; flex-direction: column; flex: none; }
-.rk-verdict { position: relative; height: 80px; display: grid; place-items: center; }
+/* ---------- the end ---------- */
+.ranked .rk-finished { padding-bottom: calc(14px + var(--sab)); }
+.rk-verdict { position: relative; height: 100px; margin-top: 2px; display: grid; place-items: center; flex: none; }
 .rk-ft { grid-area: 1/1; font-size: 13px; font-weight: 800; letter-spacing: 6px; color: var(--muted); transition: opacity var(--sp-verdict), transform var(--sp-verdict); }
-.rk-vd { grid-area: 1/1; display: flex; flex-direction: column; align-items: center; gap: 4px; opacity: 0; transform: scale(.85); transition: opacity var(--sp-verdict), transform var(--sp-verdict); }
-.rk-verdict.won .rk-vd { transform: scale(.5); }
-.rk-end.pop .rk-ft { opacity: 0; transform: scale(.8); }
-.rk-end.pop .rk-vd { opacity: 1; transform: none; }
-.rk-vd b { font-size: 46px; font-weight: 800; font-style: italic; letter-spacing: -2px; line-height: 1.19; color: var(--text); white-space: nowrap; }
-.rk-verdict.won .rk-vd b { color: var(--c); }
-.ranked.glow .rk-verdict.won .rk-vd b { text-shadow: 0 0 48px var(--glow); }
-.rk-vd span { font-size: 13px; font-weight: 500; color: var(--muted); text-align: center; }
-/* you and them on one line, the scores counting up; the winner lit: spring(.45,.6) */
-.rk-final { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
-.rk-sside { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.rk-sface { position: relative; width: 44px; height: 44px; transition: opacity var(--sp-face), filter var(--sp-face); }
-.rk-sface .face { width: 44px; height: 44px; font-size: 17.6px !important; }
-.rk-sface::after { content: ""; position: absolute; inset: -5.25px; border-radius: 50%; border: 2.5px solid transparent; transition: border-color var(--sp-face); }
-.rk-sside.winner .rk-sface::after { border-color: var(--c); }
-.rk-sside.loser .rk-sface { opacity: .55; filter: saturate(.4); }
-.rk-sside > span { font-size: 12px; font-weight: 700; color: var(--muted); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color var(--sp-face); }
-.rk-sside.loser > span { color: var(--dim); }
-.rk-fscore { display: flex; align-items: baseline; gap: 8px; font: 800 26px/1.2 var(--mono); color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; flex: none; }
-.rk-fscore i { font-style: normal; color: var(--dim); }
-.rk-fscore b { transition: color var(--sp-face); }
-.rk-final:has(.them.winner) .rk-fscore .m, .rk-final:has(.me.winner) .rk-fscore .t { color: var(--muted); }
+.rk-vd { grid-area: 1/1; display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 100%; }
+.rk-vd > span { font-size: 13px; font-weight: 600; color: var(--muted); text-align: center; opacity: 0; transition: opacity var(--sp-verdict); }
+.rk-vd .k-band, .rk-vd .k-bsub { transition: transform var(--sp-verdict); }
+.rk-finished.tally .rk-ft { opacity: 0; transform: scale(.8); }
+.rk-finished.tally .rk-vd > span { opacity: 1; }
+/* both players standing full-body, VS between them, the scores on plates under their feet */
+.rk-final { display: flex; align-items: flex-end; margin-top: 30px; flex: none; }
+.rk-fvs { font-size: 22px; font-weight: 900; font-style: italic; color: var(--dim); padding-bottom: 70px; flex: none; }
+.rk-stand { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.rk-stslot { position: relative; width: 100%; display: grid; align-items: end; }
+.rk-stslot > .rk-stfig { grid-area: 1 / 1; }
+.rk-stfig { position: relative; width: 100%; padding-bottom: 12px; box-sizing: border-box; transform-origin: 50% 100%; }
+.rk-stfig.out { pointer-events: none; }
+.rk-stin { height: 100%; }
+.rk-stin.mirror { transform: scaleX(-1); }
+.rk-stfig.grey { filter: saturate(.25); opacity: .6; }
+.rk-stfig.slump { opacity: .85; }
+.rk-crown { position: absolute; left: 50%; top: 0; font-size: 20px; display: grid; filter: drop-shadow(0 2px 3px rgba(0,0,0,.45)); transform: translate(-50%, -24px); }
+.rk-stname { font-size: 13px; font-weight: 800; color: var(--text); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color var(--sp-tally); }
+.rk-stand.loser .rk-stname { color: var(--dim); }
+.rk-plate2 { height: 38px; padding: 0 16px; max-width: 100%; display: inline-flex; align-items: center; border-radius: 19px; background: rgba(0,0,0,.5); border: 1px solid var(--ce);
+  font: 800 24px/1 var(--mono); color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; box-sizing: border-box; }
+.rk-stand.winner .rk-plate2 { background: linear-gradient(var(--cw), var(--c)); border-color: rgba(255,255,255,.45); color: #08120c; }
+.ranked.glow .rk-stand.winner .rk-plate2 { box-shadow: 0 0 10px var(--cg); }
+.rk-stand.loser .rk-plate2 { color: var(--muted); border-color: var(--cl); }
+/* the match at a glance: a dot a round in the colour of whoever took it */
+.rk-pips { display: flex; justify-content: center; gap: 9px; height: 14px; margin-top: 12px; align-items: center; flex: none; }
+.rk-pips i { width: 11px; height: 11px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,.3); transform: scale(.2); opacity: 0; transition: transform var(--sp-pip), opacity var(--sp-pip); }
+.rk-pips i.in { transform: none; opacity: 1; }
+.ranked.glow .rk-pips i.lit { box-shadow: inset 0 0 0 1px rgba(255,255,255,.3), 0 0 5px var(--pc); }
 /* the rank plate: endStep 2 on spring(.45,.8) */
-.rk-plate { --pc: var(--rk-accent); margin-top: 40px; padding: 18px; display: flex; flex-direction: column; gap: 14px; border-radius: 22px; background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.08);
-  opacity: 0; transform: translateY(16px); transition: opacity var(--sp-plate), transform var(--sp-plate), border-color var(--sp-rating), box-shadow var(--sp-rating); }
-.rk-end.s2 .rk-plate { opacity: 1; transform: none; }
-.rk-plate.promoted { border-color: color-mix(in srgb, var(--pc) 70%, transparent); box-shadow: inset 0 0 0 .5px color-mix(in srgb, var(--pc) 70%, transparent); }
+.rk-plate { --pc: var(--rk-accent); margin-top: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px; border-radius: 22px; flex: none;
+  background: linear-gradient(to bottom right, color-mix(in srgb, var(--pc) 24%, transparent), color-mix(in srgb, var(--pc) 4%, transparent)), rgba(15,20,18,.92);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pc) 40%, transparent);
+  opacity: 0; transform: translateY(16px); transition: opacity var(--sp-plate), transform var(--sp-plate), box-shadow var(--sp-reach); }
+.rk-finished.s2 .rk-plate { opacity: 1; transform: none; }
+.rk-plate.promoted { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--pc) 85%, transparent); }
 .rk-ptop { display: flex; align-items: center; gap: 14px; }
-.rk-emb { position: relative; width: 56px; height: 56px; flex: none; display: grid; place-items: center; color: var(--pc); transition: transform var(--sp-pop); }
+.rk-emb { width: 64px; height: 64px; flex: none; display: grid; transition: transform var(--sp-pop); }
 .rk-emb.pop { transform: scale(1.15); }
-.rk-emb svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.rk-emb circle { fill: none; stroke-width: 4; }
-.rk-emb .bg { fill: color-mix(in srgb, var(--pc) 16%, transparent); stroke: none; }
-.rk-emb .trk { stroke: rgba(255,255,255,.1); }
-.rk-emb .arc { stroke: var(--pc); stroke-linecap: round; }
-.rk-emb > i { position: relative; display: grid; font-size: 20px; }
 .rk-pt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .rk-pt small { font-size: 10px; font-weight: 800; letter-spacing: 1.6px; color: var(--dim); }
 .rk-plate.promoted .rk-pt small { color: var(--pc); }
 .rk-pt b { font-size: 24px; font-weight: 800; font-style: italic; letter-spacing: -.8px; line-height: 1.19; color: var(--pc); white-space: nowrap; }
 .rk-pt span { font: 600 12px/1.2 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
-.rk-chip { height: 32px; padding: 0 12px; display: inline-flex; align-items: center; gap: 3px; border-radius: 16px; background: var(--pc); color: var(--rk-ink); flex: none; transform: scale(1.4); transition: transform var(--sp-plate); }
-.rk-end.s2 .rk-chip { transform: none; }
+.rk-chip { height: 32px; padding: 0 12px; display: inline-flex; align-items: center; gap: 3px; border-radius: 16px; flex: none; transform: scale(1.4); transition: transform var(--sp-plate); }
+.rk-finished.s2 .rk-chip { transform: none; }
+.rk-chip.up { background: var(--pc); color: var(--pci, #08120c); }
 .rk-chip.down { background: var(--expert); color: #fff; }
-.rk-chip i { font-style: normal; font-size: 9px; }
+.rk-chip.level { background: var(--surface2); color: var(--text); }
+.rk-chip i { display: grid; width: 9px; height: 9px; }
+.rk-chip i svg { width: 9px; height: 9px; }
 .rk-chip b { font: 800 17px/1 var(--rounded); }
-.rk-pbar { position: relative; height: 6px; border-radius: 3px; background: rgba(255,255,255,.1); }
-.rk-pbar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--pc); transition: width .04s linear; }
-.ranked.glow .rk-pbar i { box-shadow: 0 0 12px color-mix(in srgb, var(--pc) 60%, transparent); }
+.rk-pbar { position: relative; height: 8px; border-radius: 4px; background: rgba(255,255,255,.1); }
+.rk-pbar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: linear-gradient(to right, var(--pcw), var(--pc)); transition: width .04s linear; }
+.ranked.glow .rk-pbar i { box-shadow: 0 0 5px color-mix(in srgb, var(--pc) 70%, transparent); }
+.rk-parts { display: flex; gap: 6px; flex-wrap: wrap; opacity: 0; transform: translateY(6px); transition: opacity var(--sp-reach), transform var(--sp-reach); }
+.rk-parts:empty { display: none; }
+.rk-plate.reached .rk-parts { opacity: 1; transform: none; }
+.rk-parts span { height: 22px; padding: 0 9px; display: inline-flex; align-items: center; border-radius: 11px; background: rgba(255,255,255,.07); font-size: 10.5px; font-weight: 800; white-space: nowrap; }
+.rk-endgap { min-height: 28px; }
 .rk-endbtns { display: flex; flex-direction: column; gap: 14px; flex: none; opacity: 0; transform: translateY(16px); transition: opacity var(--sp-plate), transform var(--sp-plate); }
-.rk-endbtns.in { opacity: 1; transform: none; }
-.rk-endbtns .rk-go { margin-bottom: 0; }
-.rk-leave { align-self: center; height: 44px; padding: 0 16px; font-size: 14px; font-weight: 700; color: var(--muted); }
+.rk-finished.s3 .rk-endbtns { opacity: 1; transform: none; }
+.rk-leave { align-self: center; height: 36px; padding: 0 16px; font-size: 14px; font-weight: 700; color: var(--muted); }
 
 /* error */
 .rk-error { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 0 8px; }
@@ -268,15 +292,14 @@
 
 /* ---------- the leaderboard sheet ---------- */
 .rk-board .sheet-body { background: var(--page); }
-.rk-lbv { display: flex; flex-direction: column; height: 100%; line-height: 1.2; }
+.rk-lbv { position: relative; display: flex; flex-direction: column; height: 100%; line-height: 1.2; isolation: isolate; }
+.rk-lbbd { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; border-radius: inherit; }
 .rk-lbhead { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 0; }
 .rk-lbhead h1 { margin: 0; font-size: 19px; font-weight: 800; font-style: italic; letter-spacing: -.57px; color: rgba(255,255,255,.55); }
-.rk-lbhead .xbtn { font-size: 13px; }
 .rk-period { display: flex; gap: 4px; margin: 14px 20px 0; padding: 4px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
-.rk-period button { flex: 1; height: 36px; border-radius: 10px; background: transparent; color: var(--muted); font-size: 13.5px; font-weight: 800; text-align: center; transition: background .2s, color .2s, transform .12s, opacity .12s; }
+.rk-period button { flex: 1; height: 36px; border-radius: 10px; background: transparent; color: var(--muted); font-size: 13.5px; font-weight: 800; text-align: center; transition: background .2s var(--easeOut), color .2s var(--easeOut), transform .12s, opacity .12s; }
 .rk-period button.on { background: var(--rk-accent); color: var(--rk-ink); }
 .rk-lbbody { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; scrollbar-width: none; }
-/* one surface, rows split by hairlines, like the friends list */
 .rk-lblist { display: flex; flex-direction: column; margin: 14px 20px 24px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); overflow: hidden; flex: none; }
 .rk-lbrow { position: relative; display: flex; align-items: center; gap: 12px; height: 58px; padding: 0 12px; flex: none; }
 .rk-lblist .rk-lbrow + .rk-lbrow::before { content: ""; position: absolute; top: 0; left: 96px; right: 0; height: 1px; background: var(--line); }
@@ -285,7 +308,6 @@
 .rk-lbrow .you { font-size: 9px; font-weight: 800; letter-spacing: 1.2px; color: var(--rk-accent); padding: 0 6px; height: 18px; display: inline-flex; align-items: center; border-radius: 9px; background: color-mix(in srgb, var(--rk-accent) 14%, transparent); flex: none; }
 .rk-lbrow .col, .rk-lbcols { display: none; }
 .rk-lbrow .pl { width: 26px; text-align: right; font: 800 14px/1 var(--mono); color: var(--dim); flex: none; }
-.rk-lbrow .face { width: 34px; height: 34px; font-size: 14px; }
 .rk-lbrow .nm { font-size: 14.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .rk-lbrow.me .nm { font-weight: 800; color: var(--rk-accent); }
 .rk-lbrow .rk-fill { min-width: 6px; }
@@ -294,10 +316,12 @@
 .rk-lbrow .pts em { font-style: normal; font-size: 10px; color: var(--muted); }
 .rk-lbmine:not(:empty) { padding: 8px 20px 4px; }
 .rk-lbmsg { margin: auto; padding: 0 40px; font-size: 14px; color: var(--muted); text-align: center; }
-.rk-pulse { margin: auto; position: relative; width: 64px; height: 64px; display: grid; place-items: center; }
-.rk-pulse i { position: absolute; inset: 0; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--rk-accent) 35%, transparent); animation: rk-pulse 1.3s var(--easeOut) infinite; }
-.rk-pulse b { width: 14px; height: 14px; border-radius: 50%; background: var(--rk-accent); }
-@keyframes rk-pulse { from { transform: scale(.8); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
+/* SkeletonRows(count: 7) */
+.rk-skel { margin: 10px 20px 0; display: flex; flex-direction: column; gap: 8px; }
+.rk-skel > div { height: 58px; border-radius: 14px; background: var(--surface); display: flex; align-items: center; gap: 12px; padding: 0 12px; animation: rk-skel 1.1s var(--easeInOut) infinite alternate; }
+.rk-skel i { display: block; height: 10px; border-radius: 5px; background: rgba(255,255,255,.07); }
+.rk-skel i:nth-child(1) { width: 34px; height: 34px; border-radius: 50%; } .rk-skel i:nth-child(2) { flex: 1; max-width: 140px; } .rk-skel i:nth-child(3) { width: 44px; margin-left: auto; }
+@keyframes rk-skel { from { opacity: .55; } to { opacity: 1; } }
 
 /* ---------- "Leave the match?" ---------- */
 .rk-confirm .stackup { position: absolute; left: 8px; right: 8px; bottom: calc(8px + var(--sab)); max-width: 520px; margin: 0 auto; display: grid; gap: 8px; transform: translateY(100%); opacity: 0; transition: transform .25s var(--easeOut), opacity .25s var(--easeOut); }
@@ -308,22 +332,17 @@
 .rk-confirm .act { width: 100%; height: 57px; font-size: 20px; color: #ff453a; text-align: center; }
 .rk-confirm .cancel { width: 100%; height: 57px; font-size: 20px; font-weight: 600; color: var(--rk-accent, var(--accent)); text-align: center; }
 
-/* the entry fades in once: .easeOut(duration: 0.4) */
-.rk-entry-all { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-.rk-entry-all.fadein { animation: rk-fade .4s var(--easeOut) both; }
-@keyframes rk-fade { from { opacity: 0; } }
-
 body.nomotion .ranked *, body.nomotion .rk-confirm * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 @media (prefers-reduced-motion: reduce) {
   .ranked *, .rk-confirm * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 
-/* ---------- desktop: the entry stays one stacked column, a little larger; the leaderboard becomes a table ---------- */
-.rk-home, .rk-entryside { display: contents; }
+/* ---------- desktop (BigScreen): one centred stacked column, sized up; the leaderboard as a table ---------- */
+html.wide .ranked .rk-screen { max-width: 460px; }
+html.xwide .ranked .rk-screen { max-width: 560px; }
+html.xwide .ranked .rk-screen.rk-idle { max-width: 520px; }
+html.xwide .rk-rankname { font-size: 50px; letter-spacing: -1.9px; }
 html.xwide {
-  .ranked .rk-screen.rk-idle { max-width: 520px; }
-  .rk-home .rk-rankname { font-size: 48px; letter-spacing: -1.8px; }
-  /* the leaderboard as a table: place, player, matches, points a match, points */
   .view.sheet.rk-board .sheet-body { width: min(760px, calc(100vw - 64px)); }
   .rk-lbhead { padding: 22px 28px 0; }
   .rk-period { margin: 16px 28px 0; max-width: 320px; }
@@ -338,12 +357,7 @@ html.xwide {
   .rk-lbrow .pts, .rk-lbcols .pts { width: 96px; text-align: right; }
   .rk-lbrow .pts em { display: none; }
   .rk-lbmine:not(:empty) { padding: 0 28px 20px; }
+  .rk-skel { margin: 16px 28px 0; }
 }
 /* the PC / phone switch sits in the top-right corner: keep the close button clear of it */
-@media (max-width: 1140px) { html.xwide body.has-viewtoggle .ranked .rk-idle .rk-bar .xbtn { margin-right: 96px; } }
-
-/* desktop: the four answers sit centred under the timer, not against the left of the column */
-html.wide {
-  .rk-choices { width: 100%; max-width: 560px; align-self: center; margin-inline: auto; }
-  .rk-choices .rk-status { align-self: center; text-align: center; }
-}
+@media (max-width: 1140px) { html.xwide body.has-viewtoggle .ranked .rk-idle .rk-bar .rk-xbtn { margin-right: 96px; } }
