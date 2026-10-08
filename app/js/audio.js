@@ -105,4 +105,47 @@ export class Player {
     if (this.source) { try { this.source.onended = null; this.source.stop(); } catch (e) {} this.source = null; }
     this.playing = false;
   }
+  // [party] ---- the room's shared start (iOS Music.swift play(id:seconds:due:) + scheduled()) ----
+  /**
+   * Play on a party's shared instant. `due()` is how long until the room's start, in seconds (below zero once it
+   * has passed). The buffer is scheduled on the audio clock so the sound leaves the speaker on that instant
+   * (getOutputTimestamp maps the clock to the speaker, which takes the output latency out); a phone that is late
+   * starts 0.12 s from now at the point the others have reached. Windows longer than a preview loop it, skipping
+   * the passes the room has already heard. Resolves true once scheduled, 'over' when the clip has already ended
+   * for everyone else (it stays silent), false when it couldn't load (lastError says why).
+   */
+  async playDue(id, url, seconds, due) {
+    this.stop();
+    const token = ++this.token;
+    this.lastError = null; this.pending = id;
+    const ctx = this.ensure();
+    let buf = null;
+    try { buf = await this.prepare(id, url); } catch (e) { buf = null; }
+    if (!buf && token === this.token) buf = await this.prepare(id, url).catch(() => null);
+    if (token !== this.token) return false;
+    this.pending = null;
+    if (!buf) { this.lastError = Player.couldNotLoad; return false; }
+    if (ctx.state !== 'running') { try { await Promise.race([ctx.resume(), new Promise(r => setTimeout(r, 300))]); } catch (e) {} if (token !== this.token) return false; }
+    const lead = 0.12, d = due(), startIn = Math.max(d, lead);
+    let into = startIn - d, left = seconds;
+    const preview = buf.duration > 1 ? buf.duration : 30;
+    while (into >= preview - 0.05 && left > preview) { into -= preview - 0.05; left -= preview - 0.05; }
+    if (into >= Math.min(left, preview) - 0.05) return 'over';
+    // The context time that reaches the speaker `startIn` seconds from now.
+    let at;
+    const ts = typeof ctx.getOutputTimestamp === 'function' ? ctx.getOutputTimestamp() : null;
+    if (ts && ts.contextTime > 0 && ts.performanceTime > 0) at = ts.contextTime + (performance.now() - ts.performanceTime) / 1000 + startIn;
+    else at = ctx.currentTime + startIn - (ctx.outputLatency || ctx.baseLatency || 0);
+    const soonest = ctx.currentTime + 0.005;
+    if (at < soonest) { into += soonest - at; at = soonest; }
+    const src = ctx.createBufferSource();
+    src.buffer = buf; src.connect(this.gain);
+    if (left > preview) { src.loop = true; src.loopStart = 0; src.loopEnd = preview - 0.05; }
+    src.start(at, Math.min(into, preview - 0.06));
+    src.stop(at + Math.max(0.05, left - into));
+    this.source = src; this.playing = true; this.startedAt = performance.now() + (at - ctx.currentTime) * 1000; this.length = left - into; this.ctxStart = at; this.offset = into;
+    src.onended = () => { if (this.source === src) { this.source = null; this.playing = false; this.onEnded && this.onEnded(); } };
+    return true;
+  }
+  // [party] ---- end ----
 }

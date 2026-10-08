@@ -1,0 +1,115 @@
+/* The stage's own parts (stage.js, StageView.swift), on top of the stage block in app.css.
+   Metrics are StageView's: phone below 600, BigScreen (html.wide / html.xwide) above. */
+
+/* The tab bar's room is kept the whole time the bar is shown (stepping aside or not), so nothing moves:
+   bottom padding 74 + HomeTabBar.height (82 + 52 on a big screen). */
+.stage { padding-bottom: 74px; transition: padding-bottom .2s var(--easeOut); }
+html.tabbar-room .stage { padding-bottom: calc(74px + 52px); }
+html.wide .stage { padding-bottom: 82px; }
+html.wide.tabbar-room .stage { padding-bottom: calc(82px + 52px); }
+/* The keyboard lifts the column only as far as the guess bar needs (easeOut 0.25). */
+.stage .col { transition: transform .25s var(--easeOut); }
+
+/* The wordmark's 50pt gap is the filter line's box now. */
+.stage .wordmark { margin-bottom: 0; }
+
+/* ---------- the filter line over the era reel (filterLine / filterText) ----------
+   Filtered: height 20, top 16, bottom 14; unfiltered: 0 high, bottom 50 — the same 50 either way.
+   Each name is 13 semibold white 85%, 32 high, centred on the column's centre line; the cross
+   (xmark 8 bold, dim, a 26x32 hit area) hangs off its right end without pushing it. Names 34 apart. */
+.stfilters { position: relative; width: 100%; height: 50px; flex: none; transition: opacity .2s var(--easeOut); }
+.stfilters.idle { opacity: 0; pointer-events: none; }
+.stfilters .stfl { position: absolute; left: 0; right: 0; top: 16px; height: 20px; display: flex; justify-content: center; align-items: center; gap: 34px; }
+.fitem { position: relative; display: inline-flex; align-items: center; animation: fin .2s var(--easeOut) both; min-width: 0; }
+@keyframes fin { from { opacity: 0; } to { opacity: 1; } }
+.fname { height: 32px; display: inline-flex; align-items: center; font-size: 13px; font-weight: 600; color: rgba(255,255,255,.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(var(--col) / 2 - 30px); }
+.fitem:only-child .fname { max-width: calc(var(--col) - 60px); }
+.fx { position: absolute; right: -26px; top: 50%; margin-top: -16px; width: 26px; height: 32px; display: grid; place-items: center; color: var(--dim); }
+.fx .i { width: 8px; height: 8px; }
+.fx svg path { stroke-width: 4; }
+
+/* The locked reel (an artist or an album in play) looks the same: it only stops answering. */
+.reel-wrap { opacity: 1 !important; }
+
+/* ---------- the floating corner row (menuButton): menu, eye, flame, Premium ---------- */
+.corner-row { position: fixed; top: calc(18px + var(--sat)); left: 18px; right: 18px; z-index: 5; display: flex; align-items: center; gap: 10px; pointer-events: none; transition: opacity .25s var(--easeOut); }
+.corner-row > * { pointer-events: auto; }
+.corner-row.lifted { opacity: 0; }
+.corner-row.lifted > * { pointer-events: none; }
+.corner-row .corner { position: static; }
+.corner-row .row-fill { flex: 1; pointer-events: none; }
+body.has-viewtoggle .corner-row { right: 118px; }
+/* The streamers' switch: a 34 disc in a 43 hit area; eye.slash white 50% on white 5%, eye 28% on 2% when on. */
+.eye-btn { width: 43px; height: 43px; display: grid; place-items: center; flex: none; }
+.eye-btn > span { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.05); color: rgba(255,255,255,.5); font-size: 15px; transition: background .25s var(--easeOut), color .25s var(--easeOut); }
+.eye-btn.on > span { background: rgba(255,255,255,.02); color: rgba(255,255,255,.28); }
+.corner-row .menu-btn[hidden], .corner-row .crown-btn[hidden] { display: none !important; }
+
+/* ---------- the streak flame (Home/StreakFlame.swift) ---------- */
+.flame-host { display: flex; align-items: center; }
+.sflame { height: 40px; padding: 0 14px 0 11px; display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; border: 1.2px solid transparent;
+  background: linear-gradient(#4a1a06, #1f0a03) padding-box, linear-gradient(rgba(255,122,26,.9), rgba(255,59,47,.25)) border-box;
+  box-shadow: 0 0 24px rgba(255,122,26,var(--glow, .2)); transform: scale(var(--grow, 1)); transform-origin: center;
+  transition: transform .35s var(--easeOut), box-shadow .35s var(--easeOut), opacity .3s var(--easeOut); }
+.sflame.out { opacity: 0; transform: scale(.3); }
+.sflame svg { width: 18px; height: 18px; display: block; overflow: visible; filter: drop-shadow(0 0 4px rgba(255,122,26,.9)); }
+.sflame .sf-r, .sflame .sf-y, .sflame .sf-x { display: block; transform-origin: 50% 100%; }
+.sflame .sf-r { animation: sf-r .593s ease-in-out infinite alternate; }
+.sflame .sf-y { animation: sf-y .443s ease-in-out infinite alternate; }
+.sflame .sf-x { animation: sf-x .338s ease-in-out infinite alternate; }
+@keyframes sf-r { from { transform: rotate(-3deg); } to { transform: rotate(3deg); } }
+@keyframes sf-y { from { transform: scaleY(.9); } to { transform: scaleY(1.1); } }
+@keyframes sf-x { from { transform: scaleX(.95); } to { transform: scaleX(1.05); } }
+@media (prefers-reduced-motion: reduce) { .sflame .sf-r, .sflame .sf-y, .sflame .sf-x { animation: none; } }
+.sf-n { font-size: 18px; font-weight: 900; font-style: italic; font-variant-numeric: tabular-nums; color: #fff; text-shadow: 0 1.5px 0 rgba(0,0,0,.35); line-height: 1; display: inline-block; }
+
+/* ---------- the reveal: the cover is the Apple Music link; Add to playlist ---------- */
+.reveal .art[data-act="cover"] { cursor: pointer; }
+.reveal .art[data-act="cover"]:focus-visible { outline-offset: 4px; border-radius: 12px; }
+.reveal .saveit { margin-top: 16px; display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: #d8d8d8; padding: 11px 18px; border-radius: 999px; background: color-mix(in srgb, rgba(255,255,255,.12) 92%, var(--accent)); }
+.reveal .saveit .i { width: 12px; height: 12px; }
+
+/* "Add to playlist" (confirmationDialog): an action sheet, system blue, Cancel on its own below. */
+.ss-confirm .stackup { position: absolute; left: 8px; right: 8px; bottom: calc(8px + var(--sab)); max-width: 520px; margin: 0 auto; display: grid; gap: 8px; transform: translateY(100%); opacity: 0; transition: transform .25s var(--easeOut), opacity .25s var(--easeOut); }
+.ss-confirm.in .stackup { transform: none; opacity: 1; }
+.ss-confirm .cardc { background: rgba(23,23,23,.97); border-radius: 14px; overflow: hidden; }
+.ss-confirm .lead { padding: 14px 18px; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.3; border-bottom: 1px solid var(--line); display: grid; gap: 4px; }
+.ss-confirm .lead b { font-weight: 600; }
+.ss-confirm .act { width: 100%; height: 57px; font-size: 20px; color: #0a84ff; text-align: center; }
+.ss-confirm .act + .act { border-top: 1px solid var(--line); }
+.ss-confirm .cancel { width: 100%; height: 57px; font-size: 20px; font-weight: 600; color: #0a84ff; text-align: center; }
+html.wide .ss-confirm .stackup { left: 50%; right: auto; width: 320px; bottom: auto; top: 50%; transform: translate(-50%, -46%); }
+html.wide .ss-confirm.in .stackup { transform: translate(-50%, -50%); }
+
+/* The snow far behind the stage (December, the Christmas genre in play). */
+.stage-snow { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+
+/* ---------- the opening name (SpelledWordmark) ---------- */
+.splash { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: var(--stage); transition: opacity .28s var(--easeOut); }
+.splash.out { opacity: 0; pointer-events: none; }
+.splash .wordmark { font-size: 48px; line-height: 48px; letter-spacing: -1.44px; color: transparent; white-space: nowrap; user-select: none; }
+.splash .wordmark span { color: transparent; }
+.splash .wordmark span.on { color: rgba(255,255,255,.08); }
+html.wide .splash .wordmark { font-size: 58px; line-height: 64px; letter-spacing: -1.74px; }
+
+/* ---------- the pickers (CategoryPicker, ArtistPicker, AlbumPicker) ---------- */
+.picker .sheet-body > :not(.season-backdrop) { position: relative; z-index: 1; }
+.picker .prow2 .ck { font-size: 14px; }
+.picker .ck svg path { stroke-width: 3.6; }
+.picker .prow2.on .nm { color: var(--accent-on, var(--accent)); font-weight: 800; }
+.picker .pclear { font-size: 9px; }
+.pprompt { font-size: 12.5px; color: var(--dim); text-align: center; margin: 0; padding: 14px 20px 0; line-height: 1.35; }
+.pempty2 { font-size: 13px; color: var(--muted); text-align: center; margin: 0; padding: 40px 20px 0; }
+.arow2 { display: flex; align-items: center; gap: 12px; height: 58px; padding: 0 12px; border-radius: 13px; background: var(--surface); border: 1px solid var(--line); width: 100%; flex: none; text-align: left; }
+.arow2.on { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.arow2.off { opacity: .45; cursor: default; }
+.arow2.off.pressed { transform: none; opacity: .45; }
+.aart2 { width: 40px; height: 40px; border-radius: 8px; overflow: hidden; background: var(--surface2); display: grid; place-items: center; flex: none; position: relative; }
+.aart2 > i { color: var(--dim); font-size: 13px; display: grid; place-items: center; }
+.aart2 img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+.atxt2 { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.atxt2 b { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.atxt2 span { font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.aend { flex: none; margin-left: 8px; color: var(--accent); font-size: 14px; display: inline-flex; }
+.aend.ck .i { stroke-width: 3; }
+.arow2 .spin.s { flex: none; margin-left: 8px; color: var(--muted); }
