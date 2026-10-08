@@ -1,0 +1,86 @@
+/* ---------- Premium page (Premium.swift · PremiumSheet), full screen ----------
+   A fullScreenCover on the phone; on a big window the same page with its
+   content, the close button and the footer in one centred 520 column. */
+.view.pw { background: var(--stage); overflow: hidden; display: flex; flex-direction: column; color: var(--text);
+  --pw-tile: color-mix(in srgb, var(--stage) 84%, var(--accent)); }
+.pw-col { width: 100%; max-width: 520px; margin: 0 auto; box-sizing: border-box; }
+html.phonemode .pw-col { max-width: 430px; }
+
+/* The album wall behind the headline: 52% of the height, fading out from 55% down. */
+.pw-wall { position: absolute; left: 0; right: 0; top: 0; height: 52%; pointer-events: none; z-index: 0;
+  -webkit-mask-image: linear-gradient(#000 0, #000 55%, transparent 100%); mask-image: linear-gradient(#000 0, #000 55%, transparent 100%); }
+
+.pw-scroll { position: relative; z-index: 1; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.pw-scroll::-webkit-scrollbar { display: none; }
+.pw-content { padding: calc(58px + var(--sat)) 24px 16px; }
+
+/* Scrolled text fades out under the clock and the close button. */
+.pw-fade { position: absolute; left: 0; right: 0; top: 0; height: calc(64px + var(--sat)); z-index: 2; pointer-events: none;
+  background: linear-gradient(var(--stage), color-mix(in srgb, var(--stage) 0%, transparent)); }
+
+.pw-top { position: absolute; left: 0; right: 0; top: calc(6px + var(--sat)); z-index: 3; pointer-events: none; }
+.pw-top .pw-col { padding: 0 12px; }
+.pw-x { pointer-events: auto; width: 44px; height: 44px; display: grid; place-items: center; opacity: 0; transition: opacity .3s var(--easeOut), transform .16s var(--easeOut); }
+.pw.x-on .pw-x { opacity: 1; }
+.pw-x > span { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.032); color: var(--muted); font-size: 13px; }
+.pw-x .i { width: 13px; height: 13px; }
+
+/* Hero */
+.pw-kicker { display: flex; align-items: center; gap: 7px; color: var(--gold); }
+.pw-kicker .i { width: 14px; height: 14px; }
+.pw-kicker span { font-size: 11px; font-weight: 800; letter-spacing: 2.2px; line-height: 13px; }
+.pw-head { margin: 10px 0 0; font-size: 38px; line-height: 41px; font-weight: 800; font-style: italic; letter-spacing: -1.3px; color: var(--text); }
+.pw-head em { font-style: italic; color: var(--accent); }
+
+/* What you get: five rows, nothing singled out */
+.pw-perks { margin-top: 20px; display: flex; flex-direction: column; gap: 12px; }
+.pw-perk { display: flex; align-items: center; gap: 14px; }
+.pw-tile { flex: none; width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: var(--accent);
+  background: var(--pw-tile); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent); }
+.pw-tile .i { width: 18px; height: 18px; }
+.pw-perk b { display: block; font-size: 16px; line-height: 20px; font-weight: 700; color: var(--text); }
+.pw-perk span { display: block; font-size: 12.5px; line-height: 16px; color: var(--muted); margin-top: 1px; }
+
+/* Plans: three stacked, Yearly picked */
+.pw-plans { margin-top: 22px; display: flex; flex-direction: column; gap: 8px; }
+.pw-plan { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 14px; border-radius: 10px; text-align: left; color: var(--text);
+  background: var(--track); box-shadow: inset 0 0 0 1px var(--line);
+  transition: background-color .18s var(--easeOut), box-shadow .18s var(--easeOut), transform .16s var(--easeOut), opacity .16s var(--easeOut); }
+.pw-plan.on { background: color-mix(in srgb, var(--track) 86%, var(--accent)); box-shadow: inset 0 0 0 2px var(--accent); }
+.pw-radio { flex: none; width: 20px; height: 20px; border-radius: 50%; box-sizing: border-box; border: 1.5px solid var(--dim); transition: border .18s var(--easeOut); }
+.pw-plan.on .pw-radio { border: 6px solid var(--accent); }
+.pw-pt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.pw-ptl { display: flex; align-items: center; gap: 7px; }
+.pw-ptl b { font-size: 15px; line-height: 18px; font-weight: 700; }
+.pw-pt > span { font-size: 11.5px; line-height: 14px; color: var(--muted); }
+.pw-save { font-style: normal; flex: none; font-size: 9.5px; line-height: 12px; font-weight: 800; letter-spacing: .6px; color: var(--gold);
+  padding: 2.5px 6px; border-radius: 999px; background: color-mix(in srgb, var(--gold) 16%, transparent); white-space: nowrap; }
+.pw-plan strong { flex: none; margin-left: 8px; font-size: 18px; font-weight: 800; font-style: italic; letter-spacing: -.5px; white-space: nowrap; }
+.pw-badge { position: absolute; right: 10px; top: -9px; font-style: normal; font-size: 8.5px; line-height: 11px; font-weight: 800; letter-spacing: .8px; white-space: nowrap;
+  color: var(--accent-ink); background: var(--accent); padding: 3px 7px; border-radius: 5px; }
+
+/* How the free trial runs */
+.pw-time { margin-top: 22px; padding: 16px; border-radius: 12px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.pw-step { display: flex; align-items: stretch; gap: 12px; }
+.pw-rail { flex: none; width: 26px; display: flex; flex-direction: column; align-items: center; }
+.pw-rail > i { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); flex: none; }
+.pw-rail > i .i { width: 12px; height: 12px; }
+.pw-step.last .pw-rail > i { background: var(--track); color: var(--muted); }
+.pw-rail > u { display: block; width: 2px; flex: 1; min-height: 22px; background: var(--line); }
+.pw-st { padding: 3px 0 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pw-step.last .pw-st { padding-bottom: 0; }
+.pw-st b { font-size: 14px; line-height: 17px; font-weight: 700; color: var(--text); }
+.pw-st span { font-size: 12.5px; line-height: 16px; color: var(--muted); }
+
+/* The fixed footer: the button never scrolls away */
+.pw-foot { position: relative; z-index: 3; flex: none; background: var(--stage); box-shadow: inset 0 1px 0 var(--line); }
+.pw-footin { padding: 12px 24px calc(6px + var(--sab)); display: flex; flex-direction: column; align-items: stretch; }
+.pw-err { margin: 0 0 8px; font-size: 12px; line-height: 15px; color: var(--err); text-align: center; }
+.pw-buy { display: flex; align-items: center; justify-content: center; text-align: center; height: 56px; width: 100%; border-radius: 12px; background: var(--accent); color: var(--accent-ink); font-size: 17px; font-weight: 800; }
+.pw-buy:disabled { opacity: .55; }
+.pw-note { margin: 8px 0 0; font-size: 11.5px; line-height: 14px; font-weight: 500; color: var(--muted); text-align: center; }
+a.pw-ios { text-decoration: none; display: block; }
+.pw-ios b { color: var(--text); }
+.pw-legal { margin-top: 8px; display: flex; justify-content: center; gap: 18px; }
+.pw-legal button, .pw-legal a { font-size: 11.5px; line-height: 20px; font-weight: 600; color: var(--muted); text-decoration: none; }
+.pw-legal button:disabled { opacity: .6; }
