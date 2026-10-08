@@ -35,6 +35,8 @@ export const wirePlayer = p => {
   if (p.avatar) o.avatar = String(p.avatar);
   // The host's team seat (PartyPlayer.team). Omitted in solo, as Swift omits a nil optional.
   if (p.team != null && Number.isFinite(Number(p.team))) o.team = int(p.team);
+  // Their default cartoon, 1…20 (PartyPlayer.face). Omitted when unknown, as Swift omits a nil optional.
+  if (p.face != null && Number.isFinite(Number(p.face))) o.face = int(p.face);
   return o;
 };
 /** PartySettings. Every field but artist is required on decode. */
@@ -46,6 +48,10 @@ export const wireSettings = s => {
   if (s.inbox === true) o.inbox = true;
   // Teams (PartySettings.teams): "two" | "three" | "pairs" | "trios". Absent is solo; older phones ignore it.
   if (teamsOn(s.teams)) o.teams = String(s.teams);
+  // One album's songs, named in artist (PartySettings.album). Only ever true; absent for an artist or a genre.
+  if (s.album === true && s.artist) o.album = true;
+  // Anti-Shazam (PartySettings.antiShazam): a new party sends false, as the iPhone does; absent (an older host) counts as on.
+  if (s.antiShazam === true || s.antiShazam === false) o.antiShazam = s.antiShazam;
   return o;
 };
 /** PartyTrack: id, title, artist required; artwork optional. */
@@ -70,7 +76,9 @@ export const Msg = {
   /** Host → everyone: this player is out of the room for good. Older phones can't read it and simply see them go. */
   kick: playerID => ({ kick: { playerID: str(playerID) } }),
   /** Host → everyone: clock replies, gathered into one message. */
-  pongs: entries => ({ pongs: { entries: entries.map(e => ({ id: str(e.id), sent: num(e.sent), hostNow: num(e.hostNow) })) } }),
+  pongs: entries => ({ pongs: { entries: entries.map(e => clean({ id: str(e.id), sent: num(e.sent), hostNow: num(e.hostNow), hostSent: e.hostSent == null ? undefined : num(e.hostSent) })) } }),
+  /** Host → everyone: this player's join was turned away, "full" or "removed" (PartyMessage.refused). */
+  refused: (playerID, reason) => ({ refused: { playerID: str(playerID), reason: str(reason) } }),
   /** Host → everyone: the round's answers so far, gathered once a second in a big room. */
   tally: points => ({ tally: { points: intMap(points) } }),
 };
@@ -80,7 +88,7 @@ export function decode(m) {
   if (!m || typeof m !== 'object') return null;
   const keys = Object.keys(m); if (keys.length !== 1) return null;
   const kind = keys[0], v = m[kind] || {};
-  const player = p => (p && typeof p === 'object' && p.id != null ? { id: str(p.id), name: str(p.name), isHost: !!p.isHost, score: int(p.score), hue: int(p.hue), avatar: p.avatar || null, team: p.team == null ? null : int(p.team) } : null);
+  const player = p => (p && typeof p === 'object' && p.id != null ? { id: str(p.id), name: str(p.name), isHost: !!p.isHost, score: int(p.score), hue: int(p.hue), avatar: p.avatar || null, team: p.team == null ? null : int(p.team), face: p.face == null ? null : int(p.face) } : null);
   const track = t => (t && t.id != null ? { id: str(t.id), title: str(t.title), artist: str(t.artist), artwork: t.artwork || null } : null);
   switch (kind) {
     case 'lobby': return { kind, players: (v.players || []).map(player).filter(Boolean), settings: { ...(v.settings || {}) } };
@@ -97,7 +105,8 @@ export function decode(m) {
     case 'leave': return { kind, playerID: str(v.playerID) };
     case 'catalogue': return { kind, songs: (v.songs || []).map(track).filter(Boolean) };
     case 'kick': return { kind, playerID: str(v.playerID) };
-    case 'pongs': return { kind, entries: (Array.isArray(v.entries) ? v.entries : []).filter(e => e && e.id != null).map(e => ({ id: str(e.id), sent: num(e.sent), hostNow: num(e.hostNow) })) };
+    case 'pongs': return { kind, entries: (Array.isArray(v.entries) ? v.entries : []).filter(e => e && e.id != null).map(e => ({ id: str(e.id), sent: num(e.sent), hostNow: num(e.hostNow), hostSent: e.hostSent == null ? null : num(e.hostSent) })) };
+    case 'refused': return { kind, playerID: str(v.playerID), reason: str(v.reason) };
     case 'tally': return { kind, points: intMap(v.points) };
     default: return null;
   }
@@ -136,11 +145,23 @@ class RealtimeTransport {
       });
     });
   }
+  /**
+   * One message to the room. A send that fails doesn't end the party: like the iPhone's recover(), it is tried
+   * again up to four times (1.5 s × attempt) while the client rejoins, and only then is the line called lost.
+   * Every write gives up after 6 s.
+   */
   async send(message) {
     if (this.closed || !this.channel) return;
     if (this.tap) this.tap('out', message);
-    try { await this.channel.send({ type: 'broadcast', event: 'party', payload: message }); }
-    catch (e) { if (this.onError) this.onError("Couldn't reach the party. Check your connection."); }
+    for (let attempt = 0; attempt <= 4; attempt++) {
+      if (attempt) await new Promise(r => setTimeout(r, 1500 * attempt));
+      if (this.closed || !this.channel) return;
+      let r = 'error';
+      try { r = await Promise.race([this.channel.send({ type: 'broadcast', event: 'party', payload: message }), new Promise(res => setTimeout(() => res('timed out'), 6000))]); }
+      catch (e) { r = 'error'; }
+      if (r === 'ok') return;
+    }
+    if (!this.closed && this.onError) this.onError('Lost the connection to the party.');
   }
   /** Host only, after joining: also listen on the room's inbox (party-<room>-inbox, no self-echo, no presence). True once it is open. */
   openInbox() {
@@ -209,7 +230,43 @@ export const ROUND_OPTIONS = [5, 10, 15, 20];
 export const DIFFICULTIES = [['mixed', 'Mixed'], ['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard'], ['expert', 'Expert'], ['impossible', 'Impossible']];
 export const WINDOWS = [10, 20, 30, 45, 60];
 export const YEARS = [['all', 'Any'], ['80s', '80s'], ['90s', '90s'], ['2000s', '00s'], ['2010s', '10s'], ['2020s', '20s']];
-export const freshSettings = () => ({ category: 'all', era: 'all', artist: null, difficulty: 'mixed', easySearch: true, rounds: 10, guessWindow: 20, clipSeconds: 20, teams: null });
+/** A new party's settings (PartySettings()). antiShazam is off for a new party; album only rides with an album. */
+export const freshSettings = () => ({ category: 'all', era: 'all', artist: null, album: null, difficulty: 'mixed', easySearch: true, rounds: 10, guessWindow: 20, clipSeconds: 20, teams: null, antiShazam: false });
+
+/** Songbot's level in a 1v1 (PartyGame.BotLevel): how often it names the song and when it answers, in seconds after the clip starts. */
+export const BOT_LEVELS = [
+  { key: 'easy', title: 'Easy', tier: 'easy', rightRate: 0.6, answerAt: [4.5, 12] },
+  { key: 'hard', title: 'Hard', tier: 'hard', rightRate: 0.8, answerAt: [2.6, 6] },
+  { key: 'impossible', title: 'Impossible', tier: 'impossible', rightRate: 0.93, answerAt: [1.6, 3.2] },
+];
+const BOT_KEY = 'songspot.party.botLevel';
+const readBotLevel = () => { try { const v = localStorage.getItem(BOT_KEY); return BOT_LEVELS.some(l => l.key === v) ? v : 'easy'; } catch (e) { return 'easy'; } };
+
+// ---------- namesSong (Engine/Matcher.swift): whether a typed answer names this song ----------
+const NUM_WORD = { zero: '0', one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', ten: '10', eleven: '11', twelve: '12',
+  thirteen: '13', fourteen: '14', fifteen: '15', sixteen: '16', seventeen: '17', eighteen: '18', nineteen: '19', twenty: '20', thirty: '30', forty: '40', fifty: '50',
+  sixty: '60', seventy: '70', eighty: '80', ninety: '90',
+  first: '1st', second: '2nd', third: '3rd', fourth: '4th', fifth: '5th', sixth: '6th', seventh: '7th', eighth: '8th', ninth: '9th', tenth: '10th',
+  to: '2', too: '2', for: '4', u: 'you', ur: 'your', n: 'and', em: 'them', yall: 'you', tupac: '2pac' };
+const TAILS = new Set(['t', 's', 'd', 'm', 'll', 're', 've']);
+const normalise = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/&/g, ' and ').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+const canonWord = w => { if (NUM_WORD[w]) return NUM_WORD[w]; if (w.length >= 5) { if (w.endsWith('ing')) return w.slice(0, -3) + 'in'; if (w.endsWith('s') && !w.endsWith('ss')) return w.slice(0, -1); } return w; };
+const canonical = s => { const raw = s.split(' ').filter(Boolean), glued = []; for (const w of raw) { if (raw.length > 1 && TAILS.has(w) && glued.length) glued[glued.length - 1] += w; else glued.push(w); } return glued.map(canonWord).join(' '); };
+/** The title, or the title and the artist, compared as the matcher reads words: "believing" is "Believin'", "dont" is "Don't". */
+export function namesSong(typed, title, artist) {
+  const guess = normalise(typed); if (!guess) return false;
+  const t = normalise(title);
+  if (guess === t || guess === `${t} ${normalise(artist)}`) return true;
+  const g = canonical(guess), c = canonical(t);
+  return !!c && (g === c || g === `${c} ${canonical(normalise(artist))}`);
+}
+/** PlayerName.first: the first word, else the part before "_" or ".". characters.js's own wins once it is wired in (setNameHelpers). */
+let firstNameImpl = n => { const t = String(n || '').trim(); const w = t.split(/\s+/)[0] || ''; return (w.split(/[_.]/)[0] || w) || t; };
+let shownNameImpl = n => String(n ?? '');
+let myFaceImpl = () => null;
+export const firstName = n => firstNameImpl(n);
+/** The room's name and face rules from characters.js (NameFilter.shown, PlayerName.first, DefaultAvatar.myIndex). */
+export function setNameHelpers({ first, shown, myFace } = {}) { if (first) firstNameImpl = first; if (shown) shownNameImpl = shown; if (myFace) myFaceImpl = myFace; }
 
 // ---------- teams (Party/PartyTeams.swift, rule for rule) ----------
 // The host alone seats players (player.team) and sends the seating with the lobby. Scores stay per
@@ -297,12 +354,26 @@ export class PartyGame {
     this.myPoints = null; this.myRoundsWon = 0; this.lastGained = {}; this.lastAnswer = null;
     /** Every finished round of this game: the song and what each player took (PartyRoundRecord, for the 1v1 breakdown). */
     this.history = [];
-    this.preparingSongs = false; this.clockOffset = 0; this.bestRtt = Infinity;
+    /** Why the last Start didn't start, for the host's lobby. The room stays open. */
+    this.startNote = null;
+    /** The room as the game ended, best first: the podium and the 1v1 result read this, so someone leaving can't reshuffle it. */
+    this.finalPlayers = [];
+    /** How good Songbot plays in a 1v1, kept for next time (songspot.party.botLevel). */
+    this.botLevel = readBotLevel();
+    this.preparingSongs = false; this.clockOffset = 0;
+    /** Held countdowns (the -demoRoomCountdown / -demoDuelCountdown stagers) stay on screen. */
+    this.holdCountdown = false;
     // host only
     this.queue = []; this.deck = []; this.roundOpen = false; this.gainedThisRound = {}; this.closer = null; this.artistSongs = [];
-    this.pings = new Map(); this.timers = new Set();
-    /** Players the host removed; their joins are ignored for the rest of the room. */
+    /** Who made the album in play, for the Songs sheet. */
+    this.albumArtist = null;
+    this.pings = new Map(); this.pingRTT = new Map(); this.timers = new Set();
+    /** Players the host removed; their joins are turned away for the rest of the room. */
     this.kicked = new Set();
+    /** The scores of players who dropped out this game, by id (their points wait for them). */
+    this.departed = {};
+    /** The rounds the host picked, while a short game plays fewer. */
+    this.chosenRounds = null;
     this.pendingPongs = []; this.pongFlush = 0; this.pendingTally = {}; this.tallyFlush = 0;
     this.lobbyTimer = 0; this.sentCatalogue = false;
     /** The last round index this device heard. */
@@ -327,18 +398,37 @@ export class PartyGame {
   get myTeam() { return this.teamsOn ? (this.me?.team ?? null) : null; }
   get iAnswered() { return this.answered.includes(this.myID); }
   get hostName() { return this.players.find(p => p.isHost)?.name || null; }
+  /** The artist, the album's name (already without its edition), or the genre. */
   get songsLabel() { return this.settings.artist || (this.settings.category === 'all' ? 'All genres' : this.settings.category); }
+  /** The room plays one album (named in settings.artist). */
+  get isAlbum() { return this.settings.album === true && !!this.settings.artist; }
+  /** The room plays one artist. */
+  get isArtist() { return !!this.settings.artist && !this.isAlbum; }
+  /** The host has anti-Shazam on. An older host, who sends no setting, always had it. */
+  get antiShazam() { return this.settings.antiShazam ?? true; }
+  setBotLevel(key) { if (!BOT_LEVELS.some(l => l.key === key)) return; this.botLevel = key; try { localStorage.setItem(BOT_KEY, key); } catch (e) {} this.emit(); }
   /** "mixed" climbs Easy → Impossible over the game, from the round index alone so every phone agrees. */
   tier(i = this.round) {
     if (TIERS.includes(this.settings.difficulty)) return this.settings.difficulty;
     const rounds = Math.max(1, int(this.settings.rounds));
     return TIERS[Math.min(TIERS.length - 1, Math.floor(i * TIERS.length / rounds))];
   }
+  /**
+   * The count has run out by the game clock: start the round now. The countdown screen calls this every frame,
+   * so the round begins on the same clock the number is drawn from (a timer set when the round arrived can run
+   * late after a mid-count clock re-sync, which left the count sitting on 0).
+   */
+  startIfDue() {
+    if (this.holdCountdown) return;
+    if (this.phase === 'countdown' && this.now >= this.roundStartedAt) { this.phase = 'playing'; this.emit(); }
+  }
 
   // ---- starting ----
   async host(name, avatar) {
-    this.myName = name; this.isHost = true; this.code = makeCode();
-    this.players = [{ id: this.myID, name, isHost: true, score: 0, avatar: avatar || null, hue: 0 }];
+    this.myName = name; this.isHost = true;
+    // fixedCode: a known room (the -roomCode knob), so a second page can join it.
+    this.code = this.fixedCode ? normaliseCode(this.fixedCode) : makeCode();
+    this.players = [{ id: this.myID, name, isHost: true, score: 0, avatar: avatar || null, hue: 0, face: myFaceImpl(name) }];
     this.phase = 'connecting'; this.emit();
     try {
       await this.transport.join(this.code, this.myID, name);
@@ -359,6 +449,7 @@ export class PartyGame {
     this.players.push({ id: 'bot-songbot', name, isHost: false, score: 0, avatar: null, hue: 3 });
     this.emit(); await this.broadcastLobby();
   }
+  joinPlayer() { return { id: this.myID, name: this.myName, isHost: false, score: 0, avatar: this.myAvatar || null, hue: 0, face: myFaceImpl(this.myName) }; }
   async join(raw, name, avatar) {
     this.myName = name; this.myAvatar = avatar; this.isHost = false; this.code = normaliseCode(raw);
     if (this.code.length !== 5) { this.phase = 'error'; this.error = "That code doesn't look right."; this.emit(); return; }
@@ -366,59 +457,123 @@ export class PartyGame {
     try {
       await this.transport.join(this.code, this.myID, name);
       this.lastJoinSent = Date.now();
-      await this.transport.send(Msg.join({ id: this.myID, name, isHost: false, score: 0, avatar: avatar || null, hue: 0 }));
+      await this.transport.send(Msg.join(this.joinPlayer()));
       // The clock is measured once the lobby is here, so the pings can go to the host's inbox. If no lobby arrives, the room is empty.
       for (let k = 0; k < 40 && this.phase === 'connecting'; k++) await new Promise(r => setTimeout(r, 100));
-      if (this.phase === 'connecting') { this.phase = 'error'; this.error = 'No party with that code. Check it with the host.'; this.emit(); return; }
-      if (this.phase === 'error' || this.phase === 'idle') return;
+      if (this.phase === 'connecting') { this.phase = 'error'; this.error = 'No answer from that code. Check it, and that the host has Songspot open.'; this.emit(); return; }
+      if (this.phase === 'error' || this.phase === 'idle') return;   // turned away (full, or removed)
       await this.measureClock();
     } catch (e) { if (this.phase === 'connecting') { this.phase = 'error'; this.error = e.message; this.emit(); } }
   }
-  /** A finished 1v1 against Songbot, for looking at the result (-demoDuelResult). */
+
+  // ---- the stagers (localhost knobs, the iPhone's DEBUG launch flags) ----
+  /** A finished 1v1 against Songbot (-demoDuelResult). */
   demoDuelFinish(name) {
     this.isHost = true;
-    this.players = [{ id: this.myID, name, isHost: true, score: 3620, avatar: null, hue: 0 }, { id: 'bot-songbot', name: 'Songbot', isHost: false, score: 2890, avatar: null, hue: 3 }];
+    this.players = [{ id: this.myID, name, isHost: true, score: 3620, avatar: null, hue: 0, face: myFaceImpl(name) }, { id: 'bot-songbot', name: 'Songbot', isHost: false, score: 2890, avatar: null, hue: 3 }];
     const demo = [['Blinding Lights', 'The Weeknd', 962, 0], ['Levitating', 'Dua Lipa', 0, 874], ['Mr. Brightside', 'The Killers', 918, 802], ['Stronger', 'Kanye West', 811, 0], ['Heartless', 'Kanye West', 929, 1214]];
     this.history = demo.map(([title, artist, a, b], i) => ({ id: i, title, artist, artwork: null, gained: { [this.myID]: a, 'bot-songbot': b } }));
     this.settings.rounds = 5;
+    this.finalPlayers = this.sortedPlayers;
     this.phase = 'finished'; this.emit();
   }
-  /** A room of ten in two teams, scored, for looking at the team screens (?demoTeamRound, ?demoTeamResult). */
-  demoTeams(name, target) {
+  /** A room of ten in two teams: seated (lobby), scored mid-game (round) or finished (-demoTeams, -demoTeamRound, -demoTeamResult). */
+  demoTeams(name, target, mode = 'two') {
     this.isHost = true; this.code = this.code || 'BCDFG';
     const names = [name, ...DEMO_NAMES, 'Zoe'], scores = [4210, 3890, 5120, 2980, 4460, 3310, 4705, 2650, 3995, 3570];
-    this.players = names.map((n, i) => ({ id: i === 0 ? this.myID : 'demo-' + i, name: n, isHost: i === 0, score: scores[i], avatar: null, hue: i === 0 ? 0 : i + 1, team: null }));
-    this.settings.teams = 'two'; this.settings.rounds = 10;
-    this.players = balanceTeams(this.players, 'two');
+    this.players = names.map((n, i) => ({ id: i === 0 ? this.myID : 'demo-' + i, name: n, isHost: i === 0, score: target ? scores[i] : 0, avatar: null, hue: i === 0 ? 0 : i + 1, team: null, face: i === 0 ? myFaceImpl(name) : null }));
+    this.settings.teams = mode;
+    this.players = balanceTeams(this.players, mode);
     if (target === 'round') {
+      this.settings.rounds = 10;
       this.round = 6; this.heardRound = 6;
       this.lastGained = Object.fromEntries(this.players.map(p => [p.id, [0, 612, 874, 0, 755][Math.abs(p.hue) % 5]]));
       this.lastAnswer = { title: 'Blinding Lights', artist: 'The Weeknd', artwork: null };
       this.answered = this.players.map(p => p.id);
       this.phase = 'result';
-    } else this.phase = 'finished';
+    } else if (target === 'finished') { this.settings.rounds = 10; this.finalPlayers = this.sortedPlayers; this.phase = 'finished'; }
+    else this.phase = 'lobby';
     this.emit();
   }
+  /** A finished party without teams, for the podium (-demoSoloResult). */
+  demoSoloFinish(name) {
+    this.isHost = true; this.code = this.code || 'BCDFG';
+    const scores = [4210, 3890, 5120, 2980, 4460, 3310, 4705, 2650, 3995, 3570];
+    this.players = [name, ...DEMO_NAMES].map((n, i) => ({ id: i === 0 ? this.myID : 'demo-' + i, name: n, isHost: i === 0, score: scores[i % scores.length], avatar: null, hue: i === 0 ? 0 : i + 1, face: i === 0 ? myFaceImpl(name) : null }));
+    this.settings.teams = null; this.settings.rounds = 10;
+    this.finalPlayers = this.sortedPlayers;
+    this.phase = 'finished'; this.emit();
+  }
+  /** Hold a 1v1 round intro on screen (-demoDuelCountdown). */
+  demoDuelCountdown(name) {
+    this.isHost = true; this.holdCountdown = true;
+    this.players = [{ id: this.myID, name, isHost: true, score: 912, avatar: null, hue: 0, face: myFaceImpl(name) }, { id: 'bot-songbot', name: 'Songbot', isHost: false, score: 780, avatar: null, hue: 3 }];
+    this.settings.rounds = 5; this.round = 1;
+    this.roundStartedAt = this.now + 3.2;
+    this.phase = 'countdown'; this.emit();
+  }
+  /** Hold a full room's round intro on screen (-demoRoomCountdown; first round: -demoFirstRound). */
+  demoRoomCountdown(name, first = false, emit = true) {
+    this.isHost = true; this.holdCountdown = true;
+    const scores = [1480, 1668, 1603, 1493, 939, 1210, 870, 1140, 660];
+    this.players = [name, ...DEMO_NAMES].map((n, i) => ({ id: i === 0 ? this.myID : 'demo-' + i, name: n, isHost: i === 0, score: scores[i], avatar: null, hue: i, face: i === 0 ? myFaceImpl(n) : null }));
+    this.settings.rounds = 10;
+    this.round = first ? 0 : 2;
+    this.roundStartedAt = this.now + 3.2;
+    this.phase = 'countdown'; if (emit) this.emit();
+  }
+  /** Hold a full room mid-round, four answers on the board and half the room already in (-demoRoomRound). */
+  demoRoomRound(name) {
+    this.demoRoomCountdown(name, false, false);
+    const song = this.pool.pick('medium', 'all', 'all'); if (!song) return;
+    const others = [];
+    for (let k = 0; k < 60 && others.length < 3; k++) { const x = this.pool.pick('medium', 'all', 'all'); if (x && x.id !== song.id && !others.some(o => o.id === x.id)) others.push(x); }
+    this.current = { songID: song.id, title: song.title, artist: song.artist, artwork: song.artwork };
+    this.currentChoices = shuffle([song, ...others]).map(toChoice);
+    this.myPick = null; this.roundWindow = 20; this.roundSeconds = 20;
+    this.roundStartedAt = this.now - 6;
+    this.answered = this.players.filter(p => p.hue % 2 === 1).map(p => p.id);
+    this.phase = 'playing'; this.emit();
+  }
+
   async leave() {
     clearTimeout(this.closer); clearTimeout(this.pruneTimer);
     this.timers.forEach(clearTimeout); this.timers.clear();
     this.lobbyTimer = 0; this.pongFlush = 0; this.tallyFlush = 0; this.pendingPongs = []; this.pendingTally = {};
-    if (this.transport.channel) { await this.transport.send(Msg.leave(this.myID)); await this.transport.leave(); }
+    const t = this.transport;
+    if (t.channel) { await t.send(Msg.leave(this.myID)); await t.leave(); }
     this.phase = 'idle'; this.players = []; this.round = 0; this.queue = []; this.current = null;
+    this.startNote = null;
+    if (this.chosenRounds != null) { this.settings.rounds = this.chosenRounds; this.chosenRounds = null; }
     this.emit();
   }
 
   // ---- the host's controls ----
-  async pushSettings() { if (this.isHost) await this.broadcastLobby(); }
+  /** The host changed a setting: tell the room. */
+  async pushSettings() { if (!this.isHost) return; this.startNote = null; await this.broadcastLobby(); }
   async setCategory(category) {
     if (!this.isHost) return;
-    this.settings.category = category; this.settings.artist = null; this.artistSongs = []; this.catalogue = [];
+    this.settings.category = category; this.settings.artist = null; this.settings.album = null; this.albumArtist = null;
+    this.artistSongs = []; this.catalogue = []; this.startNote = null;
     this.emit(); await this.broadcastLobby();
   }
+  /** One artist's songs for the whole game: straight from the pool, or loaded from Apple for anyone else. */
   async setArtist(name, songs) {
     if (!this.isHost) return;
-    this.settings.artist = name; this.settings.category = 'all'; this.artistSongs = songs;
+    this.settings.artist = name; this.settings.album = null; this.albumArtist = null; this.settings.category = 'all'; this.artistSongs = songs;
     this.catalogue = songs.map(s => ({ id: s.id, title: s.title, artist: s.artist }));
+    this.startNote = null;
+    this.emit(); await this.broadcastLobby();
+  }
+  /**
+   * One album's songs, through the artist's own mechanism so older phones still play along: settings.artist
+   * carries the album's display name and the tracks go out as the catalogue; album tells newer phones it's an album.
+   */
+  async setAlbum(displayName, artist, songs) {
+    if (!this.isHost) return;
+    this.settings.artist = displayName; this.settings.album = true; this.albumArtist = artist; this.settings.category = 'all'; this.artistSongs = songs;
+    this.catalogue = songs.map(s => ({ id: s.id, title: s.title, artist: s.artist }));
+    this.startNote = null;
     this.emit(); await this.broadcastLobby();
   }
   // ---- teams (host only); the caller tells the room (pushSettings) ----
@@ -458,25 +613,38 @@ export class PartyGame {
   async skipRound() { if (this.isHost && this.roundOpen) await this.closeRound(); }
 
   /**
-   * Deal the game. The iPhone host checks every candidate against Apple
-   * Music; on the web a song is playable when it has a preview, so the check
-   * is local — three candidates a round, the first playable one is dealt.
+   * Deal the game. The iPhone host checks every candidate against Apple Music; on the web a song plays
+   * when it has a preview, so the check is local. Three candidates a round, the first playable one is dealt.
+   * Too few to play: the room stays open with a note rather than ending the party for everyone.
    */
   async start() {
     if (!this.isHost || this.preparingSongs) return;
-    this.preparingSongs = true; this.emit();
+    this.preparingSongs = true; this.startNote = null; this.emit();
     try {
       const rounds = int(this.settings.rounds);
       const candidates = this.drawCandidates(rounds, 3);
-      const ok = s => !!s.preview;
+      const ok = new Set(candidates.flat().filter(s => !!s.preview).map(s => s.id));
       const used = new Set(), picked = [];
-      for (const options of candidates) { const s = options.find(x => ok(x) && !used.has(x.id)); if (s) { picked.push(s); used.add(s.id); } }
-      for (const s of candidates.flat()) { if (picked.length >= rounds) break; if (ok(s) && !used.has(s.id)) { picked.push(s); used.add(s.id); } }
+      for (const options of candidates) { const s = options.find(x => ok.has(x.id) && !used.has(x.id)); if (s) { picked.push(s); used.add(s.id); } }
+      // Rounds that lost all three candidates borrow any playable leftover.
+      for (const s of candidates.flat()) { if (picked.length >= rounds) break; if (ok.has(s.id) && !used.has(s.id)) { picked.push(s); used.add(s.id); } }
       this.queue = picked;
+      if (this.queue.length < 2) {
+        const all = candidates.flat().length, a = this.settings.artist;
+        this.startNote = all < 2
+          ? (a ? (this.isAlbum ? `Too few songs on ${a}. Try another album.` : `Too few songs by ${a}. Try another artist.`) : 'Too few songs for these settings. Try another genre or decade.')
+          : !ok.size ? "Couldn't check the songs. Check your connection and try again."
+          : 'Not enough of those songs play on Apple Music here.';
+        return;
+      }
+      // Fewer songs than rounds: the game is as long as the songs, so every count, the final round and the mixed ladder agree.
+      const short = this.queue.length < rounds;
+      if (short) { this.chosenRounds = rounds; this.settings.rounds = this.queue.length; }
       this.deck = picked.map((s, i) => deal(s, this.tier(i), this.pool, this.artistSongs.length ? this.artistSongs : null, this.settings.category || 'all'));
-      if (this.queue.length < 2) { this.phase = 'error'; this.error = 'Not enough of those songs are available here.'; return; }
-      this.round = 0; this.heardRound = -1;
+      this.round = 0; this.heardRound = -1; this.departed = {};
       this.players.forEach(p => { p.score = 0; });
+      // Straight to the room, not debounced, so it lands before the first round.
+      if (short) await this.transport.send(Msg.lobby(this.players, this.settings));
       await this.openRound();
     } finally { this.preparingSongs = false; this.emit(); }
   }
@@ -485,7 +653,7 @@ export class PartyGame {
     for (let r = 0; r < rounds; r++) {
       const t = this.tier(r), options = [];
       if (this.artistSongs.length) {
-        // Artist mode: difficulty is catalogue depth — the best known songs Easy, the deep cuts Impossible.
+        // Artist (or album) mode: difficulty is catalogue depth — the best known songs Easy, the deep cuts Impossible.
         const band = Pool.depthBand(this.artistSongs, t);
         const fresh = shuffle((band.length ? band : this.artistSongs).filter(s => !seen.has(s.id)));
         const fallback = shuffle(this.artistSongs.filter(s => !seen.has(s.id)));
@@ -508,6 +676,7 @@ export class PartyGame {
       const m = Msg.finished(this.scoreMap());
       this.handle(m);
       await this.transport.send(m);
+      // Not after a quick "Play again": it would pull the room back to the podium.
       this.later(() => { if (this.phase === 'finished') this.transport.send(m); }, 1.2);
       return;
     }
@@ -517,8 +686,7 @@ export class PartyGame {
     const m = Msg.round({ index, songID: song.id, artwork: song.artwork, title: song.title, artist: song.artist,
       startAt, seconds: this.settings.clipSeconds, window: this.settings.guessWindow,
       choices: (this.deck[index] || []).map(toChoice) });
-    // The host starts the round itself, not on the room's echo, and says it twice: in a busy room the
-    // service can drop one message. Phones that heard it the first time ignore the repeat.
+    // The host starts the round itself, not on the room's echo, and says it twice.
     this.handle(m);
     await this.transport.send(m);
     this.later(() => { if (this.round === index) this.transport.send(m); }, 1.5);
@@ -527,8 +695,10 @@ export class PartyGame {
   async judge(playerID, songID, text, at) {
     if (!this.isHost || !this.roundOpen || this.round >= this.queue.length) return;
     if (this.answered.includes(playerID) || playerID in this.gainedThisRound) return;
+    // Only seats count towards closing the round: a phone that was turned away still hears the rounds.
+    if (!this.players.some(p => p.id === playerID)) return;
     const song = this.queue[this.round];
-    const correct = songID === song.id || norm(text) === norm(song.title) || norm(text) === norm(`${song.title} ${song.artist}`);
+    const correct = songID === song.id || namesSong(text, song.title, song.artist);
     const answered = () => Object.keys(this.gainedThisRound).length;
     if (!correct && songID != null && this.currentChoices.length) {
       this.gainedThisRound[playerID] = 0;
@@ -545,10 +715,7 @@ export class PartyGame {
     await this.announce(playerID, points);
     if (answered() >= this.players.length) await this.closeRound();
   }
-  /**
-   * Tell the room an answer was ruled. The host's own screen updates at once; a small room hears each
-   * answer as it lands, a big one gets them gathered once a second (under the service's message limit).
-   */
+  /** Tell the room an answer was ruled: a small room hears each one, a big one gets them gathered once a second. */
   async announce(playerID, points) {
     this.applyScore(playerID, points);
     if (this.players.length <= 10) { await this.transport.send(Msg.scored(playerID, points, Object.keys(this.gainedThisRound).length)); return; }
@@ -565,7 +732,6 @@ export class PartyGame {
     const song = this.queue[this.round], index = this.round;
     this.cancel(this.tallyFlush); this.tallyFlush = 0; this.pendingTally = {};   // the result carries every score
     const m = Msg.result({ index, title: song.title, artist: song.artist, artwork: song.artwork, gained: this.gainedThisRound, scores: this.scoreMap() });
-    // The host moves on at once rather than waiting for the echo, and says it twice.
     this.handle(m);
     await this.transport.send(m);
     this.later(() => { if (this.round === index && this.phase === 'result') this.transport.send(m); }, 1.2);
@@ -604,32 +770,42 @@ export class PartyGame {
     const m = decode(raw); if (!m) return;
     switch (m.kind) {
       case 'join': {
-        if (!this.isHost || this.kicked.has(m.player.id)) return;
+        if (!this.isHost) return;
+        // Turned away: say so, or that phone waits in a room it isn't in.
+        if (this.kicked.has(m.player.id)) { this.transport.send(Msg.refused(m.player.id, 'removed')); return; }
         // Already seated (a rejoin after a drop): just send the lobby back.
         if (!this.players.some(p => p.id === m.player.id)) {
-          if (this.players.length >= this.seatLimit) return;
+          if (this.players.length >= this.seatLimit) { this.transport.send(Msg.refused(m.player.id, 'full')); return; }
+          // A new seat is a guest's, with the points it had before a drop and no others: a join can't crown itself or name a score.
+          const score = this.departed[m.player.id] ?? 0; delete this.departed[m.player.id];
           const hue = Math.max(-1, ...this.players.map(p => p.hue)) + 1;
           // In a team game a newcomer joins the smallest team.
           const team = seatTeam(this.players, this.settings.teams);
-          this.players.push({ ...m.player, isHost: false, score: 0, hue, team });
+          this.players.push({ ...m.player, name: shownNameImpl(m.player.name), isHost: false, score, hue, team });
         }
         this.broadcastLobby(); this.emit();
         return;
       }
       case 'leave': {
         if (m.playerID === this.myID) return;
-        const wasHost = this.players.find(p => p.id === m.playerID)?.isHost;
-        this.players = this.players.filter(p => p.id !== m.playerID);
+        const p = this.players.find(x => x.id === m.playerID), wasHost = !!p?.isHost;
+        if (this.isHost && p) this.departed[p.id] = p.score;
+        this.players = this.players.filter(x => x.id !== m.playerID);
         if (this.isHost) this.broadcastLobby();
         else if (wasHost) { this.phase = 'error'; this.error = 'The host ended the party.'; }
         this.emit(); return;
       }
       case 'lobby':
-        if (!this.isHost) { this.players = m.players; this.settings = { ...freshSettings(), ...m.settings, artist: m.settings.artist || null }; }
+        if (!this.isHost) {
+          this.players = m.players.map(p => ({ ...p, name: shownNameImpl(p.name) }));
+          // As decoded on the iPhone: what the host sent, absent optionals stay absent (antiShazam absent counts as on).
+          const s = m.settings;
+          this.settings = { ...freshSettings(), ...s, artist: s.artist || null, album: s.album === true ? true : null, antiShazam: typeof s.antiShazam === 'boolean' ? s.antiShazam : null, teams: s.teams || null };
+        }
         // Our join was lost on the way: the lobby doesn't list us, so ask again, every few seconds at most.
         if (!this.isHost && !m.players.some(p => p.id === this.myID) && Date.now() - (this.lastJoinSent || 0) > 3000) {
           this.lastJoinSent = Date.now();
-          this.transport.send(Msg.join({ id: this.myID, name: this.myName, isHost: false, score: 0, avatar: this.myAvatar || null, hue: 0 }));
+          this.transport.send(Msg.join(this.joinPlayer()));
         }
         if (this.phase === 'connecting') this.phase = 'lobby';
         // The podium stays up until the host sends "again".
@@ -647,19 +823,23 @@ export class PartyGame {
         this.roundStartedAt = m.startAt; this.roundWindow = m.window; this.roundSeconds = m.seconds || m.window;
         this.answered = []; this.myPoints = null; this.gainedThisRound = {}; this.lastGained = {};
         const wait = m.startAt - this.now, i = m.index;
-        this.phase = wait > 0 ? 'countdown' : 'playing';
-        if (wait > 0) this.later(() => { if (this.phase === 'countdown' && this.round === i) { this.phase = 'playing'; this.emit(); } }, wait);
+        this.phase = 'countdown';
+        this.later(() => { if (this.phase === 'countdown' && this.round === i && !this.holdCountdown) { this.phase = 'playing'; this.emit(); } }, Math.max(0, wait));
         if (this.isHost) {
-          // Songbot plays like a person: right about seven times in ten, at a human speed; a wrong tap costs it the round.
+          // Songbot, the friend who always says yes: it plays like a person at the level the host picked.
+          const level = BOT_LEVELS.find(l => l.key === this.botLevel) || BOT_LEVELS[0];
           for (const p of this.players.filter(x => x.id.startsWith('bot-'))) {
-            const right = Math.random() < 0.7, delay = Math.max(0, wait) + 2.5 + Math.random() * (Math.max(3, m.window * 0.7) - 2.5);
+            const right = Math.random() < level.rightRate, [lo, hi] = level.answerAt;
+            const latest = Math.max(lo, Math.min(hi, m.window - 1));
+            const delay = Math.max(0, wait) + lo + Math.random() * (latest - lo);
             const wrongs = (m.choices || []).filter(c => c.id !== m.songID), wrongPick = wrongs.length ? wrongs[Math.floor(Math.random() * wrongs.length)].id : null;
             this.later(() => { if (this.round !== i) return; if (right) this.judge(p.id, m.songID, '', this.now); else if (wrongPick) this.judge(p.id, wrongPick, '', this.now); }, delay);
           }
           if (this.demo) for (const p of this.players.filter(x => x.id.startsWith('demo-'))) {
-            if (Math.random() >= 0.75) continue;
             const delay = Math.max(0, wait) + 1.5 + Math.random() * (Math.max(2, m.window - 1) - 1.5);
-            this.later(() => { if (this.round === i) this.judge(p.id, m.songID, '', this.now); }, delay);
+            const wrongs = (m.choices || []).filter(c => c.id !== m.songID);
+            const pick = Math.random() < 0.75 || !wrongs.length ? m.songID : wrongs[Math.floor(Math.random() * wrongs.length)].id;
+            this.later(() => { if (this.round === i) this.judge(p.id, pick, '', this.now); }, delay);
           }
           this.roundOpen = true; clearTimeout(this.closer);
           this.closer = setTimeout(() => this.closeRound(), (Math.max(0, wait) + m.window + 0.5) * 1000);
@@ -678,15 +858,22 @@ export class PartyGame {
       case 'result':
         // A repeat that arrives after the next round has begun is old news.
         if (this.heardRound > m.index) return;
+        // A big room's last answers were still waiting in the tally: count them before the result locks the round.
+        for (const [id, pts] of Object.entries(m.gained)) this.applyScore(id, pts);
         for (const [id, s] of Object.entries(m.scores)) { const p = this.players.find(x => x.id === id); if (p) p.score = s; }
         this.lastGained = m.gained; this.lastAnswer = { title: m.title, artist: m.artist, artwork: m.artwork };
         if (!this.history.some(r => r.id === m.index)) this.history.push({ id: m.index, title: m.title, artist: m.artist, artwork: m.artwork, gained: m.gained });
         this.round = m.index; this.phase = 'result'; this.emit(); return;
       case 'finished':
+        // A late copy must not pull a fresh lobby back to the podium.
+        if (this.phase === 'lobby') return;
         for (const [id, s] of Object.entries(m.scores)) { const p = this.players.find(x => x.id === id); if (p) p.score = s; }
+        if (this.phase !== 'finished') this.finalPlayers = this.sortedPlayers;
         this.phase = 'finished'; this.emit(); return;
       case 'again':
         this.round = 0; this.current = null; this.players.forEach(p => { p.score = 0; });
+        // A game cut short by too few songs: the next is as long as the host chose.
+        if (this.isHost && this.chosenRounds != null) { this.settings.rounds = this.chosenRounds; this.chosenRounds = null; }
         this.phase = 'lobby';
         if (this.isHost) this.broadcastLobby();
         this.emit(); return;
@@ -700,52 +887,61 @@ export class PartyGame {
           this.transport.leave();
         }
         this.emit(); return;
+      case 'refused':
+        // Only a phone without a seat can be turned away.
+        if (m.playerID !== this.myID || this.isHost || this.players.some(p => p.id === this.myID)) return;
+        this.phase = 'error'; this.error = m.reason === 'removed' ? 'The host removed you from the party.' : 'That room is full.';
+        this.transport.leave();
+        this.emit(); return;
       case 'ping': {
-        // Replies are gathered for a quarter second and sent as one.
+        // Replies are gathered for a quarter second and sent as one, stamped with when they really went.
         if (!this.isHost) return;
         this.pendingPongs.push({ id: m.id, sent: m.sent, hostNow: this.now });
         if (!this.pongFlush) this.pongFlush = this.later(() => {
-          const batch = this.pendingPongs;
+          const sentAt = this.now, batch = this.pendingPongs.map(e => ({ ...e, hostSent: sentAt }));
           this.pendingPongs = []; this.pongFlush = 0;
           if (batch.length) this.transport.send(Msg.pongs(batch));
         }, 0.25);
         return;
       }
       case 'pongs':
-        for (const e of m.entries) if (this.pings.has(e.id)) this.gotPong(e.id, e.hostNow);
+        for (const e of m.entries) this.clockReply(e.id, e.hostNow, e.hostSent);
         return;
       case 'pong':
-        this.gotPong(m.id, m.hostNow);
+        this.clockReply(m.id, m.hostNow, null);
         return;
     }
   }
-  gotPong(id, hostNow) {
+  /** One clock reply, the four-timestamp sum: what the host held the reply for is taken out of the trip, so only the travel is halved. */
+  clockReply(id, hostNow, hostSent) {
     const t0 = this.pings.get(id); if (t0 == null) return;
     this.pings.delete(id);
-    const rtt = nowSecs() - t0;
-    // Host time at the midpoint of the round trip; keep the tightest sample.
-    if (rtt < this.bestRtt) { this.bestRtt = rtt; this.clockOffset = hostNow + rtt / 2 - nowSecs(); }
+    const t3 = nowSecs();
+    const held = Math.max(0, (hostSent ?? hostNow) - hostNow);
+    const travel = Math.max(0, t3 - t0 - held);
+    this.pingRTT.set(id, { travel, offset: hostNow + held + travel / 2 - t3 });
   }
-  /** Five quick round trips, keep the tightest — the phones' own clock trick. Each waits 450 ms for its reply. */
+  /** Five quick round trips 450 ms apart; the tightest trip sets the clock, and the best so far counts at once (a round can open mid-measure). */
   async measureClock() {
-    this.bestRtt = Infinity;
+    let best = Infinity, bestOffset = 0;
     for (let k = 0; k < 5; k++) {
       const id = uuid(), t0 = nowSecs();
       this.pings.set(id, t0);
       await this.toHost(Msg.ping(id, t0));
       await new Promise(r => setTimeout(r, 450));
+      const r = this.pingRTT.get(id); this.pingRTT.delete(id);
+      if (r && r.travel < best) { best = r.travel; bestOffset = r.offset; }
+      this.pings.delete(id);   // a reply later than this is too slow to trust
+      if (best < Infinity) this.clockOffset = bestOffset;
     }
+    this.clockTrip = best;
   }
-  /**
-   * The lobby, to everyone. Joins arrive in bursts and every lobby goes to every phone, so a burst is
-   * gathered into one send (400 ms): forty lobbies to forty phones tripped the service's message limit.
-   */
+  /** The lobby, to everyone, a burst of joins gathered into one send (400 ms), the catalogue riding along. */
   async broadcastLobby() {
     this.cancel(this.lobbyTimer);
     this.lobbyTimer = this.later(async () => {
       this.lobbyTimer = 0;
       await this.transport.send(Msg.lobby(this.players, this.settings));
-      // Late joiners need the artist's songs too, so they ride with the lobby — only when there is a catalogue to send (or once to clear it).
       if (this.catalogue.length || this.sentCatalogue) {
         this.sentCatalogue = this.catalogue.length > 0;
         await this.transport.send(Msg.catalogue(this.catalogue));
@@ -757,13 +953,22 @@ export class PartyGame {
     if (this.isHost) await this.broadcastLobby();
     else if (this.me) { await this.transport.send(Msg.join(this.me)); await this.measureClock(); }
   }
-  /** Someone missing from presence may only have switched apps for a moment: twenty seconds to come back before their seat goes. */
+  /** Someone missing from presence may only have switched apps: twenty seconds to come back (a guest gives a missing host thirty). */
   prune(ids) {
     clearTimeout(this.pruneTimer);
-    this.pruneTimer = setTimeout(() => this.pruneNow(ids), 20000);
+    this.pruneTimer = setTimeout(() => this.pruneNow(ids), (this.isHost ? 20 : 30) * 1000);
   }
   pruneNow(ids) {
-    if (!this.isHost || !ids.length || this.phase === 'idle') return;
+    if (!ids.length) return;
+    if (!this.isHost) {
+      // Only the host runs the room. Gone from it this long, it has crashed, been closed or lost the network.
+      if (['idle', 'connecting', 'error'].includes(this.phase)) return;
+      const h = this.players.find(p => p.isHost)?.id;
+      if (h && !ids.includes(h)) { this.phase = 'error'; this.error = 'The host left the party.'; this.emit(); }
+      return;
+    }
+    // Their points wait for them, in case they come back this game.
+    for (const p of this.players) if (!ids.includes(p.id) && p.id !== this.myID) this.departed[p.id] = p.score;
     const before = this.players.length;
     this.players = this.players.filter(p => ids.includes(p.id) || p.id === this.myID || p.id.startsWith('bot-') || p.id.startsWith('demo-'));
     if (this.players.length !== before) { this.broadcastLobby(); this.emit(); }
