@@ -21,6 +21,11 @@ Run locally: `python3 serve.py 8765` then open http://127.0.0.1:8765 (the `api/`
 so locally the premium sheet shows "coming soon"). Localhost-only test knobs: `?premium=1`,
 `?open=daily|ranked|party|profile|premium|drawer|genres|artists|faq|login`, `?demo=win|lost|offer|hits`,
 `?song=<id>`, `?ads=1` (loads the ad library in test mode).
+Profile/characters (localhost only): `?demoProfile=1` (a signed-in demo player with demo stats, nothing sent to
+Supabase; with `&playerName=Liv`, `&demoAvatar=58`, `&demoNamed=420`, `&premium=1`), `?profilePage=stats|ranked|settings`,
+`?creatorCodes=1` (show Settings > Creator code), `?picker=1` (open Edit avatar) — e.g.
+`?open=profile&demoProfile=1&profilePage=ranked` or `?tab=profile&demoProfile=1`.
+Every other knob (tabs, seasons, ranked, party, daily, friends, paywall) and the web ↔ iPhone gap list: `PARITY-WEB.md`.
 
 ## Premium through Stripe — what the owner has to do
 
