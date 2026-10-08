@@ -51,7 +51,7 @@ cd ~/Developer/songspot && python3 serve.py 8765     # then open http://127.0.0.
 | `?paywallTrial=1`, `?adBreak` | paywall trial layout, one test ad break |
 | `/app/dev/kit.html` | the design kit on one page |
 
-Headless screenshot helpers live in `~/Developer/songspot-assets/web-parity-2026-10-08/tools/` (`shot.mjs`, `final.mjs` =
+Checked headless in Chrome (390 and 1440) and in WebKit as iPhone Safari (390): no page errors on any screen. Headless screenshot helpers live in `~/Developer/songspot-assets/web-parity-2026-10-08/tools/` (`shot.mjs`, `final.mjs` =
 every screen at 390 and 1440, `sheet.py` = side-by-side sheet, plus per-area Playwright scripts).
 
 ---
@@ -287,6 +287,7 @@ every screen at 390 and 1440, `sheet.py` = side-by-side sheet, plus per-area Pla
 | Save to Photos, Game Center, icon quick action, ATT | none |
 
 ## Still open (owner decisions or server work)
+- The iPhone paywall is being reworked in uncommitted iOS edits (seen on the simulator 8 Oct from 22:31: colour perk tiles, a Free vs Premium table, FAQ, a "Wait, one more thing" 25%-off downsell). The web follows the committed HEAD paywall; port the new one once it is committed.
 - Stripe keys/prices on Vercel (README) — until then the paywall says "coming soon".
 - The gift offer on the web needs a Stripe gift price + subscription schedule + webhook renewal state.
 - CORS on the `push` edge function, so web players can push iPhone friends.
