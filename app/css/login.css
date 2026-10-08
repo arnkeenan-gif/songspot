@@ -1,0 +1,15 @@
+/* Sign in — iOS Auth/LoginGateView.swift. Loaded by login.js on top of the .login base in app.css:
+   the ghosted wordmark dead centre where the splash leaves it, the ways in rising from the bottom. */
+.login:not(.forced) { justify-content: flex-end; padding: 0 28px calc(34px + var(--sab)); }
+.login:not(.forced) .wordmark { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); margin: 0; text-align: center; line-height: 1; pointer-events: none; }
+html.wide .login:not(.forced) { padding-bottom: 46px; }
+.login .inner { gap: 11px; }
+.login .inner.rise { animation: lgRise .55s cubic-bezier(0,0,.58,1) .15s both; }
+@keyframes lgRise { from { opacity: 0; transform: translateY(14px); } }
+.login .oauth { border-radius: 14px; font-size: 19.5px; font-weight: 500; color: rgba(0,0,0,.86); gap: 11px; }
+.login .oauth .i { font-size: 18px; }
+.login .oauth:disabled { opacity: .55; }
+.login .toggle { margin-top: 10px; font-size: 13.5px; font-weight: 600; }
+.login .lg-sync { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+/* In the Profile tab for a guest: the same gate, filling the page under the tab title row. */
+.login.lg-inline { position: absolute; inset: 0; z-index: 1; padding-bottom: calc(34px + 84px + var(--sab)); }
