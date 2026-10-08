@@ -12,42 +12,29 @@
 /* round → result cross-fades (.easeOut .28): the leaving screen sits on top of the new one while it fades */
 .daily .screen.d-leaving { position: absolute; top: 0; left: 0; right: 0; pointer-events: none; }
 .daily .d-round > * { width: 100%; }
-.daily .d-round .wordmark { font-size: 48px; line-height: 48px; height: 48px; letter-spacing: -1.44px; color: rgba(255,255,255,.08); margin-bottom: 40px; text-align: center; user-select: none; white-space: nowrap; }
-.daily .timeline { margin-bottom: 53px; }
+html .view.daily .timeline { margin-bottom: 53px; }
 .daily .marker .caret { display: block; color: var(--accent); }
 .daily .marker .caret svg { display: block; width: 10px; height: 5px; }
-.daily .playrow { margin-bottom: 25px; }
+html .view.daily .playrow { margin-bottom: 25px; }
+html .view.daily .guessrow .keys { gap: 8px; }
+html .view.daily .key { font-size: 13.5px; }
 .daily .disc svg.sweep { inset: -2.56px; }
 /* the play row: the length 16pt right of the 120pt disc, 17pt mono */
 .daily .seconds { left: calc(50% + 60px + 16px); font-size: 17px; }
 
-/* DailyView's guess row: a 50pt field (no magnifier), the 50pt hint key, an 88pt Skip that fills when armed */
-.daily .field { height: 50px; border-radius: 12px; }
-.daily .field input { padding: 0 14px 0 16px; font-size: 15px; border-radius: 12px; }
-.daily .key { height: 50px; border-radius: 12px; }
-.daily .hintkey { width: 50px; height: 50px; font-size: 18px; }
-.daily .hintkey .i { width: 24px; height: 24px; }  /* the glyph sits inset in its box; this reads as the 18pt SF symbol */
-.daily .skip { width: 88px; font-size: 13.5px; gap: 6px; }
+/* DailyView's guess row: a 50pt field (no magnifier), an 88pt Skip that fills when armed (no hint key since 5a4e411) */
+html .view.daily .field { height: 50px; border-radius: 12px; }
+html .view.daily .field input { padding: 0 14px 0 16px; font-size: 15px; border-radius: 12px; }
+html .view.daily .key { height: 50px; border-radius: 12px; }
+html .view.daily .skip, html .view.daily .offer .answer { width: 88px; font-size: 13.5px; gap: 6px; }
 .daily .skip.armed { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .daily .hits { bottom: calc(100% + 8px); border-radius: 14px; box-shadow: 0 18px 44px rgba(0,0,0,.6); max-height: none; }
 .daily .hit { height: 54px; padding: 0 14px; }
 .daily .hit b { font-size: 14.5px; font-weight: 600; }
 .daily .hit span { font-size: 12.5px; }
 
-/* the hint key's badge: how many are left, like an app badge */
-.daily .hintkey { position: relative; overflow: visible; }
-.daily .hintkey .i { filter: drop-shadow(0 0 6px rgba(247,200,35,.45)); }
-.daily .hintkey.used .i { filter: none; }
-.daily .hintkey .i.d-gone { position: absolute; }
-.d-badge { position: absolute; top: -5px; right: -5px; width: 17px; height: 17px; border-radius: 50%; background: var(--gold); color: #171004; font: 800 10px/17px ui-rounded, "SF Pro Rounded", Inter, system-ui, sans-serif; text-align: center; pointer-events: none; }
-
-/* the hints taken, a quiet line that always keeps its room */
-.d-hintline { height: 24px; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; overflow: hidden; }
-.d-hintline .bulb { color: var(--gold); font-size: 11px; display: inline-flex; }
-.d-hintline span { font-size: 12.5px; font-weight: 600; color: var(--muted); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.d-hintline .bulb { flex: none; }
-.d-hintline i { font-style: normal; font-size: 12.5px; color: var(--dim); }
-.d-hintline img { width: 20px; height: 20px; border-radius: 4px; object-fit: cover; flex: none; background: var(--surface2); }
+/* the room the hint line used to take, so the round keeps its rhythm */
+.d-hintline { height: 24px; margin-top: 12px; }
 .d-err { margin-top: 10px; font-size: 12px; color: var(--expert); text-align: center; min-height: 15px; transition: opacity .2s; }
 
 /* a hint arrives as a toast at the top, then gets out of the way */
@@ -63,15 +50,7 @@
 .d-result h2 { margin: 16px 0 0; font-size: 24px; font-weight: 800; font-style: italic; letter-spacing: -.7px; line-height: 1.15; color: var(--text); overflow-wrap: anywhere; }
 .d-artist { margin-top: 3px; font-size: 14.5px; color: var(--muted); }
 .d-stamp { margin-top: 14px; padding: 7px 12px; border-radius: 7px; font-size: 11px; font-weight: 800; letter-spacing: 2px; color: var(--s); background: color-mix(in srgb, var(--s) 14%, transparent); }
-.d-figs { display: flex; width: 100%; margin-top: 16px; }
-.d-figs > div { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.d-figs b { font-size: 24px; font-weight: 800; font-style: italic; letter-spacing: -.8px; line-height: 1.2; color: var(--text); padding-right: 2px; }
-.d-figs .lit b { color: var(--accent); }
-.d-figs span { font-size: 9px; font-weight: 600; letter-spacing: 1.4px; color: var(--muted); text-transform: uppercase; }
-.d-share { margin-top: 18px; width: 100%; height: 48px; border-radius: 12px; background: var(--accent); color: var(--accent-ink); display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 800; }
-.d-share .i { font-size: 13px; }
 
-.d-board { margin-top: 26px; width: 100%; padding: 16px; border-radius: 12px; text-align: left; }
 .d-bhead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 .d-bhead span { font-size: 10px; font-weight: 600; letter-spacing: 1.8px; color: var(--muted); }
 .d-bhead small { font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
@@ -80,17 +59,14 @@
 .d-row + .d-row { border-top: 1px solid var(--line); }
 .d-row .pl { width: 20px; flex: none; font: 800 12.5px var(--mono); color: var(--dim); }
 .d-row .pl.top { color: var(--accent); }
-.d-row .face { width: 30px; height: 30px; font-size: 12px !important; }
+.d-row .cface { flex: none; }
 .d-row .nm { flex: 0 1 auto; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .d-row.me .nm { font-weight: 800; color: var(--accent); }
 .d-row .hb { display: inline-flex; gap: 2px; color: var(--gold); font-size: 11px; flex: none; }
 /* one width, so the points line up down the list */
 .pill-t { flex: none; width: 62px; height: 26px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--muted); background: var(--surface2); white-space: nowrap; }
-.pill-t.won { color: #08120c; background: #1ed760; box-shadow: 0 0 3px rgba(30,215,96,.42); }
+.pill-t.won { color: var(--pill-ink, #08120c); background: var(--pill-lit, #1ed760); box-shadow: 0 0 3px color-mix(in srgb, var(--pill-lit, #1ed760) 42%, transparent); }
 .noglow .pill-t.won { box-shadow: none; }
-.d-row .pts { flex: none; font: 800 12.5px var(--mono); color: var(--text); }
-.d-row.me .pts { color: var(--accent); }
-.d-noface { width: 30px; height: 30px; background: var(--surface2); color: var(--muted); font-size: 12px; }
 .d-bmsg { margin: 0; padding: 18px 0; font-size: 12.5px; color: var(--muted); }
 /* Friends / Everyone */
 .d-tabs { display: flex; gap: 6px; }
@@ -100,7 +76,7 @@
 .d-row .rk-fill { flex: 1; min-width: 6px; }
 .d-row.yet { opacity: .6; }
 .d-row .fs { display: inline-flex; align-items: center; gap: 2px; color: var(--hard); flex: none; }
-.d-row .fs .i { font-size: 10px; } .d-row .fs b { font: 800 11.5px var(--mono); }
+.d-row .fs .i { font-size: 13px; } .d-row .fs b { font: 800 11.5px var(--mono); }
 /* the skeleton rows while the board loads, with a sweep of light */
 .d-skel > div { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
 .d-skel i { display: block; background: var(--surface2); border-radius: 4px; }
@@ -133,20 +109,66 @@
 .d-confirm .cancel { width: 100%; height: 57px; font-size: 20px; font-weight: 600; color: var(--easy); text-align: center; }
 @media (prefers-reduced-motion: reduce) { .d-confirm * { transition-duration: .01ms !important; } }
 
-/* wide screens: the stage's own 400pt column and desktop metrics */
-html.wide {
-  .daily .d-round { padding: 0 20px; }
-  .daily .d-round .wordmark { font-size: 58px; height: 64px; line-height: 64px; letter-spacing: -1.74px; }
-  .daily .timeline { margin-bottom: 55px; }
-  .daily .playrow { margin-bottom: 24px; }
-}
-
-/* ---------- desktop: one stacked column, a little larger (the owner wants desktop screens stacked) ---------- */
-.d-rmain, .d-rside { display: contents; }
-html.xwide {
-  .daily .screen:has(.d-result) { max-width: 560px; }
-  .d-art { width: 180px; height: 180px; border-radius: 16px; }
-  .d-result h2 { font-size: 28px; }
-}
 /* the PC / phone switch sits in the top-right corner: keep the close button clear of it */
 @media (max-width: 1200px) { html.xwide body.has-viewtoggle .daily .screen:has(.d-result) .d-bar .xbtn { margin-right: 96px; } }
+
+/* ================= iOS 810f015: badge, panels, board chrome, season ================= */
+/* the page behind: SeasonBackdrop (Theme.page), or SeasonNight in a season */
+.view.daily > .d-back { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+.view.daily > .screen { position: relative; z-index: 1; }
+
+/* the badge: 60pt icon, DAILY CHALLENGE over the line, 14/12 padding, 30pt to the timeline */
+.daily .d-badge { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 30px; text-align: left; }
+.d-bicon { width: 60px; height: 60px; margin: -6px 0; flex: none; display: grid; place-items: center; }
+.d-bicon .d-sicon { width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 3px 4px rgba(0,0,0,.35)); }
+.d-btext { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.d-btext b { font-size: 20px; font-weight: 900; font-style: italic; letter-spacing: -.4px; line-height: 24px; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.d-btext small { font-size: 12px; font-weight: 600; line-height: 15px; color: rgba(255,255,255,.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the desk calendar with the streak on its page (#10804a, 19pt / 7pt black italic, 36 wide, x-1 y6 on a 60pt icon) */
+.d-cal { position: relative; width: var(--s); height: var(--s); display: block; flex: none; }
+.d-cal img { width: 100%; height: 100%; object-fit: contain; display: block; filter: drop-shadow(0 3px 4px rgba(0,0,0,.3)); }
+.d-calpage { position: absolute; left: 50%; top: 50%; width: calc(var(--s) * .6); transform: translate(calc(-50% - var(--s) / 60), calc(-50% + var(--s) / 10)); display: flex; flex-direction: column; align-items: center; color: #10804a; font-style: italic; font-weight: 900; line-height: 1; }
+.d-calpage b { font-size: calc(var(--s) * .3167); font-weight: 900; font-variant-numeric: tabular-nums; line-height: .95; }
+.d-calpage i { font-size: calc(var(--s) * .1167); font-weight: 900; margin-top: -1px; }
+
+
+/* Points · Streak · Today in one panel (radius 18, v14, 24 in) */
+.d-result .d-figs { display: flex; align-items: center; width: 100%; margin-top: 16px; padding: 14px 0; }
+.d-fig { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+.d-fig b { font-size: 26px; font-weight: 900; font-style: italic; letter-spacing: -.8px; line-height: 31px; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.3); padding-right: 2px; }
+.d-fig.dim b { color: rgba(255,255,255,.7); }
+.d-fig span { font-size: 9.5px; font-weight: 900; letter-spacing: 1.4px; line-height: 12px; color: rgba(255,255,255,.85); }
+.d-figrule { width: 1px; height: 36px; background: rgba(255,255,255,.2); flex: none; }
+
+/* Share: GlossyLabel 52 high, the icon 20 in */
+.d-result .d-share { margin-top: 18px; width: 100%; display: block; padding: 0; position: relative; background: none; border: 0; }
+.d-share .k-glossy { display: block; width: 100%; }
+.d-share .k-gt { width: 100%; }
+.d-share .d-gicon { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); color: #fff; display: inline-flex; font-size: 20px; z-index: 1; pointer-events: none; }
+.d-share .d-gicon .i { stroke-width: 2.6; }
+
+/* today's board: the purple strip with the crown, the rows on the surface beneath */
+.d-result .d-board { margin-top: 26px; width: 100%; text-align: left; position: relative; border-radius: 18px; overflow: hidden; background: var(--surface); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); padding: 0; }
+.d-bstrip { height: 58px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; position: relative;
+  background: linear-gradient(rgba(255,255,255,.15), transparent 50%), linear-gradient(135deg, var(--purple0, #c77dff), var(--purple1, #7b2ff7) 50%, var(--purple2, #3a0ca3)); }
+.d-bstrip b { font-size: 18px; font-weight: 900; font-style: italic; letter-spacing: -.4px; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.3); }
+.d-bstrip img { width: 46px; height: 46px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,.3)); }
+.d-bbody { padding: 16px; }
+.d-first { font-size: 10px; font-weight: 600; letter-spacing: 1.8px; color: var(--muted); }
+.d-gap { height: 22px; display: grid; place-items: center; font-size: 14px; font-weight: 800; color: var(--dim); letter-spacing: 1px; }
+.d-rule { height: 1px; background: var(--line); }
+.d-invite { padding: 14px 0 8px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.d-invite p { margin: 0; font-size: 13px; line-height: 1.3; color: var(--muted); }
+.d-invbtn { height: 34px; padding: 0 14px; border-radius: 17px; background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 800; }
+
+/* the disc while the server's song is on its way: the large ProgressView in the ink */
+.d-spinner { position: relative; width: 37px; height: 37px; color: var(--accent-ink); animation: d-spin 1s steps(12) infinite; }
+.d-spinner i { position: absolute; left: 50%; top: 0; width: 4px; height: 11px; margin-left: -2px; border-radius: 2px; background: currentColor; transform-origin: 2px 18.5px; }
+@keyframes d-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .d-spinner { animation-duration: 3s; } }
+
+/* wide: the round in the stage's column + 32 (432 / 552), the result and the bar in 460 / 560 */
+html.wide .daily .screen { max-width: 460px; }
+html.wide .daily .d-round { max-width: 432px; width: 100%; margin: 0 auto; padding: 0 16px; }
+html.xwide .daily .screen { max-width: 560px; }
+html.xwide .daily .d-round { max-width: 552px; }
