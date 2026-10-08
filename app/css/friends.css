@@ -1,91 +1,103 @@
-/* FriendsView.swift, FriendQRSheet and ChallengeBanner. Loaded at boot: the banner can drop in on any screen. */
+/* FriendsView.swift (colour panels), FriendQRSheet, FriendScannerSheet and ChallengeBanner.
+   Loaded at boot: the banner can drop in on any screen. px = pt. */
 
-/* ---- the sheet ---- */
-.friends-sheet .sheet-body { background: var(--page); display: flex; flex-direction: column; }
-.friends-v { flex: 1; display: flex; flex-direction: column; min-height: 100%; }
+/* ---- the page: SeasonBackdrop behind, 18 side padding, 14 between panels, the first 18 down ---- */
+.friends-v { position: relative; display: flex; flex-direction: column; min-height: 100%; color: var(--text); }
+.friends-v > .season-backdrop.fixed { position: fixed; z-index: 0; }
+.friends-v > .fv-top, .friends-v > .fv-main { position: relative; z-index: 1; }
+.friends-v.in-tab { min-height: 100%; }
 .fv-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px 0; flex: none; }
 .fv-title { font-size: 19px; font-weight: 800; font-style: italic; letter-spacing: -.57px; color: rgba(255,255,255,.55); }
 .fv-main { flex: 1; display: flex; flex-direction: column; }
-.fv-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 40px 32px; text-align: center; }
-.fv-empty { gap: 10px; }
-.fv-etile { width: 56px; height: 56px; border-radius: 14px; display: grid; place-items: center; color: var(--easy); background: rgba(25,223,112,.14); font-size: 22px; }
-.fv-etile .i { width: 1.1em; height: 1.1em; }
-.fv-empty b { margin-top: 4px; font-size: 17px; font-weight: 800; font-style: italic; letter-spacing: -.4px; color: var(--text); }
-.fv-empty p { margin: 0 0 8px; max-width: 280px; font-size: 13.5px; line-height: 1.4; color: var(--muted); }
-.fv-none { margin: 0; padding: 16px; font-size: 13.5px; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
-.fv-get { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 22px; background: var(--easy); color: #04160b; font-size: 14px; font-weight: 800; text-decoration: none; }
-.fv-scroll { padding: 22px 24px 40px; }
-.fv-label { margin: 26px 0 10px; font-size: 10px; font-weight: 600; letter-spacing: 1.8px; text-transform: uppercase; color: var(--muted); }
+.fv-col { display: flex; flex-direction: column; gap: 14px; padding: 18px 18px 40px; }
+.friends-v.in-tab .fv-col { padding-bottom: calc(40px + 52px + var(--sab, 0px)); }
+.fv-out { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 0 18px; }
+.friends-v.in-tab .fv-out { padding-bottom: calc(52px + var(--sab, 0px)); }
+.fv-signin { display: block; width: 100%; padding: 0; text-align: left; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; }
+/* bigColumn(): 460 wide, 560 extra wide */
+html.wide .fv-col, html.wide .fv-out > * { width: 100%; max-width: min(460px, calc(100vw - 32px)); margin-left: auto; margin-right: auto; box-sizing: border-box; }
+html.xwide .fv-col, html.xwide .fv-out > * { max-width: min(560px, calc(100vw - 32px)); }
+html.wide .fv-col { padding-left: 0; padding-right: 0; }
+html.wide .fv-head { width: 100%; max-width: min(460px, calc(100vw - 32px)); margin: 0 auto; box-sizing: border-box; }
+html.xwide .fv-head { max-width: min(560px, calc(100vw - 32px)); }
 
-/* your code: one card, the code big in mono, three round buttons */
-.fv-code { padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
-.fv-codehd { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.fv-codehd .fv-label { margin: 0 0 10px; }
-.fv-codehd small { font-size: 11px; color: var(--dim); margin-bottom: 10px; text-align: right; }
-.fv-coderow { display: flex; align-items: center; gap: 8px; }
-.fv-codev { flex: 1; min-width: 0; font: 800 30px/1 var(--mono); letter-spacing: 3px; color: var(--text); user-select: all; -webkit-user-select: all; }
-.fv-codev.none { color: var(--dim); user-select: none; }
-.fv-cbtn { width: 40px; height: 40px; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); display: grid; place-items: center; color: var(--text); font-size: 15px; flex: none; }
-.fv-cbtn[aria-label^="Copy"] { color: var(--muted); font-size: 14px; }
-.fv-cbtn.copied { color: var(--easy); }
-.fv-cbtn .i { width: 1.1em; height: 1.1em; }
+/* Friends as a full-screen cover, not a card sheet (and the scanner the same): slides up on a phone, fades in on a computer */
+.view.sheet.fv-sheet .sheet-body, .view.sheet.fsc-sheet .sheet-body { top: 0; left: 0; right: 0; bottom: 0; width: auto; height: auto; max-width: none; max-height: none; border: 0; border-radius: 0; box-shadow: none; padding: var(--sat, 0px) 0 var(--sab, 0px); background: var(--page); }
+.view.sheet.fsc-sheet .sheet-body { background: #000; padding: 0; overflow: hidden; }
+html.wide .view.sheet.fv-sheet .sheet-body, html.wide .view.sheet.fsc-sheet .sheet-body { top: 0; left: 0; right: 0; bottom: 0; width: auto; height: auto; max-height: none; border: 0; border-radius: 0; box-shadow: none; transform: none; }
+html.wide .view.sheet.fv-sheet.in .sheet-body, html.wide .view.sheet.fsc-sheet.in .sheet-body { transform: none; opacity: 1; }
+html.phonemode .view.sheet.fv-sheet .sheet-body, html.phonemode .view.sheet.fsc-sheet .sheet-body { left: calc(50% - 215px); right: auto; width: 430px; }
 
-/* add a friend's code */
-.fv-add { margin-top: 14px; }
+/* ---- Your code: the strip (black .2, r14, white .1 edge), the code, three glass discs ---- */
+.fv-strip { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; background: rgba(0,0,0,.2); border-radius: 14px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); }
+.fv-codev { min-width: 0; overflow: hidden; white-space: nowrap; font: 900 30px/36px var(--mono); letter-spacing: 3px; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.25); user-select: all; -webkit-user-select: all; }
+.fv-codev.none { color: rgba(255,255,255,.5); user-select: none; -webkit-user-select: none; }
+.fv-sp { flex: 1; min-width: 4px; }
+.fv-glass { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 14px; background: rgba(255,255,255,.18); box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); border: 0; padding: 0; }
+.fv-glass .i { width: 1.15em; height: 1.15em; }
+
+/* ---- Add a friend: the CODE field, the scan button, ADD ---- */
 .fv-addrow { display: flex; gap: 8px; }
-.fv-in { flex: 1; min-width: 0; height: 48px; padding: 0 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); outline: 0; font: 600 15px var(--mono); color: var(--text); text-transform: uppercase; }
-.fv-in::placeholder { font: 15px Inter, -apple-system, system-ui, sans-serif; color: var(--muted); opacity: 1; text-transform: none; }
-.fv-in:focus { border-color: color-mix(in srgb, var(--easy) 45%, var(--line)); }
-/* greyed until the code is whole, rather than a faded green */
-.fv-addbtn { width: 74px; height: 48px; flex: none; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); color: var(--dim); font-size: 14px; font-weight: 700; display: grid; place-items: center; transition: background .15s, color .15s, border-color .15s; }
-.fv-addbtn.on { background: var(--easy); border-color: var(--easy); color: #04160b; }
+.fv-in { flex: 1; min-width: 0; height: 48px; padding: 0 14px; box-sizing: border-box; border-radius: 14px; border: 0; outline: 0; background: rgba(0,0,0,.22); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
+  font: 800 17px var(--mono); letter-spacing: 2px; color: #fff; caret-color: #fff; text-transform: uppercase; }
+.fv-in::placeholder { font: 700 15px Inter, -apple-system, system-ui, sans-serif; letter-spacing: 2px; color: rgba(255,255,255,.5); opacity: 1; }
+.fv-scan { width: 48px; height: 48px; flex: none; border-radius: 14px; display: grid; place-items: center; color: #fff; font-size: 18px; background: rgba(0,0,0,.22); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); border: 0; padding: 0; }
+.fv-scan .i { width: 1.15em; height: 1.15em; }
+/* dark glass until the code is whole, then white with the blue panel's ink */
+.fv-addbtn { width: 70px; height: 48px; flex: none; border-radius: 14px; border: 0; padding: 0; display: grid; place-items: center; font-size: 14px; font-weight: 900; font-style: italic;
+  background: rgba(0,0,0,.22); color: rgba(255,255,255,.45); transition: background .15s cubic-bezier(0,0,.58,1), color .15s cubic-bezier(0,0,.58,1); }
+.fv-addbtn.on { background: #fff; color: var(--ink); }
 .fv-addbtn[disabled] { pointer-events: none; }
-.fv-spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(4,22,11,.3); border-top-color: #04160b; animation: fv-spin .8s linear infinite; }
+.fv-spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--ink) 30%, transparent); border-top-color: var(--ink); animation: fv-spin .8s linear infinite; }
 @keyframes fv-spin { to { transform: rotate(360deg); } }
-.fv-note { margin: 8px 0 0 4px; font-size: 12.5px; font-weight: 600; color: var(--muted); animation: fv-fade .25s ease-out; }
+.fv-note { margin: -2px 0 0 4px; font-size: 12.5px; font-weight: 700; color: rgba(255,255,255,.9); animation: fv-fade .25s ease-out; }
 @keyframes fv-fade { from { opacity: 0; } }
 
-/* one surface, rows split by hairlines — a list, not a stack of boxes */
-.fv-group { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
-.fv-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; position: relative; -webkit-touch-callout: none; }
-.fv-row + .fv-row::before { content: ''; position: absolute; top: 0; left: 68px; right: 0; height: 1px; background: var(--line); }
+/* ---- rows on the panel's glass, split by hairlines inset 68 ---- */
+.friends-v .k-div { margin-left: 68px; }
+.fv-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; position: relative; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
 .fv-row.sent { padding: 8px 12px; }
 .fv-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.fv-tx b { font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fv-row.sent .fv-tx b { font-size: 14px; color: rgba(242,242,242,.8); }
-.fv-tx small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fv-tx small .on { color: var(--easy); }
-.fv-tx small .dim { color: var(--dim); }
-.fv-av { position: relative; flex: none; display: inline-flex; }
-.fv-face { border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: rgba(0,0,0,.75); object-fit: cover; opacity: .9; }
-img.fv-face { opacity: 1; }
-.fv-face.bot { background: var(--surface2); color: var(--easy); opacity: 1; }
-.fv-face.bot .i { width: 1em; height: 1em; }
-/* the ring is cut from the row's own surface (a white wash over the page), not the bare page */
-.fv-dot { position: absolute; right: 0; bottom: 0; border-radius: 50%; background: var(--dim); box-shadow: 0 0 0 2.5px color-mix(in srgb, #fff 4%, var(--page)); box-sizing: border-box; }
-.fv-dot.on { background: var(--easy); }
-.fv-chal { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 13px; border-radius: 999px; color: var(--easy); background: rgba(25,223,112,.14); border: 1px solid rgba(25,223,112,.35); font-size: 13px; font-weight: 800; flex: none; }
-.fv-chal .i { width: 10px; height: 10px; }
-.fv-chal[disabled] { opacity: .4; pointer-events: none; }
-.fv-no { width: 36px; height: 36px; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); color: var(--muted); display: grid; place-items: center; font-size: 13px; flex: none; }
-.fv-yes { height: 36px; padding: 0 14px; border-radius: 999px; background: var(--easy); color: #04160b; font-size: 13px; font-weight: 700; flex: none; }
-.fv-wait { font-size: 12px; color: var(--muted); flex: none; }
-.fv-cancel { height: 30px; padding: 0 10px; font-size: 12.5px; font-weight: 600; color: var(--muted); flex: none; }
-.fv-confirm { padding: 26px 22px 22px; display: flex; flex-direction: column; gap: 10px; text-align: center; }
-.fv-confirm h3 { margin: 0; font-size: 17px; font-weight: 800; }
-.fv-confirm p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.4; color: var(--muted); }
-.fv-confirm .fv-danger { background: var(--surface); border: 1px solid var(--line); color: var(--expert); height: 48px; font-size: 15px; font-weight: 700; }
+.fv-tx b { font-size: 15px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fv-row.sent .fv-tx b { font-size: 14px; color: rgba(255,255,255,.9); }
+.fv-tx small { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fv-tx small .on { color: #5dffa2; }
+.fv-tx small .off { color: rgba(255,255,255,.7); }
+.fv-tx small .dim { color: rgba(255,255,255,.6); }
+.fv-tx small.req { color: rgba(255,255,255,.75); white-space: normal; }
+.fv-av { position: relative; flex: none; display: inline-block; }
+.fv-av > .cface { display: block; border-radius: 50%; overflow: hidden; }
+/* online dot: 28% of the face, #5DFFA2 or white .45, a black .45 ring 2.5 wide */
+.fv-dot { position: absolute; right: 0; bottom: 0; border-radius: 50%; background: rgba(255,255,255,.45); box-shadow: 0 0 0 2.5px rgba(0,0,0,.45); }
+.fv-dot.on { background: #5dffa2; }
+.fv-1v1 { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 14px; border-radius: 999px; border: 0; flex: none; background: #fff; color: var(--ink); box-shadow: 0 2px 4px rgba(0,0,0,.2);
+  font-size: 13px; font-weight: 900; font-style: italic; }
+.fv-1v1 .i { width: 10px; height: 10px; }
+.fv-1v1[disabled] { opacity: .4; pointer-events: none; }
+.fv-no { width: 34px; height: 34px; border-radius: 50%; border: 0; padding: 0; background: rgba(0,0,0,.25); color: #fff; display: grid; place-items: center; font-size: 12px; flex: none; }
+.fv-no .i { width: 1.05em; height: 1.05em; }
+.fv-yes { height: 34px; padding: 0 14px; border-radius: 999px; border: 0; background: #fff; color: var(--ink); box-shadow: 0 2px 4px rgba(0,0,0,.2); font-size: 13px; font-weight: 900; font-style: italic; flex: none; }
+.fv-wait { font-size: 12px; font-weight: 600; color: rgba(255,255,255,.7); flex: none; }
+.fv-cancel { height: 30px; padding: 0 12px; border-radius: 999px; border: 0; background: rgba(0,0,0,.25); color: #fff; font-size: 12.5px; font-weight: 700; flex: none; }
 
-/* skeleton rows while the list loads, with a sweep of light */
-.fv-skel { padding: 0 12px; -webkit-mask-image: linear-gradient(90deg, #000 35%, rgba(0,0,0,.55) 50%, #000 65%); mask-image: linear-gradient(90deg, #000 35%, rgba(0,0,0,.55) 50%, #000 65%); -webkit-mask-size: 250% 100%; mask-size: 250% 100%; animation: fv-shimmer 1.25s linear infinite; }
+/* SkeletonRows(3), shimmering */
+.fv-skel { padding: 0 2px; -webkit-mask-image: linear-gradient(90deg, #000 35%, rgba(0,0,0,.55) 50%, #000 65%); mask-image: linear-gradient(90deg, #000 35%, rgba(0,0,0,.55) 50%, #000 65%); -webkit-mask-size: 250% 100%; mask-size: 250% 100%; animation: fv-shimmer 1.25s linear infinite; }
 .fv-skel > div { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
 .fv-skel i { display: block; background: var(--surface2); border-radius: 4px; }
-.fv-skel .c { width: 44px; height: 44px; border-radius: 50%; flex: none; }
+.fv-skel .c { width: 36px; height: 36px; border-radius: 50%; flex: none; }
 .fv-skel span { flex: 1; display: flex; flex-direction: column; gap: 7px; }
 .fv-skel span i { height: 10px; } .fv-skel span i + i { height: 8px; opacity: .6; }
+.fv-skel .v { width: 44px; height: 12px; flex: none; }
 @keyframes fv-shimmer { from { -webkit-mask-position: 150% 0; mask-position: 150% 0; } to { -webkit-mask-position: -50% 0; mask-position: -50% 0; } }
 
-/* ---- FriendQRSheet ---- */
+/* the "Remove <name>?" confirmation */
+.fv-confirm { padding: 26px 22px 22px; display: flex; flex-direction: column; gap: 10px; text-align: center; }
+.fv-confirm h3 { margin: 0 0 8px; font-size: 17px; font-weight: 800; }
+.fv-confirm .fv-danger { background: var(--surface); border: 1px solid var(--line); color: var(--expert); height: 48px; font-size: 15px; font-weight: 700; }
+
+/* ---- FriendQRSheet (SeasonBackdrop behind) ---- */
+.fq-sheet .sheet-body { position: relative; isolation: isolate; }
+.fq-sheet .sheet-body > .season-backdrop { z-index: -1; }
 .fq { flex: 1; display: flex; flex-direction: column; padding: 0 24px 20px; min-height: 100%; box-sizing: border-box; }
 .fq .fq-head { padding: 18px 0 0; }
 .fq-mid { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px 0; }
@@ -93,13 +105,28 @@ img.fv-face { opacity: 1; }
 .fq-code, .fq-code svg { width: 100%; height: 100%; display: block; }
 .fq-err { margin: 0; color: #444; font-size: 13px; padding-top: 80px; }
 .fq-disc { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: #fff; display: grid; place-items: center; }
-.fq-disc i { width: 40px; height: 40px; border-radius: 50%; background: var(--easy); color: #04160b; display: grid; place-items: center; font-size: 15px; }
+.fq-disc i { width: 40px; height: 40px; border-radius: 50%; background: var(--easy); color: var(--accent-ink, #04160b); display: grid; place-items: center; font-size: 15px; }
 .fq-disc .i { width: 1em; height: 1em; margin-left: 2px; }
 .fq-mid h2 { margin: 26px 0 0; font-size: 20px; font-weight: 800; font-style: italic; letter-spacing: -.6px; color: var(--text); }
 .fq-c { margin-top: 6px; font: 800 17px var(--mono); letter-spacing: 4px; color: var(--muted); }
 .fq-mid p { margin: 14px 20px 0; font-size: 12.5px; line-height: 1.4; color: var(--dim); max-width: 320px; }
-.fq-share { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 52px; border-radius: 16px; background: var(--easy); color: #04160b; font-size: 15.5px; font-weight: 800; flex: none; }
+.fq-share { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 52px; border-radius: 16px; border: 0; background: var(--easy); color: var(--accent-ink, #04160b); font-size: 15.5px; font-weight: 800; flex: none; }
 .fq-share .i { width: 14px; height: 14px; }
+
+/* ---- FriendScannerSheet: the camera full screen, a 250 green viewfinder (3 wide, r28) ---- */
+.fsc { position: absolute; inset: 0; color: #fff; }
+.fsc-cam { position: absolute; inset: 0; }
+.fsc-cam video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fsc-finder { position: absolute; left: 50%; top: 50%; width: 250px; height: 250px; margin: -125px 0 0 -125px; box-sizing: border-box; border: 3px solid var(--easy); border-radius: 28px; pointer-events: none; }
+.fsc-none { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 0 40px; text-align: center; }
+.fsc-none[hidden], .fsc-cam[hidden], .fsc-note[hidden] { display: none; }
+.fsc-none .i { width: 30px; height: 30px; color: var(--dim); }
+.fsc-none p { margin: 0; font-size: 14px; color: var(--muted); }
+.fsc-top { position: absolute; left: 0; right: 0; top: calc(16px + var(--sat, 0px)); padding: 0 20px; display: flex; align-items: center; justify-content: space-between; }
+.fsc-top span { font-size: 17px; font-weight: 800; font-style: italic; }
+.fsc-x { width: 35px; height: 35px; border-radius: 50%; border: 0; padding: 0; display: grid; place-items: center; color: #fff; font-size: 13px; background: rgba(0,0,0,.5); }
+.fsc-x .i { width: 1em; height: 1em; }
+.fsc-note { position: absolute; left: 50%; bottom: calc(40px + var(--sab, 0px)); transform: translateX(-50%); margin: 0; padding: 10px 16px; border-radius: 999px; background: rgba(0,0,0,.6); font-size: 13px; font-weight: 600; white-space: nowrap; }
 
 /* ---- ChallengeBanner: drops in from the top on any screen ---- */
 .cb-wrap { position: fixed; left: 0; right: 0; top: calc(6px + var(--sat, 0px)); z-index: 60; display: flex; justify-content: center; padding: 0 14px; pointer-events: none; transform: translateY(calc(-100% - 20px)); opacity: 0; transition: transform .4s cubic-bezier(.34,1.3,.64,1), opacity .25s; }
@@ -108,16 +135,12 @@ img.fv-face { opacity: 1; }
 /* .cbanner, not .cb: .cb is every answer row's label (choices.js), and this file loads on every page. */
 .cbanner { width: 100%; max-width: 440px; display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 12px; box-sizing: border-box; background: #161616; border: 1px solid rgba(25,223,112,.45); border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
 .cb-av { flex: none; display: inline-flex; }
-.cb-av .face { border-radius: 50%; object-fit: cover; font-weight: 800; }
+.cb-av .cface { display: block; border-radius: 50%; overflow: hidden; }
 .cb-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .cb-tx b { font-size: 14.5px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cb-tx small { font-size: 12px; color: var(--muted); }
-.cb-no { width: 34px; height: 34px; border-radius: 50%; background: var(--surface); color: var(--muted); display: grid; place-items: center; font-size: 13px; flex: none; }
-.cb-yes { height: 34px; padding: 0 16px; border-radius: 999px; background: var(--easy); color: #04160b; font-size: 13.5px; font-weight: 700; flex: none; }
+.cb-no { width: 34px; height: 34px; border-radius: 50%; border: 0; padding: 0; background: var(--surface); color: var(--muted); display: grid; place-items: center; font-size: 13px; flex: none; }
+.cb-yes { height: 34px; padding: 0 16px; border-radius: 999px; background: var(--easy); color: var(--accent-ink, #04160b); font-size: 13.5px; font-weight: 700; flex: none; }
 
-/* ---------- desktop: one stacked column in a medium dialog (the owner wants it stacked) ---------- */
-.fv-side, .fv-list { display: contents; }
-.fv-qrin { display: none; }
-html.xwide {
-  .view.sheet.friends-sheet:not(.fq-sheet) .sheet-body { width: min(560px, calc(100vw - 64px)); }
-}
+.cb-no .i { width: 1em; height: 1em; }
+.cb-wrap .cbanner { border-color: color-mix(in srgb, var(--easy) 45%, transparent); }
