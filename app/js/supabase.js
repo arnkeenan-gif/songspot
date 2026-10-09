@@ -100,7 +100,8 @@ export const premium = {
   async has() {
     try {
       const { data, error } = await supabase.rpc('my_premium');
-      if (!error && data) return !!data.premium;
+      // forever: a grant with no end date (lifetime, or given by hand) - the profile shows plain "Premium", as iOS does for lifetime.
+      if (!error && data) { this.forever = !!data.premium && data.expires_at == null; return !!data.premium; }
     } catch (e) {}
     try {
       const u = await auth.user(); if (!u) return false;

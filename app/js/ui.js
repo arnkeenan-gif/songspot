@@ -4,7 +4,8 @@ export const TIER_INK = { easy: '#04160b', medium: '#171004', hard: '#180b02', e
 /** The pill fills differ from the accent only for easy (Theme.pillFill). */
 export const PILL_FILL = { ...TIER_COLOR, easy: '#1ed760' };
 export const PILL_INK = '#08120c';
-export const ACCENT_TEXT = '#39e887';
+export let ACCENT_TEXT = '#39e887';   // [season] `let` + setter: season.js swaps it (live ES binding)
+export const setAccentText = v => { ACCENT_TEXT = v; };
 export const PARTY_PALETTE = ['#19df70', '#f7c823', '#ff8a2b', '#f8545c', '#a855f7', '#4cc9f0', '#f72585'];
 export const TIERS = ['easy', 'medium', 'hard', 'expert', 'impossible'];
 
@@ -28,11 +29,28 @@ export function alpha(hex, a) { const h = hex.replace('#', ''); return `rgba(${p
 /** Build an element from an HTML string. */
 export function el(html) { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; }
 
-/** The toast: 12.5px, bottom, 3.6 s by default. One at a time. */
+/**
+ * The toast (StageView show/toastLayer): 12.5px, 3.6 s by default, one at a time.
+ * Where it sits: over the sign-in gate at the top (status bar + 28); with the
+ * keyboard up, 12 above the keys; with the tab bar up, just above it
+ * (52 + the bottom inset + 10); else 28 from the bottom. Moves with easeOut 0.2.
+ */
 let toastTimer = null;
+function placeToast(t) {
+  const h = document.documentElement, vv = window.visualViewport;
+  const keys = vv && matchMedia('(pointer: coarse)').matches ? Math.max(0, innerHeight - vv.height - vv.offsetTop) : 0;
+  t.classList.toggle('top', !!document.querySelector('.login'));
+  t.style.setProperty('--toast-b', keys > 80 ? `${keys + 12}px` : h.classList.contains('tabbar-up') && !document.querySelector('#views > *') ? 'calc(62px + var(--sab))' : '28px');
+}
 export function toast(msg, seconds = 3.6) {
   let t = document.querySelector('.toast');
-  if (!t) { t = el('<div class="toast" role="status" aria-live="polite"></div>'); document.body.appendChild(t); }
+  if (!t) {
+    t = el('<div class="toast" role="status" aria-live="polite"></div>'); document.body.appendChild(t);
+    const again = () => t.classList.contains('on') && placeToast(t);
+    window.visualViewport?.addEventListener('resize', again);
+    new MutationObserver(again).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+  }
+  placeToast(t);
   t.textContent = msg; t.classList.add('on');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), seconds * 1000);
 }
@@ -41,7 +59,8 @@ export function toast(msg, seconds = 3.6) {
 const stack = [];
 export function pushView(node) { const host = document.getElementById('views'); host.appendChild(node); stack.push(node); requestAnimationFrame(() => requestAnimationFrame(() => node.classList.add('in'))); return node; }
 export function popView(node) { const i = stack.indexOf(node); if (i >= 0) stack.splice(i, 1); node.classList.remove('in'); setTimeout(() => node.remove(), 500); }
-export const viewsOpen = () => stack.length > 0;
+/** Something is in front of the stage: a full-screen view, or a tab page (Games, Party, Friends, Profile). */
+export const viewsOpen = () => stack.length > 0 || !!document.querySelector('.tabpages.open');
 
 /**
  * A sheet: a bottom sheet on a phone, a centred card on a wide screen.
@@ -64,17 +83,19 @@ export function pressable(root = document) {
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => root.addEventListener(ev, () => root.querySelectorAll('.pressed').forEach(b => b.classList.remove('pressed')), true));
 }
 
-/** A face: the picture if there is one, else the initial on a colour. */
+// [characters] face() now draws the character (CartoonFace) via characters.js faceHTML: a `char:` avatar is that
+// character, anything else (a legacy base64 photo, nothing) is the player's default (Spot; Songbot for 'songbot').
+// `color`/`ink` are unused now and kept for the old call sites. New code: import { faceHTML } from './characters.js'.
+import { faceHTML } from './characters.js';
+/** A face: the player's character in a circle (iOS CartoonFace(avatar:key:)). */
 export function face(name, avatar, color, size = 40, ink = '#08120c') {
-  const initial = esc((name || '?').trim()[0] || '?').toUpperCase();
-  return avatar ? `<img class="face" src="data:image/jpeg;base64,${avatar}" alt="" style="width:${size}px;height:${size}px">`
-    : `<span class="face" style="width:${size}px;height:${size}px;background:${color};color:${ink};font-size:${Math.round(size * 0.4)}px">${initial}</span>`;
+  return faceHTML(avatar, name || '', size, { cls: 'face' });
 }
 export function hueColor(hue) { const n = PARTY_PALETTE.length; return PARTY_PALETTE[((hue % n) + n) % n]; }
 
 export const settings = {
   get(k, d) { try { const v = localStorage.getItem('songspot.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem('songspot.' + k, JSON.stringify(v)); } catch (e) {} },
+  set(k, v) { try { localStorage.setItem('songspot.' + k, JSON.stringify(v)); } catch (e) {} try { dispatchEvent(new CustomEvent('songspot:setting', { detail: { key: k, value: v } })); } catch (e) {} },
   del(k) { try { localStorage.removeItem('songspot.' + k); } catch (e) {} },
 };
 

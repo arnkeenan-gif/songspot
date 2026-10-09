@@ -1,0 +1,11 @@
+/* Offline.swift OfflineCover: Theme.page at 97%, a 76 pt green wifi.slash tile, nothing to tap. */
+.offline-cover { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--page) 97%, transparent); opacity: 0; visibility: hidden; transition: opacity .3s cubic-bezier(0,0,.58,1), visibility 0s linear .3s; }
+.offline-cover.on { opacity: 1; visibility: visible; transition: opacity .3s cubic-bezier(0,0,.58,1), visibility 0s; }
+.offline-cover .oc-in { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0 36px; max-width: 460px; }
+.offline-cover .oc-tile { width: 76px; height: 76px; border-radius: 20px; display: grid; place-items: center; color: var(--easy); font-size: 34px; background: color-mix(in srgb, var(--easy) 10%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--easy) 30%, transparent); }
+.offline-cover .oc-tile .i { width: 1.05em; height: 1.05em; }
+.offline-cover h2 { margin: 22px 0 0; font-size: 26px; font-weight: 800; font-style: italic; letter-spacing: -.8px; color: var(--text); }
+.offline-cover p { margin: 8px 0 0; font-size: 14.5px; line-height: 1.35; color: var(--muted); }
+.offline-cover .oc-wait { margin-top: 22px; display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--dim); }
+.offline-cover .oc-spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--muted); border-right-color: transparent; animation: oc-turn .9s linear infinite; }
+@keyframes oc-turn { to { transform: rotate(360deg); } }

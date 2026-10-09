@@ -23,7 +23,10 @@ export class Ads {
   /** Load the library once, and only for players who will see ads. */
   sync() {
     if (this.loaded || this.isPremium()) return;
-    if (local && !new URLSearchParams(location.search).has('ads')) return;   // no ad calls from a dev machine unless asked
+    // No ad calls from a dev machine unless asked: ?ads (Google's test ads), or ?adBreak (the
+    // same, plus one break a few seconds in, as iOS -adBreak).
+    const q = new URLSearchParams(location.search);
+    if (local && !q.has('ads') && !q.has('adBreak')) return;
     this.loaded = true;
     const s = document.createElement('script');
     s.async = true; s.crossOrigin = 'anonymous';
@@ -35,6 +38,7 @@ export class Ads {
     document.head.appendChild(s);
     try { window.adConfig({ preloadAdBreaks: 'on', sound: 'on', onReady: () => {} }); } catch (e) {}
     this.rails();
+    if (local && q.has('adBreak')) setTimeout(() => this.interstitial('debug-break').then(shown => console.info('[ads] debug break', shown ? 'viewed' : 'not shown')), 3000);
   }
   /** Skyscrapers either side of the game column, on screens wide enough to
    *  have empty space there. Never on phones, never for premium, never over

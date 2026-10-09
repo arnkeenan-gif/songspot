@@ -1,0 +1,22 @@
+/* The seasons (iOS Daily/Season.swift, Daily/Christmas.swift). Engine and API: app/js/season.js.
+   applySeason() sets the palette custom properties on :root and .season / .season-halloween /
+   .season-christmas on <html>; these are the pieces that draw the season itself. */
+
+/* Seasonal theme switch flipped: the app cross-fades its colours (withAnimation(.easeInOut(duration: 0.5))). */
+html.season-fade, html.season-fade * { transition: background-color .5s cubic-bezier(.42,0,.58,1), color .5s cubic-bezier(.42,0,.58,1), border-color .5s cubic-bezier(.42,0,.58,1) !important; }
+
+/* SeasonBackdrop: the page behind a screen, the weather far in the background. mountBackdrop()
+   prepends it to the screen; the screen's own content must stack above it (position: relative). */
+.season-backdrop { position: absolute; inset: 0; z-index: 0; pointer-events: none; background: var(--page); overflow: hidden; }
+.season-backdrop.fixed, body > .season-backdrop { position: fixed; }
+.season-snow { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+
+/* SeasonNight: a soft haze of the season's second light low down (22% October, 14% December),
+   and a thin moon high on the left in October. */
+.season-haze { position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 50% 105%, rgba(var(--season-glow-rgb), var(--haze, .22)) 20px, rgba(var(--season-glow-rgb), 0) 420px); }
+html.season-christmas .season-haze { --haze: .14; }
+.season-moon { display: none; position: absolute; left: 64px; top: 190px; width: 40px; height: 40px; color: rgba(255,179,71,.16);
+  filter: drop-shadow(0 0 24px rgba(255,179,71,.25)); }
+.season-moon svg { width: 100%; height: 100%; display: block; }
+html.season-halloween .season-moon { display: block; }

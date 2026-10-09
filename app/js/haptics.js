@@ -21,9 +21,10 @@ const hasSwitch = (() => {
 })();
 
 let label = null;
-function tick() {
+/** The hidden switch, built ahead so the first buzz doesn't pay for it (Haptics.warm). */
+function build() {
   try {
-    if (!label) {
+    if (!label && document.body) {
       label = document.createElement('label');
       label.setAttribute('aria-hidden', 'true');
       label.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none';
@@ -35,8 +36,11 @@ function tick() {
       label.appendChild(i);
       document.body.appendChild(label);
     }
-    label.click();
   } catch (e) {}
+}
+function tick() {
+  build();
+  try { label && label.click(); } catch (e) {}
 }
 
 /** Beats at times (s): [t, ms]. ms is the vibration length; on iPhone each beat is one tick. */
@@ -76,4 +80,16 @@ export const Haptics = {
     beats([[closeStart, 9], [waveStart, 11], [waveStart + waveDur * 0.33, 14], [waveStart + waveDur * 0.66, 17], [flareAt, 24]]);
   },
   win() {},
+  /**
+   * Haptics.warm: the iPhone wakes its generators when a round is dealt and when the app comes to the
+   * front. A vibration motor needs no waking; on iPhone Safari the switch is built now, so the first
+   * tick isn't the one that pays for it. Called at boot and on every return to the page.
+   */
+  warm() { if (on() && hasSwitch) build(); },
 };
+if (typeof document !== 'undefined') {
+  // Never during module evaluation: ui.js (settings) may still be on its way in an import cycle.
+  const w = () => { try { if (!document.hidden) Haptics.warm(); } catch (e) {} };
+  setTimeout(w, 0);
+  document.addEventListener('visibilitychange', w);
+}

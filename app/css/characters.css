@@ -1,0 +1,67 @@
+/* Characters — iOS Profile/DefaultAvatar.swift (CartoonFace, CharacterFigure), PoseClip.swift and CharacterPicker.swift. 1pt = 1px. */
+
+/* CartoonFace: the portrait, scaledToFill, clipped to a circle by default. */
+.cface { display: inline-block; position: relative; flex: none; border-radius: 50%; overflow: hidden; background: #151515; vertical-align: middle; line-height: 0; }
+.cface.sq { border-radius: 0; }
+.cface img { width: 100%; height: 100%; object-fit: cover; display: block; user-select: none; -webkit-user-drag: none; }
+
+/* CharacterFigure: fills its height, feet on the bottom edge, spills sideways where the picture is empty. */
+.cfig { position: relative; height: 100%; --h: 240px; pointer-events: none; }
+.cfig-stage { position: absolute; left: 0; right: 0; bottom: 0; height: 100%; display: flex; justify-content: center; align-items: flex-end; }
+.cfig-pic { height: 100%; width: auto; max-width: none; display: block; flex: none; transform-origin: 50% 98.7755%; will-change: transform; user-select: none; -webkit-user-drag: none; }
+/* No cut-out (a portrait): its studio melts into the page at the edges. */
+.cfig-pic.nocut { -webkit-mask-image: radial-gradient(circle calc(var(--h) * .62) at 50% 50%, #000 0, #000 50%, transparent 86%); mask-image: radial-gradient(circle calc(var(--h) * .62) at 50% 50%, #000 0, #000 50%, transparent 86%); }
+/* The pool of light (r 0.37 h, squashed to 0.21) and the contact shadow (r 0.17 h, 0.17), both centred on the feet. */
+.cfig-pool, .cfig-shadow { position: absolute; left: 50%; transform: translateX(-50%); transform-origin: 50% 50%; pointer-events: none; }
+.cfig-pool { width: calc(var(--h) * .74); height: calc(var(--h) * .74 * .21); bottom: calc(var(--h) * 6 / 490 - var(--h) * .74 * .21 / 2);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--pc) 60%, transparent) 0%, color-mix(in srgb, var(--pc) 18%, transparent) 50%, transparent 100%); }
+.cfig-shadow { width: calc(var(--h) * .34); height: calc(var(--h) * .34 * .17); bottom: calc(var(--h) * 6 / 490 - var(--h) * .34 * .17 / 2);
+  background: radial-gradient(closest-side, rgba(0,0,0,.55) 0%, rgba(0,0,0,.165) 50%, transparent 100%); }
+/* The pose clip: square, the character 72% of its side tall with its top 20% down, so its feet meet the still's. */
+.cfig-clip { position: absolute; left: 50%; width: calc(var(--h) / .72); height: calc(var(--h) / .72); margin-left: calc(var(--h) / -1.44);
+  bottom: calc(var(--h) / .72 * -0.08); object-fit: contain; background: transparent; pointer-events: none; }
+.cfig.clip-ready .cfig-pic { opacity: 0; }
+
+/* ───────── Edit avatar ───────── */
+.cpick { background: var(--page); overflow: hidden; display: flex; flex-direction: column; }
+.cpick .cp-back { position: absolute; inset: 0; pointer-events: none; }
+.cp-col { position: relative; z-index: 1; display: flex; flex-direction: column; width: 100%; max-width: 460px; margin: 0 auto; height: 100%; min-height: 0; }
+html.xwide .cp-col { max-width: 560px; }
+.cp-bar { display: flex; align-items: center; justify-content: space-between; padding: calc(14px + var(--sat)) 20px 0; flex: none; }
+.cp-bar h1 { margin: 0; font-size: 18px; font-weight: 900; font-style: italic; letter-spacing: -.4px; color: var(--text); }
+.cp-cancel { font-size: 15px; font-weight: 600; color: var(--muted); height: 34px; min-width: 62px; text-align: left; }
+.cp-save { font-size: 15px; font-weight: 800; color: #08120c; background: var(--cp-accent); height: 34px; padding: 0 16px; border-radius: 999px; min-width: 62px; }
+.cp-preview { position: relative; height: 250px; margin-top: 8px; flex: none; }
+.cp-shot { position: absolute; inset: 0; display: flex; justify-content: center; align-items: flex-end; opacity: 0; transform: scale(.9);
+  transition: opacity .3s cubic-bezier(.3,1.3,.5,1), transform .3s cubic-bezier(.3,1.25,.5,1); }
+.cp-shot.in { opacity: 1; transform: none; }
+.cp-shot.out { opacity: 0; transform: scale(.9); }
+.cp-glow { position: absolute; left: 50%; bottom: -6px; width: 230px; height: 46px; margin-left: -115px;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--cp-accent) 50%, transparent), transparent); }
+.cp-shot.peek .cp-glow { background: radial-gradient(closest-side, color-mix(in srgb, var(--muted) 50%, transparent), transparent); }
+.cp-pic { position: relative; width: 210px; height: 210px; margin-bottom: 22px; border-radius: 40px; overflow: hidden; }
+.cp-pic::after { content: ''; position: absolute; inset: 0; border-radius: 40px; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--cp-accent) 60%, transparent); pointer-events: none; }
+.cp-pic .cface { position: absolute; inset: 0; }
+.cp-shot.peek .cp-pic { background: #000; }
+.cp-shot.peek .cp-pic::after { box-shadow: inset 0 0 0 2px var(--line); }
+.cp-shot.peek .cp-pic .cface { filter: saturate(.35); opacity: .5; background: #000; }
+.cp-peekfoot { position: absolute; left: 0; right: 0; bottom: 0; padding: 30px 8px 18px; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background: linear-gradient(to bottom, transparent 0, rgba(0,0,0,.85) 100%); }
+.cp-peekfoot b { font-size: 17px; font-weight: 900; font-style: italic; letter-spacing: -.3px; color: var(--text); line-height: 1.2; }
+.cp-peekfoot small { font-size: 13px; font-weight: 600; color: rgba(242,242,242,.75); text-align: center; line-height: 1.25; }
+.cp-pic > .cp-lock { position: absolute; left: 50%; top: 50%; transform: translate(-50%, calc(-50% - 22px)); }
+.cp-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: var(--sab); }
+.cp-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 18px 20px 0; }
+.cp-tile { position: relative; aspect-ratio: 1; border-radius: 50%; transition: transform .3s cubic-bezier(.3,1.25,.5,1); }
+.cp-tile .cface { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cp-tile::after { content: ''; position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--line); pointer-events: none; transition: box-shadow .3s; }
+.cp-tile.sel { transform: scale(1.04); }
+.cp-tile.sel::after { box-shadow: inset 0 0 0 3.5px var(--cp-accent); }
+.cp-tile.peeked::after { box-shadow: inset 0 0 0 2px var(--muted); }
+.cp-tile.shut .cface { filter: saturate(.35); opacity: .42; }
+.cp-tile > .cp-lock { position: absolute; right: 0; bottom: 0; }
+.cp-tile.pressed { transform: scale(.96); opacity: .72; }
+.cp-tile.sel.pressed { transform: scale(1); }
+.cp-lock { display: grid; place-items: center; border-radius: 50%; background: rgba(0,0,0,.72); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); z-index: 1; }
+.cp-lock .i { width: 1em; height: 1em; }
+@media (prefers-reduced-motion: reduce) { .cp-shot, .cp-tile { transition: none; } }

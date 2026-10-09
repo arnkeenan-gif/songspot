@@ -58,3 +58,114 @@ export const I = {
   download: s('<path d="M12 3.5v11M7.5 10.5l4.5 4.5 4.5-4.5M4.5 19.5h15"/>', 2.2),
   phone: f('<path d="M8 1.5h8A2.5 2.5 0 0 1 18.5 4v16A2.5 2.5 0 0 1 16 22.5H8A2.5 2.5 0 0 1 5.5 20V4A2.5 2.5 0 0 1 8 1.5zm2 1.8v.9h4v-.9zM7.5 5.5v13h9v-13z"/>'),
 };
+
+// ---------------------------------------------------------------------------
+// SF Symbols by their iOS names, for the kit (FlatIcon, PanelGlyph, links,
+// pills) and the screens ported from SwiftUI. Same 24-box, currentColor.
+//   sf('crown.fill')            → '<svg class="i">…</svg>' ('' for an unknown name)
+//   SF['music.note']            → the same string
+//   glyph('glyph-crown', '#fff', 18) → the /app/img/glyphs template PNG, tinted
+// Every existing export above is unchanged.
+const e = (d, extra = '') => `<svg class="i" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true" ${extra}>${d}</svg>`;
+const ln = (d, w = 2) => `<path d="${d}" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+
+/** gearshape.fill: eight rounded teeth round a hole, drawn once. */
+const gear = (() => {
+  const cx = 12, cy = 12, ro = 10.2, ri = 7.6, n = 8, pts = [];
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * Math.PI * 2, w = Math.PI / n;
+    const at = (r, t) => `${(cx + r * Math.cos(t)).toFixed(2)} ${(cy + r * Math.sin(t)).toFixed(2)}`;
+    pts.push(at(ri, a - w * 0.62), at(ro, a - w * 0.36), at(ro, a + w * 0.36), at(ri, a + w * 0.62));
+  }
+  return `<path d="M${pts.join('L')}zM12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2z"/>`;
+})();
+/** sun.max.fill: a disc and eight rays. */
+const sun = (() => {
+  let rays = '';
+  for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4, c = Math.cos(a), s2 = Math.sin(a); rays += `M${(12 + 7.6 * c).toFixed(2)} ${(12 + 7.6 * s2).toFixed(2)}L${(12 + 10 * c).toFixed(2)} ${(12 + 10 * s2).toFixed(2)}`; }
+  return `<circle cx="12" cy="12" r="4.9"/>${ln(rays, 2)}`;
+})();
+/** snowflake: six thin arms with a pair of twigs each (SF's ultraLight look comes from the size). */
+const snow = (() => {
+  let d = '';
+  for (let k = 0; k < 6; k++) {
+    const a = k * Math.PI / 3 - Math.PI / 2, P = (r, da = 0) => `${(12 + r * Math.cos(a + da)).toFixed(2)} ${(12 + r * Math.sin(a + da)).toFixed(2)}`;
+    d += `M12 12L${P(10)}M${P(6.6)}L${P(9, 0.32)}M${P(6.6)}L${P(9, -0.32)}`;
+  }
+  return ln(d, 1.4);
+})();
+
+export const SF = {
+  'eye': e('<path d="M12 5C6.6 5 2.9 9.4 1.6 12c1.3 2.6 5 7 10.4 7s9.1-4.4 10.4-7C21.1 9.4 17.4 5 12 5zm0 2.2c3.9 0 6.8 2.9 8 4.8-1.2 1.9-4.1 4.8-8 4.8S5.2 13.9 4 12c1.2-1.9 4.1-4.8 8-4.8zM12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2z"/>'),
+  'eye.slash': e('<path d="M12 5C6.6 5 2.9 9.4 1.6 12c1.3 2.6 5 7 10.4 7s9.1-4.4 10.4-7C21.1 9.4 17.4 5 12 5zm0 2.2c3.9 0 6.8 2.9 8 4.8-1.2 1.9-4.1 4.8-8 4.8S5.2 13.9 4 12c1.2-1.9 4.1-4.8 8-4.8zM12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2z"/>' + ln('M3.8 3.8l16.4 16.4', 2.1)),
+  'crown.fill': I.crown,
+  'star.fill': e('<path d="M12 2.3l2.95 6.07 6.68.88-4.88 4.65 1.24 6.63L12 17.33 6.01 20.53l1.24-6.63L2.37 9.25l6.68-.88z"/>'),
+  'opticaldisc': e('<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 1.9a8.1 8.1 0 1 1 0 16.2 8.1 8.1 0 0 1 0-16.2zM12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm0 2.1a1.3 1.3 0 1 1 0 2.6 1.3 1.3 0 0 1 0-2.6z"/>'),
+  'opticaldisc.fill': e('<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 7.6a2.4 2.4 0 1 1 0 4.8 2.4 2.4 0 0 1 0-4.8z"/><path d="M12 5.2A6.8 6.8 0 0 0 5.2 12" fill="none" stroke="#000" stroke-opacity=".22" stroke-width="1.3" stroke-linecap="round"/>'),
+  'music.note': e('<path d="M10.2 3.6c0-.7.6-1.1 1.3-.9l5.9 1.9c.6.2 1 .7 1 1.3v2.5c0 .7-.6 1.1-1.3.9l-4.9-1.5v10.4a3.6 3.6 0 1 1-2-3.2z"/>'),
+  'music.note.list': I.genres,
+  'music.mic': I.mic,
+  'flag.2.crossed.fill': `<svg class="i" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${ln('M6.2 3.2L17.6 21.4M17.8 3.2L6.4 21.4', 1.9)}<path d="M6.2 3.2c-1.6 1.6-3.2 1-4.6 2.4l2.6 4.3c1.4-1.4 3-.8 4.6-2.4zM17.8 3.2c1.6 1.6 3.2 1 4.6 2.4l-2.6 4.3c-1.4-1.4-3-.8-4.6-2.4z"/></svg>`,
+  'flag.checkered': e('<path d="M4.2 2.6c.6 0 1 .4 1 1v17.3a1 1 0 0 1-2 0V3.6c0-.6.4-1 1-1z"/><path d="M6 4.2c4.6-2.2 8 2 13.5-.4v9.8c-5.5 2.4-8.9-1.8-13.5.4zm0 3.3c1.5-.6 3-.6 4.4-.2V4.1C9 3.7 7.5 3.7 6 4.2zm4.4-.2v3.3c1.5.4 3 1 4.6.9V8.2c-1.6.1-3.1-.5-4.6-.9zm4.6.9c1.5-.1 3-.5 4.5-1.1V3.8c-1.5.6-3 1-4.5 1.1zM6 10.8c1.5-.6 3-.6 4.4-.2v3.3C9 13.5 7.5 13.5 6 14.1zm9-.3v3.3c1.5-.1 3-.5 4.5-1.1v-3.3c-1.5.6-3 1-4.5 1.1z"/>'),
+  'gauge.with.dots.needle.67percent': e('<path d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zm0 1.9a7.6 7.6 0 1 1 0 15.2 7.6 7.6 0 0 1 0-15.2z"/><circle cx="7.2" cy="15.6" r="1.05"/><circle cx="6.3" cy="11.3" r="1.05"/><circle cx="8.4" cy="7.6" r="1.05"/><circle cx="12" cy="6.2" r="1.05"/><circle cx="17.7" cy="11.3" r="1.05"/><circle cx="16.8" cy="15.6" r="1.05"/><path d="M15.9 7.2a.9.9 0 0 1 1.2 1.2l-3.4 4.6a2 2 0 1 1-2.8-2.4z"/>'),
+  'stopwatch.fill': e('<path d="M9.5 1.6h5a1 1 0 0 1 0 2h-1.5v1.5a8.6 8.6 0 1 1-2 0V3.6H9.5a1 1 0 0 1 0-2zM12 8.4a1 1 0 0 0-1 1v4.5a1 1 0 0 0 2 0V9.4a1 1 0 0 0-1-1z"/><path d="M18.4 4.7l1.4 1.4-1.3 1.3-1.4-1.4z"/>'),
+  'calendar': I.calendar,
+  'shield.lefthalf.filled': e('<path d="M12 2.2l8.2 3.1v6.1c0 5-3.4 8.9-8.2 10.5C7.2 20.3 3.8 16.4 3.8 11.4V5.3zm0 2.1v15.5c3.7-1.4 6.3-4.6 6.3-8.4V6.6z"/>'),
+  'gift.fill': e('<path d="M7.6 2.5c1.7 0 3.4 1.5 4.4 3.4 1-1.9 2.7-3.4 4.4-3.4a2.6 2.6 0 0 1 2 4.3h1.6c.8 0 1.4.6 1.4 1.4v2.4c0 .6-.5 1.1-1.1 1.1H3.7c-.6 0-1.1-.5-1.1-1.1V8.2c0-.8.6-1.4 1.4-1.4h1.6a2.6 2.6 0 0 1 2-4.3zm0 1.9a.8.8 0 0 0-.1 1.6c.9.4 2.1.6 3.3.7-.7-1.3-2-2.3-3.2-2.3zm8.8 0c-1.2 0-2.5 1-3.2 2.3 1.2-.1 2.4-.3 3.3-.7a.8.8 0 0 0-.1-1.6zM3.9 12.6h7.1v8.9H5.3c-.8 0-1.4-.6-1.4-1.4zm9.1 0h7.1v7.5c0 .8-.6 1.4-1.4 1.4H13z"/>'),
+  'lock.fill': I.lock,
+  'lock.open.fill': e('<path d="M16.5 2.5a4.9 4.9 0 0 1 4.9 4.9v2a1 1 0 0 1-2 0v-2a2.9 2.9 0 0 0-5.8 0V10H14a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V12a2 2 0 0 1 2-2h7.6V7.4a4.9 4.9 0 0 1 4.9-4.9z"/>'),
+  'bolt.fill': I.bolt,
+  'snowflake': `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${snow}</svg>`,
+  'moon.fill': e('<path d="M9.6 2.6a.8.8 0 0 1 .9 1A7.6 7.6 0 0 0 20.4 13.5a.8.8 0 0 1 1 .9A9.8 9.8 0 1 1 9.6 2.6z"/>'),
+  'flame.fill': I.flame,
+  'clock.fill': e('<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 3.6a1 1 0 0 0-1 1v5.6c0 .3.1.5.3.7l3.6 3.6a1 1 0 0 0 1.4-1.4L13 11.8V6.6a1 1 0 0 0-1-1z"/>'),
+  'xmark': I.x,
+  'chevron.right': `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ln('M8.5 4.5l7.5 7.5-7.5 7.5', 3.4)}</svg>`,
+  'chevron.left': `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ln('M15.5 4.5L8 12l7.5 7.5', 3.4)}</svg>`,
+  'checkmark': I.check,
+  // A filled circle with the mark cut out of it (the premium page's Free vs Premium table).
+  'checkmark.circle.fill': e('<path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zM6.3 12.7l1.8-1.8 2.5 2.5 5.3-5.3 1.8 1.8-7.1 7.1z"/>'),
+  'xmark.circle.fill': e('<path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm3.75 11.77l-1.98 1.98L12 13.98l-1.77 1.77-1.98-1.98L10.02 12 8.25 10.23l1.98-1.98L12 10.02l1.77-1.77 1.98 1.98L13.98 12z"/>'),
+  'gearshape.fill': e(gear),
+  'person.fill': I.person,
+  'person.2.fill': e('<circle cx="15.6" cy="7.6" r="3.6"/><path d="M8.6 20a7 7 0 0 1 14 0c0 .6-.4 1-1 1h-12c-.6 0-1-.4-1-1z"/><circle cx="7.6" cy="8.8" r="2.9"/><path d="M1.4 19.4a6.2 6.2 0 0 1 9-5.5 8.7 8.7 0 0 0-3.1 6.6H2.4c-.6 0-1-.4-1-1.1z"/>'),
+  'plus.circle': `<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.8"/>${ln('M12 7.6v8.8M7.6 12h8.8', 2)}</svg>`,
+  'plus.circle.fill': e('<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 5a1 1 0 0 1 1 1v3h3a1 1 0 0 1 0 2h-3v3a1 1 0 0 1-2 0v-3H8a1 1 0 0 1 0-2h3V8a1 1 0 0 1 1-1z"/>'),
+  'qrcode': e('<path d="M3 3h7.5v7.5H3zm2 2v3.5h3.5V5zM13.5 3H21v7.5h-7.5zm2 2v3.5H19V5zM3 13.5h7.5V21H3zm2 2V19h3.5v-3.5z"/><rect x="6" y="6" width="1.5" height="1.5"/><rect x="16.5" y="6" width="1.5" height="1.5"/><rect x="6" y="16.5" width="1.5" height="1.5"/><path d="M13.5 13.5h2.5V16h-2.5zM16 16h2.5v2.5H16zM18.5 13.5H21V16h-2.5zM13.5 18.5h2.5V21h-2.5zM18.5 18.5H21V21h-2.5z"/>'),
+  'bell.fill': e('<path d="M12 2.2c.7 0 1.2.5 1.2 1.2v.6a6.3 6.3 0 0 1 5 6.2v4.3l1.8 2.3c.5.7 0 1.6-.8 1.6H4.8c-.8 0-1.3-.9-.8-1.6l1.8-2.3v-4.3a6.3 6.3 0 0 1 5-6.2v-.6c0-.7.5-1.2 1.2-1.2zM9.4 19.6h5.2a2.6 2.6 0 0 1-5.2 0z"/>'),
+  'lightbulb.fill': I.bulb,
+  'magnifyingglass': I.search,
+  'paintbrush.pointed.fill': e('<path d="M20.6 2.6c.6.6.6 1.4.1 2l-8 9.1-2.4-2.4 9.1-8c.6-.5 1.5-.5 2 .1z"/><path d="M9.2 12.4l2.4 2.4c-.2 2.6-1.8 4.9-4.6 6.1-1.3.6-2.9.9-4.4 1-.3 0-.5-.3-.3-.6.9-1.2 1.2-2.4 1.4-3.7.3-2.8 2.4-5 5.5-5.2z"/>'),
+  'sparkles': I.sparkles,
+  'photo.fill': I.photo,
+  'sun.max.fill': `<svg class="i" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${sun}</svg>`,
+  'paintpalette.fill': e('<path d="M12 2.5c5.4 0 9.6 3.7 9.6 8.3 0 2.7-2.1 4.6-4.6 4.6h-1.8c-.9 0-1.5.7-1.5 1.5 0 .4.2.8.4 1.1.3.3.5.8.5 1.3 0 1-.8 1.8-1.9 1.8a9.3 9.3 0 0 1 0-18.6zM7.4 9.6a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2zm3-4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2zm4.4 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2zm2.9 3.7a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2z"/>'),
+  'flashlight.on.fill': e('<path d="M8 8.2h8v1.4l-1.6 2.8V21c0 .8-.6 1.4-1.4 1.4h-2c-.8 0-1.4-.6-1.4-1.4v-8.6L8 9.6zM12 14a.9.9 0 0 0-.9.9v1.6a.9.9 0 0 0 1.8 0v-1.6A.9.9 0 0 0 12 14z"/>' + ln('M12 1.8v3.2M6.6 3.6l1.6 2.4M17.4 3.6l-1.6 2.4', 1.8)),
+  'questionmark': `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ln('M8.2 8.4a3.9 3.9 0 0 1 7.6 1.1c0 2.6-3.8 3.1-3.8 5.8', 2.6)}<circle cx="12" cy="19.6" r="1.6" fill="currentColor"/></svg>`,
+  'arrow.clockwise': `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ln('M19.5 12.5a7.5 7.5 0 1 1-2.6-6.2', 2.3)}<path d="M14.4 2.6l6.1.9-2.1 5.8z" fill="currentColor"/></svg>`,
+  'person.badge.plus': e('<circle cx="9.5" cy="7.5" r="4"/><path d="M1.8 20.2a7.7 7.7 0 0 1 12.6-6 6 6 0 0 0 .2 7H2.8c-.6 0-1-.4-1-1z"/><path d="M18.5 13a1 1 0 0 1 1 1v2h2a1 1 0 0 1 0 2h-2v2a1 1 0 0 1-2 0v-2h-2a1 1 0 0 1 0-2h2v-2a1 1 0 0 1 1-1z"/>'),
+  'envelope.fill': e('<path d="M2.6 6.6c0-.2.1-.4.2-.5l8.3 6.7c.5.4 1.3.4 1.8 0l8.3-6.7c.1.1.2.3.2.5v11c0 1-.8 1.9-1.9 1.9H4.5c-1.1 0-1.9-.9-1.9-1.9zM4.5 4.6h15c.3 0 .5 0 .7.1L12 11.4 3.8 4.7c.2-.1.4-.1.7-.1z"/>'),
+  'hourglass': `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ln('M6.5 2.8h11M6.5 21.2h11M7.6 2.8c0 5 3.4 6.4 3.4 9.2s-3.4 4.2-3.4 9.2M16.4 2.8c0 5-3.4 6.4-3.4 9.2s3.4 4.2 3.4 9.2', 1.9)}<path d="M9.4 19.6c.6-1.8 1.7-2.4 2.6-3 .9.6 2 1.2 2.6 3z" fill="currentColor"/></svg>`,
+  'trophy.fill': I.trophy,
+  'play.fill': I.play,
+  'pause.fill': I.pause,
+  'square.and.arrow.up': I.share,
+  'person.crop.circle.fill': e('<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 3.6a3.7 3.7 0 1 1 0 7.4 3.7 3.7 0 0 1 0-7.4zm0 14.4a8 8 0 0 1-6-2.7c1.3-1.8 3.5-2.9 6-2.9s4.7 1.1 6 2.9a8 8 0 0 1-6 2.7z"/>'),
+};
+SF['gauge'] = SF['gauge.with.dots.needle.67percent'];
+SF['moon'] = SF['moon.fill'];
+SF['stopwatch'] = SF['stopwatch.fill'];
+
+/** An SF Symbol by its iOS name ('' when there is no drawing for it). */
+export const sf = name => SF[name] || '';
+
+/**
+ * A Glyphs/glyph-* template image, tinted: the PNG is the mask, `colour` the
+ * paint (Image(...).renderingMode(.template).foregroundStyle(colour)).
+ * `name` with or without the "glyph-" prefix. `size` in px (= pt).
+ */
+export function glyph(name, colour = 'currentColor', size = 18, cls = '') {
+  const n = String(name).startsWith('glyph-') ? name : 'glyph-' + name;
+  const url = `url(/app/img/glyphs/${n}.png)`;
+  return `<i class="glyph ${cls}" aria-hidden="true" style="display:inline-block;flex:none;width:${size}px;height:${size}px;background:${colour};-webkit-mask:${url} center/contain no-repeat;mask:${url} center/contain no-repeat"></i>`;
+}
