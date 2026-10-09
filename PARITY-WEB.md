@@ -48,7 +48,7 @@ cd ~/Developer/songspot && python3 serve.py 8765     # then open http://127.0.0.
 | `?rankedQueue=<name>`, `queueWait=N`, `rankedLog=1` | real ranked matches on a private test queue (never meets a real player; never posts results) |
 | `?open=party&demoParty=1` / `demoTeams` / `showHostSettings` / `showSongsAlbum` / `showJoining` / `showDuel` / `demoDuelCountdown` / `demoDuelResult` / `demoRoomCountdown` (+`demoFirstRound`) / `demoRoomRound` / `demoTeamRound` / `demoTeamResult` / `demoSoloResult` / `demoError=<text>` / `demoConfirmEnd`; `roomCode=`, `autoStart`, `rounds=N`, `teamMode=`, `duelOpen`, `duelJoin=CODE`; `?tab=party&showJoinCode=1` | party and 1v1 states |
 | `?demoFriends=1`, `demoChallenge=1`, `demoRequest=1`, `fakeOffline=1`, `bellListen=<id>`, `bellRing=<id>` | friends states, offline cover, bell test |
-| `?paywallTrial=1`, `?adBreak` | paywall trial layout, one test ad break |
+| `?paywallTrial=1`, `?paywallLive=1`, `?paywallBought=1`, `?adBreak` | paywall trial layout, the real button as if Stripe were set up, the thank-you (iOS `-paywallBought`), one test ad break |
 | `/app/dev/kit.html` | the design kit on one page |
 
 Checked headless in Chrome (390 and 1440) and in WebKit as iPhone Safari (390): no page errors on any screen. Headless screenshot helpers live in `~/Developer/songspot-assets/web-parity-2026-10-08/tools/` (`shot.mjs`, `final.mjs` =
@@ -256,11 +256,15 @@ every screen at 390 and 1440, `sheet.py` = side-by-side sheet, plus per-area Pla
 - ⚠️ A friend link while signed out keeps the code through the sign-in redirect (1 h), rather than iOS's 0.5 s hop
 
 ## Premium and ads — premium.js, ads.js
-- ✅ Full-page paywall:
-  - a cover wall behind the headline; the close button fades in at 1.2 s;
-  - "SONGSPOT PREMIUM", "Every song. / No limits.";
-  - the five perks in iOS order and wording (ads, ranked, host, artist, album).
-- ✅ Plans: Yearly default ($29.99, 3-DAY FREE TRIAL), Monthly $6.99, Lifetime $49.99 (BEST VALUE), "SAVE 64%"; the trial timeline; iOS button titles and price line
+- ✅ Full-page paywall, the final iOS one (1f2aa56, 9 Oct; sheet `42-paywall-final.png`):
+  - a veiled cover wall behind the top; the close button fades in at 1.4 s; the parts fade and rise in, a beat apart;
+  - "👑 SONGSPOT PREMIUM", "Every song. / No limits."; four ticked benefits in iOS wording;
+  - plans: the tall Yearly card picked by default (struck $83.88 = 12 × monthly, "$29.99 billed yearly", "$2.50/mo" = yearly ÷ 12, gold SAVE 64%, the 3-DAY FREE TRIAL / MOST POPULAR badge on the top edge), slim Monthly $6.99/mo and Lifetime $49.99 once;
+  - the WHAT CHANGES / FREE / PREMIUM table, green ticks and red crosses only (8 rows as iOS);
+  - no fact chips, no FAQ, no trial timeline, no deal line; the sticky button with the slow sheen and the soft glow, "🔒 Secured by Stripe · Cancel any time", Restore · Terms · Privacy;
+  - iOS button titles ("Start my 3-day free trial", "Continue — $2.50/mo", "Continue — $6.99/month", "Unlock for good — $49.99");
+  - the thank-you after buying: your character's win pose, "YOU'RE IN", "Let's play" — on the way back from Stripe (`?checkout=success`, once the grant is seen; a guest gets the profile screen and the toast instead).
+- ❌ The one-time 25%-off exit offer when closing without buying (GiftSheet .paywall, ten-minute clock): needs a Stripe price for the gift plan that doesn't exist yet (TODO in premium.js `close()`)
 - ✅ Funnel doors (crown/ads/ranked/host/artist/album/songbot/login), tap, failed, bought/cancelled; premium once right after signing in (the login door)
 - ✅ Every gate as iOS: ranked (one free match), host a party, artist, album, Beat Songbot, the 20 s extra stage, the rewarded second chance, daily streak restore
 - 🌐 Payment is Stripe Checkout; Restore re-reads the account's premium grant; Manage is the Stripe billing portal; Terms link to /support (no Apple EULA)
@@ -287,7 +291,6 @@ every screen at 390 and 1440, `sheet.py` = side-by-side sheet, plus per-area Pla
 | Save to Photos, Game Center, icon quick action, ATT | none |
 
 ## Still open (owner decisions or server work)
-- The iPhone paywall is being reworked in uncommitted iOS edits (seen on the simulator 8 Oct from 22:31: colour perk tiles, a Free vs Premium table, FAQ, a "Wait, one more thing" 25%-off downsell). The web follows the committed HEAD paywall; port the new one once it is committed.
 - Stripe keys/prices on Vercel (README) — until then the paywall says "coming soon".
 - The gift offer on the web needs a Stripe gift price + subscription schedule + webhook renewal state.
 - CORS on the `push` edge function, so web players can push iPhone friends.

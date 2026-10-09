@@ -1,6 +1,9 @@
-// Premium as a full page (Premium.swift · PremiumSheet): the album wall behind
-// "Every song. No limits.", the five perks, the three plans with Yearly picked,
-// how the free trial runs, and one button in a footer that never scrolls away.
+// Premium as a full page (Premium.swift · PremiumSheet at iOS 1f2aa56), built
+// to convert: the album wall behind the one headline ("Every song. No
+// limits."), four ticked benefits, three plans with Yearly picked and its
+// price a month at a time against twelve months of monthly, a Free-vs-Premium
+// table of ticks and crosses, and one button that never scrolls away. Buying
+// ends on your character jumping for joy ("YOU'RE IN").
 // Every door (the crown, the ranked / host / artist / album / Songbot locks,
 // the ad break, sign-in) opens this same page; nothing is singled out.
 //
@@ -8,54 +11,60 @@
 // re-reads this account's premium grant, Manage is Stripe's billing portal
 // (api/portal.js). Until the owner's Stripe keys are in place (api/config.js
 // says stripe: false, and locally there is no api at all) the footer says
-// premium on the web is coming soon instead of failing.
+// premium on the web is coming soon instead of failing. Stripe sends the
+// player back with ?checkout=success, so the thank-you is opened from app.js
+// (mountThankYou) once the grant is seen, not from this page.
 //
-// Not on the web (platform differences): the 25% gift (Gift.swift), which
-// needs a $22.49 gift price and a switch-at-renewal in Stripe, the icon quick
-// action, and StoreKit's renewal state (willCancel / lapsed / onGift).
+// Not on the web (platform differences): the 25% gift (Gift.swift) and its
+// one-time exit offer, which need a gift price and a switch-at-renewal in
+// Stripe, the icon quick action, and StoreKit's renewal state.
 //
 // Localhost knobs: ?perk=<ads|ranked|host|artist|album|songbot> (the door; the
 // page looks the same from every door), ?paywallTrial=1 (the trial layout
-// without the api, as iOS -paywallTrial YES).
+// without the api, as iOS -paywallTrial YES), ?paywallLive=1 (the real button
+// as if Stripe were set up; pressing it fails locally), ?paywallBought=1 (the
+// thank-you, as iOS -paywallBought).
 import { pushView, popView, esc, TIER_COLOR, TIER_INK } from './ui.js';
 import { I, sf } from './icons.js';
 import { Funnel } from './funnel.js';
 import { auth } from './supabase.js';
 import { CoverWall } from './coverwall.js';
+import { figureHTML } from './characters.js';
 
 const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 const knob = k => (local ? new URLSearchParams(location.search).get(k) : null);
 
-// SF Symbols the page needs that icons.js doesn't have, on the same 24-box.
-const f = d => `<svg class="i" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${d}</svg>`;
 const SF = {
-  // speaker.slash.fill
-  speakerSlash: f('<path d="M3.5 9.2h3.8l5.2-4.4c.6-.5 1.5-.1 1.5.7v13c0 .8-.9 1.2-1.5.7l-5.2-4.4H3.5a1 1 0 0 1-1-1v-3.6a1 1 0 0 1 1-1z"/><path d="M4 4l16 16" fill="none" stroke="var(--pw-tile)" stroke-width="5" stroke-linecap="round"/><path d="M4 4l16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'),
-  // music.mic
-  micOwn: f('<circle cx="15.4" cy="8.6" r="5.6"/><path d="M11.6 12.4L4.6 19.4" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round"/>'),
-  // opticaldisc.fill
-  discOwn: f('<path fill-rule="evenodd" d="M12 2.6a9.4 9.4 0 1 1 0 18.8 9.4 9.4 0 0 1 0-18.8zm0 7a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8z"/><path d="M6.6 12A5.4 5.4 0 0 1 12 6.6M17.4 12a5.4 5.4 0 0 1-5.4 5.4" fill="none" stroke="var(--pw-tile)" stroke-width="1.4" stroke-linecap="round"/>'),
-  // lock.open.fill
-  lockOpenOwn: f('<path d="M5.5 10.6h11.2a2 2 0 0 1 2 2v7.2a2 2 0 0 1-2 2H5.5a2 2 0 0 1-2-2v-7.2a2 2 0 0 1 2-2z"/><path d="M13.6 10.6V6.9a4 4 0 0 1 8 0v1.4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>'),
+  crown: sf('crown.fill') || I.crown,
+  x: sf('xmark') || I.x,
+  check: sf('checkmark') || I.check,
+  lock: sf('lock.fill') || I.lock,
+  yes: sf('checkmark.circle.fill'),
+  no: sf('xmark.circle.fill'),
 };
-SF.mic = sf('music.mic') || SF.micOwn;
-SF.disc = sf('opticaldisc.fill') || SF.discOwn;
-SF.lockOpen = sf('lock.open.fill') || SF.lockOpenOwn;
-SF.crown = sf('crown.fill') || I.crown;
-SF.trophy = sf('trophy.fill') || I.trophy;
-SF.bolt = sf('bolt.fill') || I.bolt;
-SF.x = sf('xmark') || I.x;
 
-/** PremiumSheet.Perk: the doors, in the page's one fixed order (songbot is a door but not a row). */
-export const PERKS = [
-  { key: 'ads', icon: SF.speakerSlash, title: 'No ad breaks', detail: 'Round after round, straight through' },
-  { key: 'ranked', icon: SF.trophy, title: 'Unlimited ranked', detail: 'Bronze to Legend, a new season monthly' },
-  { key: 'host', icon: I.people, title: 'Host parties for up to 50', detail: 'One code, everyone hears the same clip' },
-  { key: 'artist', icon: SF.mic, title: 'One-artist mode', detail: 'Every round from the artist you pick' },
-  { key: 'album', icon: SF.disc, title: 'One-album mode', detail: 'Every round from the album you pick' },
-  { key: 'songbot', icon: SF.bolt, title: 'Practice 1v1s against Songbot', detail: 'A practice 1v1 whenever you like', hidden: true },
+/** PremiumSheet.Perk: the doors, for the funnel. The page looks the same from every one. */
+export const PERK_KEYS = ['ads', 'ranked', 'host', 'artist', 'album', 'songbot'];
+
+/** PremiumSheet.benefits: four lines, a tick each — what premium is, read in three seconds. */
+const BENEFITS = [
+  ['No ad breaks', 'Round after round, straight through'],
+  ['Unlimited ranked', 'Climb from Bronze to Legend'],
+  ['Host parties for up to 50', 'One code, everyone hears the same clip'],
+  ['One-artist and one-album modes', 'Every round from the music you pick'],
 ];
-export const PERK_KEYS = PERKS.map(p => p.key);
+
+/** PremiumSheet.comparison: what changes, free against premium (true = a green tick, false = a red cross). */
+const COMPARE = [
+  ['No ad breaks', false, true],
+  ['Ranked matches', false, true],
+  ['Host a party', false, true],
+  ['Join a party', true, true],
+  ['One-artist mode', false, true],
+  ['One-album mode', false, true],
+  ['1v1 Songbot practice', false, true],
+  ['Daily challenge', true, true],
+];
 
 let config = null;
 export async function premiumConfig() {
@@ -66,18 +75,40 @@ export async function premiumConfig() {
   // Not on sale yet (no api, or no Stripe keys): the page still shows the app's three
   // plans at the App Store prices, and the footer says it is coming soon.
   if (!config.stripe && !config.yearly) config.yearly = '$29.99';
-  config.yearlyPerMonth = config.yearlyPerMonth || '$2.50';
+  // Store.yearlyPerMonth: the yearly price twelfth by twelfth, in the same currency
+  // ("$29.99" → "$2.50"); the api's own label only when the price can't be read.
+  config.yearlyPerMonth = priceTimes(config.yearly, 1 / 12) || config.yearlyPerMonth || '$2.50';
   config.trialDays = config.stripe ? (Number(config.trialDays) || 0) : 0;
   if (knob('paywallTrial')) config.trialDays = 3;
+  if (knob('paywallLive')) config.stripe = true;
   return config;
+}
+
+/**
+ * A price label as a number and its dressing: "$29.99" → { pre: '$', post: '', n: 29.99, dec: '.', dp: 2 },
+ * "29,99 kr." → { pre: '', post: ' kr.', n: 29.99, dec: ',', dp: 2 }. null when it isn't a price.
+ */
+function parsePrice(s) {
+  const m = /^(\D*?)(\d[\d.,\s ]*)(\D*)$/.exec(String(s || '').trim()); if (!m) return null;
+  const num = m[2].replace(/[\s ]/g, '');
+  const sep = Math.max(num.lastIndexOf('.'), num.lastIndexOf(','));
+  // The last separator is the decimal point only when one or two digits follow it ("1,299" is a thousand).
+  const dp = sep >= 0 && num.length - sep - 1 <= 2 ? num.length - sep - 1 : 0;
+  const n = Number(num.replace(/[.,]/g, '')) / 10 ** dp;
+  return Number.isFinite(n) ? { pre: m[1], post: m[3], n, dec: dp ? num[sep] : '.', dp } : null;
+}
+/** The label's number times `k`, formatted like the label ("$6.99" × 12 → "$83.88"); null when it isn't a price. */
+function priceTimes(label, k) {
+  const p = parsePrice(label); if (!p) return null;
+  const dp = p.dp || 2;
+  return p.pre + (p.n * k).toFixed(dp).replace('.', p.dec) + p.post;
 }
 
 /** Store.yearlySaving: "Save 64%" from the two prices, only when it is 10% or more. */
 function yearlySaving(cfg) {
-  const n = s => parseFloat(String(s || '').replace(/[^0-9.,]/g, '').replace(',', '.'));
-  const y = n(cfg.yearly), m = n(cfg.monthly);
-  if (!(y > 0) || !(m > 0)) return null;
-  const pct = Math.floor((1 - y / (m * 12)) * 100);
+  const y = parsePrice(cfg.yearly), m = parsePrice(cfg.monthly);
+  if (!y || !m || !(y.n > 0) || !(m.n > 0)) return null;
+  const pct = Math.floor((1 - y.n / (m.n * 12)) * 100);
   return pct >= 10 ? `Save ${pct}%` : null;
 }
 
@@ -93,14 +124,16 @@ export function takePending() {
 
 /**
  * The funnel's outcome comes back with the player from Stripe (?checkout=success|cancel), so the
- * door they pressed pay from is kept for the trip. app.js calls checkoutReturned('bought' | 'cancelled').
+ * door they pressed pay from, and the plan, are kept for the trip. app.js calls
+ * checkoutReturned('bought' | 'cancelled'), which answers with the plan that was bought (or null).
  */
-const DOOR = 'songspot.funnelDoor';
-function rememberDoor(door) { try { sessionStorage.setItem(DOOR, door); } catch (e) {} }
+const DOOR = 'songspot.funnelDoor', PLAN = 'songspot.funnelPlan';
+function rememberDoor(door, plan) { try { sessionStorage.setItem(DOOR, door); sessionStorage.setItem(PLAN, plan); } catch (e) {} }
 export function checkoutReturned(outcome) {
-  let door = null;
-  try { door = sessionStorage.getItem(DOOR); sessionStorage.removeItem(DOOR); } catch (e) {}
+  let door = null, plan = null;
+  try { door = sessionStorage.getItem(DOOR); plan = sessionStorage.getItem(PLAN); sessionStorage.removeItem(DOOR); sessionStorage.removeItem(PLAN); } catch (e) {}
   if (door && (outcome === 'bought' || outcome === 'cancelled')) Funnel.log(outcome, door);
+  return outcome === 'bought' ? plan : null;
 }
 
 /** Straight to Stripe, for a signed-in player. Resolves with an error message if it could not start. */
@@ -135,6 +168,53 @@ export async function openPortal(ctx) {
   }
 }
 
+/** Both pages share the page's colours: the level's accent, gold for the crown, red for a strike or a cross. */
+function paint(node, tier) {
+  node.style.setProperty('--accent', TIER_COLOR[tier]); node.style.setProperty('--accent-ink', TIER_INK[tier]);
+  node.style.setProperty('--gold', TIER_COLOR.medium); node.style.setProperty('--gold-ink', TIER_INK.medium);
+  node.style.setProperty('--yes', TIER_COLOR.easy); node.style.setProperty('--err', TIER_COLOR.expert);
+}
+
+const kicker = () => `<div class="pw-kicker">${SF.crown}<span>SONGSPOT PREMIUM</span></div>`;
+
+/**
+ * PremiumSheet.thankYou: your character jumping for joy on a pool of the accent, a crown, "YOU'RE IN",
+ * and one button back to the game. `trial` = the free trial just started (the line says so).
+ */
+function thanksHTML(ctx, trial) {
+  const { account } = ctx;
+  const fig = figureHTML(account.faceIndex, 'win', { height: 250, variant: account.variant('win'), floor: TIER_COLOR[ctx.game?.difficulty || 'easy'], calm: true, clip: false });
+  return `<div class="pw-col pw-tcol">
+      <div class="pw-tfig">${fig}</div>
+      ${kicker()}
+      <h2 class="pw-in">YOU'RE IN</h2>
+      <p class="pw-tline">${trial ? 'Your free trial is on. Every song, no limits.' : 'Every song. No limits. Enjoy.'}</p>
+      <div class="pw-tspace"></div>
+      <button class="pw-buy pw-play" data-act="play" data-press>Let's play</button>
+    </div>`;
+}
+
+/**
+ * The thank-you on its own, for the way back from Stripe (app.js, ?checkout=success once the grant
+ * is seen). `opts.plan` is the plan that was bought, for the trial line. Returns { node, close }.
+ */
+export async function mountThankYou(ctx, opts = {}) {
+  const cfg = await premiumConfig();
+  const trial = opts.plan === 'yearly' && cfg.trialDays > 0;
+  const node = document.createElement('div');
+  node.className = 'view pw pw-thanks';
+  node.setAttribute('role', 'dialog'); node.setAttribute('aria-modal', 'true'); node.setAttribute('aria-label', "You're in");
+  paint(node, ctx.game?.difficulty || 'easy');
+  node.innerHTML = thanksHTML(ctx, trial);
+  let closed = false;
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  function close() { if (closed) return; closed = true; document.removeEventListener('keydown', onKey); popView(node); opts.onClose?.(); }
+  document.addEventListener('keydown', onKey);
+  node.addEventListener('click', e => { if (e.target.closest('[data-act="play"]')) { ctx.sound?.click?.(); close(); } });
+  pushView(node);
+  return { node, close };
+}
+
 /**
  * The page. `highlight` is the perk whose lock opened it (null = the crown);
  * `opts.entry` names a door that isn't a perk ("login": straight after signing in);
@@ -146,25 +226,20 @@ export async function mountPremium(ctx, highlight = null, opts = {}) {
   const tier = ctx.game?.difficulty || 'easy';
   const cfg = await premiumConfig();
   // Yearly is the default: it carries the free trial and the best price a month.
-  let plan = cfg.yearly ? 'yearly' : 'monthly', working = false, error = '';
+  let plan = cfg.yearly ? 'yearly' : 'monthly', working = false, error = '', bought = false;
   /** Funnel.swift's door: entry ?? highlight ?? "crown". */
   const door = opts.entry || highlight || 'crown';
-  const saving = yearlySaving(cfg);
+  const saving = yearlySaving(cfg) || 'Save 64%';
+  /** Twelve months of monthly, the price the yearly plan is set against. */
+  const twelveMonthly = priceTimes(cfg.monthly, 12) || '$83.88';
 
-  const label = p => (p === 'yearly' ? cfg.yearly : p === 'monthly' ? cfg.monthly : cfg.lifetime);
   /** Store.trialPeriod / trialLabel: on the web only the yearly plan carries the trial. */
   const trialPeriod = p => (p === 'yearly' && cfg.trialDays ? `${cfg.trialDays} ${cfg.trialDays === 1 ? 'day' : 'days'}` : null);
   const trialLabel = p => (p === 'yearly' && cfg.trialDays ? `${cfg.trialDays}-day free trial` : null);
   const trial = () => (plan === 'lifetime' ? null : trialPeriod(plan));
   const buttonTitle = () => {
     if (trial() && trialLabel(plan)) return `Start my ${trialLabel(plan)}`;
-    return plan === 'yearly' ? `Continue — ${cfg.yearly}/year` : plan === 'monthly' ? `Continue — ${cfg.monthly}/month` : `Unlock for good — ${cfg.lifetime}`;
-  };
-  /** The deal in a few words under the button, read before the tap. */
-  const buttonNote = () => {
-    if (plan === 'lifetime') return 'One payment. No subscription.';
-    const price = `${label(plan)}/${plan === 'yearly' ? 'year' : 'month'}`;
-    return trial() ? `${trial()} free, then ${price}. Cancel any time.` : `${price}. Cancel any time.`;
+    return plan === 'yearly' ? `Continue — ${cfg.yearlyPerMonth}/mo` : plan === 'monthly' ? `Continue — ${cfg.monthly}/month` : `Unlock for good — ${cfg.lifetime}`;
   };
 
   const covers = ctx.pool ? CoverWall.covers(ctx.pool, { preset: 7 }) : [];
@@ -172,64 +247,86 @@ export async function mountPremium(ctx, highlight = null, opts = {}) {
   node.className = 'view pw';
   node.dataset.door = door;
   node.setAttribute('role', 'dialog'); node.setAttribute('aria-modal', 'true'); node.setAttribute('aria-label', 'Premium');
-  node.style.setProperty('--accent', TIER_COLOR[tier]); node.style.setProperty('--accent-ink', TIER_INK[tier]);
-  node.style.setProperty('--gold', TIER_COLOR.medium); node.style.setProperty('--err', TIER_COLOR.expert);
-  const perkRow = p => `<div class="pw-perk"><i class="pw-tile">${p.icon}</i><div><b>${esc(p.title)}</b><span>${esc(p.detail)}</span></div></div>`;
-  const planCard = (p, title, price, note, badge, save = null) => `<button class="pw-plan${plan === p ? ' on' : ''}" data-plan="${p}" data-press aria-pressed="${plan === p}">
-      <i class="pw-radio"></i>
-      <div class="pw-pt"><div class="pw-ptl"><b>${title}</b>${save ? `<em class="pw-save">${esc(save.toUpperCase())}</em>` : ''}</div><span>${esc(note)}</span></div>
-      <strong>${esc(price)}</strong>
-      ${badge ? `<em class="pw-badge">${esc(badge.toUpperCase())}</em>` : ''}
+  paint(node, tier);
+
+  const benefit = ([title, detail]) => `<div class="pw-benefit"><i class="pw-tick">${SF.check}</i><div><b>${esc(title)}</b><span>${esc(detail)}</span></div></div>`;
+  const radio = '<i class="pw-radio"></i>';
+  const price = (big, unit) => `<strong class="pw-price">${esc(big)}<small>${esc(unit)}</small></strong>`;
+  /** The plan most people take, so it gets the room: the price a month big, the yearly bill and the saving small under it, the trial on top. */
+  const yearlyCard = () => `<button class="pw-plan pw-yearly${plan === 'yearly' ? ' on' : ''}" data-plan="yearly" data-press aria-pressed="${plan === 'yearly'}" aria-label="Yearly, ${esc(cfg.yearlyPerMonth)} a month, ${esc(cfg.yearly)} billed yearly">
+      ${radio}
+      <div class="pw-pt"><b>Yearly</b><span class="pw-was"><s>${esc(twelveMonthly)}</s> ${esc(cfg.yearly)} billed yearly</span></div>
+      <div class="pw-pr">${price(cfg.yearlyPerMonth, '/mo')}<em class="pw-save">${esc(saving.toUpperCase())}</em></div>
+      <em class="pw-badge">${esc((trialLabel('yearly') || 'Most popular').toUpperCase())}</em>
     </button>`;
-  const step = (icon, title, text, last) => `<div class="pw-step${last ? ' last' : ''}"><div class="pw-rail"><i>${icon}</i>${last ? '' : '<u></u>'}</div><div class="pw-st"><b>${esc(title)}</b><span>${esc(text)}</span></div></div>`;
+  const slimCard = (p, title, big, unit, note) => `<button class="pw-plan${plan === p ? ' on' : ''}" data-plan="${p}" data-press aria-pressed="${plan === p}" aria-label="${esc(title)}, ${esc(big + unit)}">
+      ${radio}
+      <div class="pw-pt"><b>${esc(title)}</b><span>${esc(note)}</span></div>
+      ${price(big, unit)}
+    </button>`;
+  const compareRow = ([name, free, prem]) => `<div class="pw-tr"><span>${esc(name)}</span><i class="${free ? 'yes' : 'no'}">${free ? SF.yes : SF.no}</i><i class="${prem ? 'yes' : 'no'}">${prem ? SF.yes : SF.no}</i></div>`;
+
   node.innerHTML = `
-    ${covers.length ? `<div class="pw-wall">${CoverWall.html(covers, 0.5)}</div>` : ''}
+    ${covers.length ? `<div class="pw-wall">${CoverWall.html(covers, 0.55)}</div>` : ''}
     <div class="pw-scroll"><div class="pw-col pw-content">
-      <div class="pw-kicker">${SF.crown}<span>SONGSPOT PREMIUM</span></div>
-      <h1 class="pw-head">Every song.<br><em>No limits.</em></h1>
-      <div class="pw-perks">${PERKS.filter(p => !p.hidden).map(perkRow).join('')}</div>
-      <div class="pw-plans">
-        ${cfg.yearly ? planCard('yearly', 'Yearly', cfg.yearly + '/yr', trialLabel('yearly') ? `Then ${cfg.yearlyPerMonth}/mo, billed yearly` : `${cfg.yearlyPerMonth}/mo, billed yearly`, trialLabel('yearly') || 'Best value', saving) : ''}
-        ${planCard('monthly', 'Monthly', cfg.monthly + '/mo', trialLabel('monthly') || 'Cancel any time', null)}
-        ${planCard('lifetime', 'Lifetime', cfg.lifetime, 'Pay once, keep it for good', null)}
+      <div class="pw-hero pw-r" style="--step:0">
+        ${kicker()}
+        <h1 class="pw-head">Every song.<br><em>No limits.</em></h1>
       </div>
-      <div class="pw-timewrap"></div>
+      <div class="pw-benefits pw-r" style="--step:2">${BENEFITS.map(benefit).join('')}</div>
+      <div class="pw-plans pw-r" style="--step:3">
+        ${cfg.yearly ? yearlyCard() : ''}
+        ${slimCard('monthly', 'Monthly', cfg.monthly, '/mo', trialLabel('monthly') || 'Cancel any time')}
+        ${slimCard('lifetime', 'Lifetime', cfg.lifetime, ' once', 'Pay once, keep it for good')}
+      </div>
+      <div class="pw-table pw-r" style="--step:4">
+        <div class="pw-th"><span>WHAT CHANGES</span><b>FREE</b><b class="on">PREMIUM</b></div>
+        ${COMPARE.map(compareRow).join('')}
+      </div>
     </div></div>
     <div class="pw-fade"></div>
     <div class="pw-top"><div class="pw-col"><button class="pw-x" data-act="close" data-press aria-label="Close"><span>${SF.x}</span></button></div></div>
     <div class="pw-foot"><div class="pw-col pw-footin"></div></div>`;
-  const timeWrap = node.querySelector('.pw-timewrap'), foot = node.querySelector('.pw-footin');
+  const foot = node.querySelector('.pw-footin');
 
-  /** How the free trial runs, so nobody wonders when they'll be charged. */
-  const paintTimeline = () => {
-    const t = trial();
-    timeWrap.innerHTML = t ? `<div class="pw-time">
-        ${step(SF.lockOpen, 'Today', 'Full premium unlocks straight away, nothing to pay.', false)}
-        ${step(SF.crown, `After ${t}`, plan === 'yearly' ? `Premium carries on for ${label(plan)}/year, just ${cfg.yearlyPerMonth} a month. Cancel any time.` : `Premium carries on for ${label(plan)}/month. Cancel any time.`, true)}
-      </div>` : '';
-  };
   const paintFoot = () => {
     const has = ctx.premium, guest = !account.signedIn;
     let button;
     if (has) button = `<button class="pw-buy" data-act="manage" data-press>You're premium — manage</button>`;
     else if (!cfg.stripe) button = `<button class="pw-buy" disabled>Premium on the web is coming soon</button>`;
     else button = `<button class="pw-buy" data-act="buy" data-press ${working ? 'disabled' : ''}>${working ? 'One moment…' : guest ? 'Sign in to go premium' : esc(buttonTitle())}</button>`;
+    // Under the button: where the money goes (iOS: "Secured by the App Store"), or, until Stripe is
+    // set up, the way to the iPhone app.
     const note = has ? '' : !cfg.stripe
       ? `<a class="pw-note pw-ios" href="https://songspotapp.com/get" target="_blank" rel="noopener">Get it now in the <b>iPhone app</b></a>`
-      : `<p class="pw-note">${esc(buttonNote())}</p>`;
+      : `<p class="pw-secure">${SF.lock}<span>Secured by Stripe · Cancel any time</span></p>`;
     foot.innerHTML = `
       ${error ? `<p class="pw-err">${esc(error)}</p>` : ''}
       ${button}
       ${note}
       <div class="pw-legal">${has ? '' : `<button data-act="restore" data-press>Restore</button>`}<a href="/support" target="_blank" rel="noopener" data-press>Terms</a><a href="/privacy" target="_blank" rel="noopener" data-press>Privacy</a></div>`;
   };
-  paintTimeline(); paintFoot();
+  paintFoot();
+
+  /** Bought: the thank-you takes the page over (the footer and the way out go with it). */
+  const showThanks = () => {
+    bought = true;
+    node.classList.add('bought');
+    const t = document.createElement('div');
+    t.className = 'pw-thanks pw-over';
+    t.innerHTML = thanksHTML(ctx, !!trial());
+    node.appendChild(t);
+    requestAnimationFrame(() => t.classList.add('in'));
+  };
 
   let closed = false, showX = 0;
   const onKey = e => { if (e.key === 'Escape') close(); };
-  const off = account.onChange(() => { if (!closed) paintFoot(); });
+  const off = account.onChange(() => { if (!closed && !bought) paintFoot(); });
   function close() {
     if (closed) return; closed = true;
+    // TODO(web): iOS leaves through the one-time 25%-off gift (GiftSheet, reason .paywall: once ever, a
+    // ten-minute clock) when nothing was bought. It needs a Stripe price for the gift plan, which
+    // doesn't exist yet; until then the page just closes.
     document.removeEventListener('keydown', onKey);
     clearTimeout(showX);
     if (typeof off === 'function') off();
@@ -239,8 +336,11 @@ export async function mountPremium(ctx, highlight = null, opts = {}) {
   document.addEventListener('keydown', onKey);
   pushView(node);
   Funnel.log('sheet', door);
+  // The page's parts settle in one after another on the first frame (reveal: 0.45 s, a beat later each step).
+  requestAnimationFrame(() => requestAnimationFrame(() => node.classList.add('shown')));
   // The way out fades in a beat after the page, so the headline is read first.
-  showX = setTimeout(() => node.classList.add('x-on'), 1200);
+  showX = setTimeout(() => node.classList.add('x-on'), 1400);
+  if (knob('paywallBought')) showThanks();
 
   node.addEventListener('click', async e => {
     const t = e.target.closest('[data-plan], [data-act]'); if (!t) return;
@@ -250,11 +350,10 @@ export async function mountPremium(ctx, highlight = null, opts = {}) {
       plan = t.dataset.plan;
       // In place, so the radio and the border ease over (easeOut 0.18 s).
       node.querySelectorAll('.pw-plan').forEach(b => { const on = b.dataset.plan === plan; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
-      paintTimeline();
       return paintFoot();
     }
     const act = t.dataset.act;
-    if (act === 'close') return close();
+    if (act === 'close' || act === 'play') return close();
     if (act === 'restore') {
       // Restore on the web: read this account's premium grant again (Stripe, App Store or given by hand).
       if (!account.signedIn) { close(); return ctx.signIn(); }
@@ -270,7 +369,7 @@ export async function mountPremium(ctx, highlight = null, opts = {}) {
       if (!account.signedIn) { close(); rememberPending({ kind: 'buy', plan }); return ctx.signIn(); }
       working = true; error = ''; paintFoot();
       Funnel.log('tap', `${door}/${plan}`);
-      rememberDoor(door);
+      rememberDoor(door, plan);
       const msg = await startCheckout(ctx, plan);
       if (msg) { working = false; error = msg; paintFoot(); Funnel.log('failed', door); }
     }

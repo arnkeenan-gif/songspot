@@ -183,9 +183,13 @@ export function loadCSS(name) {
     if (account.isGuest) { settings.set('mustProfile', true); mustProfile(); }
     toast('Thanks! Switching premium on…', 5);
     for (let i = 0; i < 8 && !(await account.refreshPremium()); i++) await new Promise(r => setTimeout(r, 1500));
-    toast(account.premium ? "You're premium. No more ad breaks." : 'Payment received. Premium switches on in a moment — reload if it does not.', 6);
     stage.render();
-    import('./premium.js').then(m => m.checkoutReturned?.('bought')).catch(() => {});   // [money] the funnel
+    const m = await import('./premium.js').catch(() => null);
+    const plan = m?.checkoutReturned?.('bought') ?? null;   // [money] the funnel; the plan, for the thank-you
+    // The thank-you (PremiumSheet.thankYou): your character jumping for joy. A guest is making a profile
+    // first (mustProfile, above), so they get the toast and the stage instead.
+    if (account.premium && !account.isGuest && m?.mountThankYou) m.mountThankYou(ctx, { plan });
+    else toast(account.premium ? "You're premium. No more ad breaks." : 'Payment received. Premium switches on in a moment — reload if it does not.', 6);
   } else if (q.get('checkout') === 'cancel') {
     history.replaceState(null, '', location.pathname);
     import('./premium.js').then(m => m.checkoutReturned?.('cancelled')).catch(() => {});   // [money] the funnel

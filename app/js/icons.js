@@ -123,6 +123,9 @@ export const SF = {
   'chevron.right': `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ln('M8.5 4.5l7.5 7.5-7.5 7.5', 3.4)}</svg>`,
   'chevron.left': `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ln('M15.5 4.5L8 12l7.5 7.5', 3.4)}</svg>`,
   'checkmark': I.check,
+  // A filled circle with the mark cut out of it (the premium page's Free vs Premium table).
+  'checkmark.circle.fill': e('<path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zM6.3 12.7l1.8-1.8 2.5 2.5 5.3-5.3 1.8 1.8-7.1 7.1z"/>'),
+  'xmark.circle.fill': e('<path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm3.75 11.77l-1.98 1.98L12 13.98l-1.77 1.77-1.98-1.98L10.02 12 8.25 10.23l1.98-1.98L12 10.02l1.77-1.77 1.98 1.98L13.98 12z"/>'),
   'gearshape.fill': e(gear),
   'person.fill': I.person,
   'person.2.fill': e('<circle cx="15.6" cy="7.6" r="3.6"/><path d="M8.6 20a7 7 0 0 1 14 0c0 .6-.4 1-1 1h-12c-.6 0-1-.4-1-1z"/><circle cx="7.6" cy="8.8" r="2.9"/><path d="M1.4 19.4a6.2 6.2 0 0 1 9-5.5 8.7 8.7 0 0 0-3.1 6.6H2.4c-.6 0-1-.4-1-1.1z"/>'),
