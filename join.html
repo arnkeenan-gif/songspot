@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join my Songspot party</title>
+<meta name="description" content="Join a Songspot party: everyone hears the same clip, first to name the song wins.">
+<meta property="og:title" content="Join my Songspot party">
+<meta property="og:description" content="Everyone hears the same clip. First to name the song wins. Tap to join the room.">
+<meta property="og:image" content="https://songspotapp.com/img/icon-512.png">
+<meta name="apple-itunes-app" content="app-id=6808657554">
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#030704;color:#f2f2f2;
+    font:16px/1.5 -apple-system,system-ui,sans-serif;text-align:center;padding:24px;box-sizing:border-box}
+  img{width:84px;height:84px;border-radius:20px}
+  h1{font-size:28px;font-style:italic;letter-spacing:-.03em;margin:14px 0 6px}
+  .code{font:800 26px/1 ui-monospace,Menlo,monospace;letter-spacing:.3em;margin:14px 0 6px}
+  p{color:#a8a8a8;margin:0 0 22px;max-width:320px}
+  a{display:block;background:#19df70;color:#04120a;font-weight:700;padding:15px 30px;border-radius:999px;text-decoration:none;margin:10px auto;max-width:260px}
+  a.alt{background:#141a16;color:#f2f2f2;border:1px solid #262626}
+</style>
+<link rel="icon" href="/img/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="/img/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+</head>
+<body><main>
+  <img src="/img/icon-192.png" alt="">
+  <h1>Join my party</h1>
+  <div class="code" id="code">·····</div>
+  <p>Open Songspot to join this room, or type the code in the Party tab.</p>
+  <a id="open" href="#">Open Songspot</a>
+  <a class="alt" id="get" href="https://apps.apple.com/app/id6808657554">Get the app</a>
+</main>
+<script>
+  // The room code from ?c=, five letters and numbers.
+  var c = (new URLSearchParams(location.search).get('c') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+  document.getElementById('code').textContent = c || '——';
+  var ua = navigator.userAgent || '';
+  var bot = /bot|crawler|spider|facebookexternalhit|WhatsApp|Twitterbot|Slackbot|Discordbot|TelegramBot|LinkedInBot/i.test(ua);
+  var android = /Android/i.test(ua);
+  var apple = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  var play = 'https://play.google.com/store/apps/details?id=app.songspot';
+  var store = 'https://apps.apple.com/app/id6808657554';
+  // The app's own link. On Android it is an intent that opens Songspot in the
+  // room, or Google Play when it isn't installed yet.
+  var app = 'songspot://join?c=' + encodeURIComponent(c);
+  if (android) app = 'intent://join?c=' + encodeURIComponent(c) + '#Intent;scheme=songspot;package=app.songspot;S.browser_fallback_url=' + encodeURIComponent(play) + ';end';
+  document.getElementById('open').href = app;
+  // "Get the app" goes to this phone's store; a computer keeps the App Store.
+  if (android) document.getElementById('get').href = play;
+  // Straight into the app when it's installed; this page stays for everyone else.
+  if (c && (apple || android) && !bot) {
+    setTimeout(function () { location.href = app; }, 60);
+  }
+</script>
+</body></html>
