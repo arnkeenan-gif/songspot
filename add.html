@@ -29,19 +29,29 @@
   <p>Open Songspot to add this friend, or type the code in Friends.</p>
   <a id="open" href="#">Open Songspot</a>
   <a class="alt" id="web" href="/">Add them in your browser</a>
-  <a class="alt" href="https://apps.apple.com/app/id6808657554">Get the app</a>
+  <a class="alt" id="get" href="https://apps.apple.com/app/id6808657554">Get the app</a>
 </main>
 <script>
   // The friend code from ?c=, six letters and numbers.
   var c = (new URLSearchParams(location.search).get('c') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   document.getElementById('code').textContent = c || '——';
+  var ua = navigator.userAgent || '';
+  var bot = /bot|crawler|spider|facebookexternalhit|WhatsApp|Twitterbot|Slackbot|Discordbot|TelegramBot|LinkedInBot/i.test(ua);
+  var android = /Android/i.test(ua);
+  var apple = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  var play = 'https://play.google.com/store/apps/details?id=app.songspot';
+  var store = 'https://apps.apple.com/app/id6808657554';
+  // The app's own link. On Android it is an intent that opens Songspot on the
+  // add screen, or Google Play when it isn't installed yet.
   var app = 'songspot://add?c=' + encodeURIComponent(c);
+  if (android) app = 'intent://add?c=' + encodeURIComponent(c) + '#Intent;scheme=songspot;package=app.songspot;S.browser_fallback_url=' + encodeURIComponent(play) + ';end';
   document.getElementById('open').href = app;
+  // "Get the app" goes to this phone's store; a computer keeps the App Store.
+  if (android) document.getElementById('get').href = play;
   // The web game: opens Friends and adds the code (after a sign-in if needed).
   if (c) document.getElementById('web').href = '/?add=' + encodeURIComponent(c);
   // Straight into the app when it's installed; this page stays for everyone else.
-  var ua = navigator.userAgent || '';
-  if (c && /iPhone|iPad|iPod/.test(ua) && !/bot|crawler|facebookexternalhit|WhatsApp|Twitterbot/i.test(ua)) {
+  if (c && (apple || android) && !bot) {
     setTimeout(function () { location.href = app; }, 60);
   }
 </script>

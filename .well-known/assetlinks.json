@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.songspot",
+      "sha256_cert_fingerprints": [
+        "99:7B:68:44:12:FF:98:1A:28:21:B1:62:BB:AC:DE:F3:E0:9E:00:68:96:6B:74:84:88:EA:70:75:D3:3A:2E:3B",
+        "45:2E:6E:44:8F:E1:9A:27:38:20:04:83:31:22:DE:CD:34:AE:68:8E:69:64:FC:82:C0:71:51:37:2F:DE:E6:3B"
+      ]
+    }
+  }
+]
