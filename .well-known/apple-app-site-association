@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["5C4CA83R3R.app.songspot"],
+        "components": [
+          { "/": "/join", "comment": "A party room's QR code: open Songspot straight into the room" },
+          { "/": "/join/*" }
+        ]
+      }
+    ]
+  }
+}
