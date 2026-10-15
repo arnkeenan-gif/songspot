@@ -375,7 +375,13 @@ export class PartyGame {
     /** The rounds the host picked, while a short game plays fewer. */
     this.chosenRounds = null;
     this.pendingPongs = []; this.pongFlush = 0; this.pendingTally = {}; this.tallyFlush = 0;
-    this.lobbyTimer = 0; this.sentCatalogue = false;
+    this.lobbyTimer = 0;
+    // The host sends the catalogue only when it changed or someone new is in the room: with every
+    // lobby, to everyone, it was hundreds of tracks times fifty phones on every join, leave or
+    // rename — where the Realtime egress went (30 GB a day, 230 GB on one streamer's day, 15 Oct 2026).
+    this.catalogueSentTo = new Set(); this.catalogueVersion = 0; this.catalogueSentVersion = -1;
+    // When the lobby last went out: a flapping line asks to join again each time.
+    this.lastLobbyAt = 0;
     /** The last round index this device heard. */
     this.heardRound = -1;
     this.listeners = new Set();
@@ -554,14 +560,14 @@ export class PartyGame {
   async setCategory(category) {
     if (!this.isHost) return;
     this.settings.category = category; this.settings.artist = null; this.settings.album = null; this.albumArtist = null;
-    this.artistSongs = []; this.catalogue = []; this.startNote = null;
+    this.artistSongs = []; this.catalogue = []; this.catalogueVersion++; this.startNote = null;
     this.emit(); await this.broadcastLobby();
   }
   /** One artist's songs for the whole game: straight from the pool, or loaded from Apple for anyone else. */
   async setArtist(name, songs) {
     if (!this.isHost) return;
     this.settings.artist = name; this.settings.album = null; this.albumArtist = null; this.settings.category = 'all'; this.artistSongs = songs;
-    this.catalogue = songs.map(s => ({ id: s.id, title: s.title, artist: s.artist }));
+    this.catalogue = songs.map(s => ({ id: s.id, title: s.title, artist: s.artist })); this.catalogueVersion++;
     this.startNote = null;
     this.emit(); await this.broadcastLobby();
   }
@@ -572,7 +578,7 @@ export class PartyGame {
   async setAlbum(displayName, artist, songs) {
     if (!this.isHost) return;
     this.settings.artist = displayName; this.settings.album = true; this.albumArtist = artist; this.settings.category = 'all'; this.artistSongs = songs;
-    this.catalogue = songs.map(s => ({ id: s.id, title: s.title, artist: s.artist }));
+    this.catalogue = songs.map(s => ({ id: s.id, title: s.title, artist: s.artist })); this.catalogueVersion++;
     this.startNote = null;
     this.emit(); await this.broadcastLobby();
   }
@@ -782,6 +788,9 @@ export class PartyGame {
           // In a team game a newcomer joins the smallest team.
           const team = seatTeam(this.players, this.settings.teams);
           this.players.push({ ...m.player, name: shownNameImpl(m.player.name), isHost: false, score, hue, team });
+        } else if (Date.now() - this.lastLobbyAt < 5000) {
+          // Seated already and the lobby went out moments ago: a flapping line asks again and again, and fifty phones don't need the room read back each time.
+          this.emit(); return;
         }
         this.broadcastLobby(); this.emit();
         return;
@@ -942,9 +951,15 @@ export class PartyGame {
     this.lobbyTimer = this.later(async () => {
       this.lobbyTimer = 0;
       await this.transport.send(Msg.lobby(this.players, this.settings));
-      if (this.catalogue.length || this.sentCatalogue) {
-        this.sentCatalogue = this.catalogue.length > 0;
+      this.lastLobbyAt = Date.now();
+      // The artist's songs: only when they changed (an empty one says "back to the pool"), or someone new is here who never had them.
+      const ids = new Set(this.players.map(p => p.id));
+      const changed = this.catalogueVersion !== this.catalogueSentVersion;
+      const newcomers = this.catalogue.length > 0 && [...ids].some(id => !this.catalogueSentTo.has(id));
+      if (changed || newcomers) {
         await this.transport.send(Msg.catalogue(this.catalogue));
+        this.catalogueSentVersion = this.catalogueVersion;
+        this.catalogueSentTo = ids;
       }
     }, 0.4);
   }
