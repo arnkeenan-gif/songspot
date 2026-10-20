@@ -47,9 +47,16 @@
   document.getElementById('open').href = app;
   // "Get the app" goes to this phone's store; a computer keeps the App Store.
   if (android) document.getElementById('get').href = play;
-  // Straight into the app when it's installed; this page stays for everyone else.
-  if (c && (apple || android) && !bot) {
-    setTimeout(function () { location.href = app; }, 60);
+  // Here at all means the app didn't take the link (a universal / app link opens Songspot itself
+  // when it's installed). iPhone: straight to the App Store. Android: the intent opens Songspot in
+  // the room, or Google Play; if neither has happened a moment later, Play.
+  if (c && !bot) {
+    if (apple) {
+      location.replace(store);
+    } else if (android) {
+      setTimeout(function () { location.href = app; }, 60);
+      setTimeout(function () { if (!document.hidden) location.href = play; }, 1600);
+    }
   }
 </script>
 </body></html>
