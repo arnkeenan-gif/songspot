@@ -2,3 +2,4 @@ google.com, pub-2183185085536179, DIRECT, f08c47fec0942fa0
 unity3d.com, 5774146503717, DIRECT, 96cabb5fbdde37a7
 vungle.com, 6ada7e0af91e48bb2f5fdcb5, DIRECT, c107d686becd2d77
 facebook.com, 1836493444463937, DIRECT, c3e20eee3f780d68
+pangleglobal.com, 5045555, DIRECT
