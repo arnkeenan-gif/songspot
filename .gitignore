@@ -2,3 +2,6 @@ serve.py
 .claude/
 preview.html
 preview/
+
+# The welcome-email design kit (renders, scripts, setup notes): local only, not part of the site
+/email/
