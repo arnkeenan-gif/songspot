@@ -15,7 +15,6 @@ export class Game {
     this.album = null;
     this.song = null; this.stage = 0; this.maxStage = 0; this.status = 'idle';      // idle | playing | won | lost | empty
     this.bonus = 0;              // seconds a rewarded ad added this round
-    this.lastStageExtra = 0;     // seconds added to the last stage (the daily's premium bonus)
     /** Premium's extra skip on Home: after 15 seconds, one more stage of 20. */
     this.extraStage = false;
     this.upcoming = null; this.upcomingKey = '';
@@ -29,7 +28,7 @@ export class Game {
   get filterKey() { return this.filterKeyFor(this.difficulty); }
   filterKeyFor(tier) { return [tier, this.era, this.category, this.artist || '', this.album?.id || '', this.artistSongs.length].join('|'); }
   static nextTier(t) { return TIERS[(TIERS.indexOf(t) + 1) % TIERS.length]; }
-  get duration() { const l = this.ladder, i = Math.min(this.stage, l.length - 1); return l[i] + this.bonus + (i === l.length - 1 ? this.lastStageExtra : 0); }
+  get duration() { const l = this.ladder, i = Math.min(this.stage, l.length - 1); return l[i] + this.bonus; }
   get isOver() { return this.status === 'won' || this.status === 'lost'; }
   get isLastStage() { return this.maxStage >= this.ladder.length - 1; }
 

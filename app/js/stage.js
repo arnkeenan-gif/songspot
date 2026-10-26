@@ -92,8 +92,8 @@ export function mountStage(root, ctx) {
     row.classList.toggle('lifted', lift > 0);
     syncFlame(flameHost, account.stats?.streak || 0, game.status === 'won');
     sound.enabled = S('sounds'); player.setVolume(S('volume'));
-    // Premium gets one more skip after 15 s: a 20 s stage. The old +5 on the last stage is the daily's alone now.
-    game.extraStage = !!ctx.premium; game.lastStageExtra = 0;
+    // Premium gets one more skip after 15 s: a 20 s stage (the daily's too).
+    game.extraStage = !!ctx.premium;
     // A remembered artist or album comes off when premium lapses.
     if (wasPremium === true && !ctx.premium && game.narrowed) { wasPremium = false; game.artist = null; game.album = null; game.setArtistSongs([]); setTimeout(newRound, 0); }
     wasPremium = !!ctx.premium;

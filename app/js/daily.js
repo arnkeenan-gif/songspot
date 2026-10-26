@@ -202,6 +202,8 @@ async function send(account, r) {
 // ---------------------------------------------------------------- the screen
 
 const STAGE_POS = [1.0, 5.5, 24.3, 41.3, 100];
+// With premium's extra 20 s stage, 15 s stops short of the end so the last skip still has room (the stage's).
+const STAGE_POS_EXTRA = [1.0, 5.5, 24.3, 41.3, 41.3 / 8 * 15, 100];
 const DEMO_NAMES = ['Mia', 'Noah', 'Liv', 'Theo', 'Sofia', 'Eli', 'Aya', 'Max', 'Ivy', 'Kai'];
 
 /** The shared foundation's styles (kit panels, the season's backdrop, the faces): linked once, if the page hasn't yet. */
@@ -291,8 +293,8 @@ export function mountDaily(ctx) {
       <div class="d-round">
         ${badgeHTML()}
         <div class="timeline" aria-label="Clip length ${label(secs)}">
-          <div class="track"><div class="fill" style="width:${STAGE_POS[st]}%"></div><div class="live"></div>${marks}</div>
-          <div class="marker" style="left:${STAGE_POS[st]}%"><span class="caret">${I.caretUp}</span><b>${label(secs)}</b></div>
+          <div class="track"><div class="fill" style="width:${barPos()}%"></div><div class="live"></div>${marks}</div>
+          <div class="marker" style="left:${barPos()}%"><span class="caret">${I.caretUp}</span><b>${label(secs)}</b></div>
         </div>
         <div class="playrow${playing ? ' playing' : ''}">
           <button class="disc" data-act="play" aria-label="${fetchingSong ? "Loading today's song" : playing ? 'Stop' : 'Play the clip'}">${fetchingSong ? SPINNER : playing ? I.pause : I.play.replace('class="i"', 'class="i play-g"')}<span class="ring"></span><svg class="sweep" viewBox="0 0 125.12 125.12"><circle cx="62.56" cy="62.56" r="61.472" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/></svg></button>
@@ -313,8 +315,12 @@ export function mountDaily(ctx) {
   function marksFor(st) {
     const k = Math.min(st, 3), scale = STAGE_POS[k] / STAGES[k], out = [];
     STAGES.slice(0, 4).forEach((t, i) => { const at = Math.min(100, scale * t); if (i !== st && at <= 45) out.push([i, at]); });
+    // Premium's extra skip: 15 s is a step of its own then, so it gets the same line, between 15 s and 20 s.
+    if (game && game.extraStage && st !== 4) { const at = scale * STAGES[4]; if (at < 100) out.push([4, at]); }
     return out;
   }
+  /** Where the bar is filled to at this stage, as the stage's. */
+  const barPos = () => { if (!game) return STAGE_POS[0]; const pos = game.extraStage ? STAGE_POS_EXTRA : STAGE_POS; return pos[Math.min(game.stage, pos.length - 1)]; };
   /**
    * A skip or a wrong guess moves the bar on in place, as the stage does: the fill,
    * the caret and the marks glide on the bar curve, a mark that comes or goes fades
@@ -324,8 +330,8 @@ export function mountDaily(ctx) {
     const st = game.stage, secs = game.duration;
     const tl = scr.querySelector('.timeline'); if (!tl) return renderRound();
     tl.setAttribute('aria-label', `Clip length ${label(secs)}`);
-    tl.querySelector('.fill').style.width = STAGE_POS[st] + '%';
-    const mk = tl.querySelector('.marker'); mk.style.left = STAGE_POS[st] + '%'; mk.querySelector('b').textContent = label(secs);
+    tl.querySelector('.fill').style.width = barPos() + '%';
+    const mk = tl.querySelector('.marker'); mk.style.left = barPos() + '%'; mk.querySelector('b').textContent = label(secs);
     const track = tl.querySelector('.track'), want = new Map(marksFor(st));
     track.querySelectorAll('.mark').forEach(m => {
       const i = +m.dataset.i;
@@ -478,7 +484,8 @@ export function mountDaily(ctx) {
   }
   /** After every guess or skip: still playing, or over one way or the other. */
   function settle() {
-    if (game.status === 'won') return finish(true, game.stage);
+    // Named on premium's extra 20 s stage: still the last stage (0…4) on the record and the boards, where 5 means missed.
+    if (game.status === 'won') return finish(true, Math.min(game.stage, 4));
     if (game.status === 'lost') {
       // Free play can earn five more seconds with a rewarded ad, once. Premium already had its 20.
       const ads = ctx.ads;
@@ -835,7 +842,7 @@ export function mountDaily(ctx) {
   function begin() {
     if (!song) return;
     game = new Game(pool);
-    game.lastStageExtra = ctx.premium ? 5 : 0;           // premium hears 20 s on the last stage
+    game.extraStage = !!ctx.premium;                     // premium's extra skip, as on Home: after 15 s, one more stage of 20
     game.newRound(song);
     query = ''; picked = null; hits = []; clipError = null; hints = 0; started = false;
     renderRound();
