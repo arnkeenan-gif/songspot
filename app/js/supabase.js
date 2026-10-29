@@ -175,11 +175,14 @@ export const profiles = {
   },
 };
 
-/** How an insert went: 2xx or a duplicate landed; no answer, a 5xx or a 401 are worth another go; anything else was refused. */
+/**
+ * How an insert went: 2xx or a duplicate landed; no answer, a 5xx, or a 401 while this browser holds a session
+ * (the token the server didn't take will be refreshed) are worth another go; anything else was refused.
+ */
 export function outcome(res) {
   const { error, status } = res || {};
   if (!error || (status >= 200 && status < 300) || status === 409 || error.code === '23505') return 'landed';
-  return !status || status >= 500 || status === 401 ? 'failed' : 'refused';
+  return !status || status >= 500 || (status === 401 && auth.stored()) ? 'failed' : 'refused';
 }
 
 /**
@@ -195,21 +198,28 @@ export const outbox = {
   async insert(table, row) {
     let o = 'failed';
     try { o = outcome(await supabase.from(table).insert(row)); } catch (e) {}
-    if (o === 'failed') { this.rows = [...this.rows, { table, row }]; this.later(); }
+    // Each waiting row has its own id: a flush already out reads the list once and must not write this row away.
+    if (o === 'failed') { this.rows = [...this.rows, { id: crypto.randomUUID(), table, row }]; this.later(); }
     return o;
   },
   later(ms = this._slow.next()) { clearTimeout(this._timer); this._timer = setTimeout(() => this.flush(), ms); },
-  /** Send what is waiting, oldest first. */
+  /** Send what is waiting, oldest first. Signed out, the rows wait for a session (the next open sends them). */
   async flush() {
     if (this._sending) return;
     this._sending = true; clearTimeout(this._timer);
     try {
-      const left = [];
+      const me = auth.stored()?.user?.id;
+      if (!me) return;
+      const done = new Set();
       for (const r of this.rows) {
+        // Another account's row (the player signed in as someone else since) would only be refused: dropped here.
+        if (r.row?.user_id && r.row.user_id !== me) { done.add(r.id); continue; }
         let o = 'failed';
         try { o = outcome(await supabase.from(r.table).insert(r.row)); } catch (e) {}
-        if (o === 'failed') left.push(r);
+        if (o !== 'failed') done.add(r.id);
       }
+      // Read again now: a row that failed while this ran is in the list and stays.
+      const left = this.rows.filter(r => !done.has(r.id));
       this.rows = left;
       if (left.length) this.later(); else this._slow.reset();
     } finally { this._sending = false; }
@@ -235,7 +245,8 @@ export const premium = {
       if (!error && data) { this.forever = !!data.premium && data.expires_at == null; return !!data.premium; }
     } catch (e) {}
     try {
-      const u = await auth.user(); if (!u) return null;
+      // The stored user: the fallback only needs the id, and GET /user was one more request on a server that just gave no answer.
+      const u = auth.cached(); if (!u) return null;
       const { data, error } = await supabase.from('premium_grants').select('user_id').eq('user_id', u.id).maybeSingle();
       return error ? null : !!data;
     } catch (e) { return null; }

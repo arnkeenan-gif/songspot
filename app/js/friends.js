@@ -121,11 +121,15 @@ export const Friends = {
     this.beat().then(() => this.refresh());
     this._next(BEAT_MS);
   },
-  /** The beat after this one, `ms` from now; each beat books the next by how the last one went. */
+  /**
+   * The beat after this one, `ms` from now; each beat books the next by how the last one went. A beat books on
+   * only while its own chain is still the live one: a stop()/start() while it was out (the tab hidden and shown
+   * on a slow server) has booked a new chain, and a second one would beat twice as often.
+   */
   _next(ms) {
-    this._timer = setTimeout(async () => {
+    const id = this._timer = setTimeout(async () => {
       const answered = await this.beat();
-      if (this._timer) this._next(answered ? this._pace.reset() : this._pace.next());
+      if (this._timer === id) this._next(answered ? this._pace.reset() : this._pace.next());
     }, ms);
   },
   stop() {
