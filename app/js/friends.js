@@ -1,15 +1,17 @@
 // Friends.swift on the web: the list, who is online, and 1v1 challenges. One
 // per page: the heartbeat runs every 15 s while the tab is visible and the
 // player is signed in, and doubles as the check for incoming challenges (see
-// heartbeat() in supabase/friends.sql). The same RPCs the iPhone app calls, so
-// friends made on the phone are here and a web player can challenge an iPhone.
+// heartbeat() in supabase/friends.sql). While the server gives no answer the
+// beats space out (30 s, 60, 120) rather than queue up on a struggling
+// database. The same RPCs the iPhone app calls, so friends made on the phone
+// are here and a web player can challenge an iPhone.
 // The friend bell (friendbell.js) makes it instant: a ring on bell-<my id>
 // fetches at once instead of at the next beat, and every friend action here
 // rings the other player's bell.
 // Also here: ChallengeBanner / challengeOverlay, the card that drops in over
 // whatever screen is up when a friend challenges you, and the toast for a
 // friend request that has just arrived.
-import { supabase } from './supabase.js';
+import { supabase, Backoff } from './supabase.js';
 import { el, esc, settings, toast } from './ui.js';
 import { I } from './icons.js';
 import { Haptics } from './haptics.js';
@@ -62,7 +64,9 @@ export const Friends = {
   onLaunch: null,
   /** Screens that close when a 1v1 opens (the Friends sheet). */
   closers: new Set(),
-  _dismissed: new Set(), _timer: 0, _listeners: new Set(), _beating: false, _ringing: null,
+  _dismissed: new Set(), _timer: 0, _listeners: new Set(), _beating: false, _refreshing: null, _ringing: null,
+  /** The wait before the next beat: 15 s after one the server answered, longer after one it didn't. */
+  _pace: new Backoff(BEAT_MS),
   /** The requests already seen, so only a new one is announced. */
   _knownRequests: null,
   /** The user id `code` belongs to. */
@@ -80,6 +84,8 @@ export const Friends = {
   get sent() { return this.list.filter(f => !accepted(f) && !f.incoming); },
   get onlineCount() { return this.friends.filter(f => isOnline(f) && !isBot(f)).length; },
   get signedIn() { return demoMode || !!this.account?.signedIn; },
+  /** True while the last beat was answered: the list is worth asking for again. */
+  get calm() { return this._pace.calm; },
   get userID() { return this.account?.user && !this.account.user.is_anonymous ? this.account.user.id : null; },
   /** True while a party or a ranked match (not the ranked lobby) is on screen, so a challenge can't stack a second one. */
   get inParty() { return !!document.querySelector('#views > .view.party.in, #views > .view.ranked.rk-inmatch'); },   // iOS hides challenges only during a ranked match
@@ -113,10 +119,17 @@ export const Friends = {
     if (this._timer || document.hidden || !this.signedIn || demoMode) return;
     // Once at the start, so the menu badge and the Friends tab can show a waiting request without the page open.
     this.beat().then(() => this.refresh());
-    this._timer = setInterval(() => this.beat(), BEAT_MS);
+    this._next(BEAT_MS);
+  },
+  /** The beat after this one, `ms` from now; each beat books the next by how the last one went. */
+  _next(ms) {
+    this._timer = setTimeout(async () => {
+      const answered = await this.beat();
+      if (this._timer) this._next(answered ? this._pace.reset() : this._pace.next());
+    }, ms);
   },
   stop() {
-    clearInterval(this._timer); this._timer = 0;
+    clearTimeout(this._timer); this._timer = 0;
     this._ringing = null;
     FriendBell.stop();
   },
@@ -139,22 +152,29 @@ export const Friends = {
     while (this.rings === before && Date.now() < until) await new Promise(r => setTimeout(r, 150));
     return this.rings !== before;
   },
+  /** One beat. Resolves true when the server answered (a beat already out counts as answered: nothing is known yet). */
   async beat() {
-    if (!this.signedIn || demoMode || this._beating) return;
+    if (!this.signedIn || demoMode || this._beating) return true;
     this._beating = true;
     try {
       // The bell is answered only while the heartbeat runs (page open and visible).
       if (this._timer && this.userID) FriendBell.listen(this.userID);
       const { data, error } = await supabase.rpc('heartbeat');
-      if (error || !Array.isArray(data)) return;
+      if (error || !Array.isArray(data)) return false;
       const next = data.find(c => !this._dismissed.has(c.id)) || null;
       const shown = this.inParty ? null : next;
       if ((shown?.id ?? null) !== (this.incoming?.id ?? null)) { this.incoming = shown; this.emit(); }
-    } catch (e) {} finally { this._beating = false; }
+      return true;
+    } catch (e) { return false; } finally { this._beating = false; }
   },
 
   // ---- the list ----
-  async refresh() {
+  /** The list from the server. A refresh already out is shared, so a slow server never has two in flight. */
+  refresh() {
+    if (!this._refreshing) this._refreshing = this._refresh().finally(() => { this._refreshing = null; });
+    return this._refreshing;
+  },
+  async _refresh() {
     if (demoMode) { this.emit(); return; }
     if (!this.signedIn) { this.list = []; this.loaded = true; this.emit(); return; }
     try {

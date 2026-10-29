@@ -3,7 +3,8 @@
 // "Fetching your profile…" while the first sync runs). On the web it is not a gate — "Not now" goes back to
 // the game — except after paying as a guest: then { forced: true } keeps it up until they have a profile, so
 // premium is theirs. Only providers that are set up for the web are offered (a provider without a web client
-// answers 400, and the button would only fail).
+// answers 400, and the button would only fail). A server that can't be reached is said so, with a way to try
+// again — never a spinner that stays, or a trip to the provider that ends on an error page.
 //
 //   openLogin(ctx, { forced })       the full-screen sign-in over everything → { close }
 //   mountLoginGate(container, ctx)   the same gate inside a container (the Profile tab for a guest) → { destroy() }
@@ -17,10 +18,12 @@ if (!document.getElementById('css-login')) {
 /** The buttons and lines of the gate, wired into `inner`. Returns { destroy }. */
 function gate(ctx, inner, { forced = false, onClose = null } = {}) {
   const { account, sound } = ctx;
-  let returning = false, working = null, err = null, apple = false, google = false, ready = false, dead = false;
+  let returning = false, working = null, err = null, apple = false, google = false, ready = false, down = false, dead = false;
+  const UNREACHABLE = "Can't reach Songspot right now — try again in a moment.";
   const paint = () => {
     if (dead) return;
     if (!ready) { inner.innerHTML = '<p class="fine" style="margin:0 0 8px"><i class="spin s"></i></p>'; return; }
+    if (down) { inner.innerHTML = `<p class="err">${UNREACHABLE}</p><button class="btn surface retry" data-press>Try again</button>${forced || !onClose ? '' : '<button class="btn quiet notnow" data-press>Not now</button>'}`; return; }
     const any = apple || google;
     const off = working || account.signedIn ? 'disabled' : '';
     const syncing = account.syncing ? '<p class="fine lg-sync"><i class="spin s"></i>&nbsp; Fetching your profile…</p>' : '';
@@ -35,16 +38,28 @@ function gate(ctx, inner, { forced = false, onClose = null } = {}) {
       ${onClose ? '<button class="btn surface notnow" data-press style="margin-top:8px">Keep playing</button>' : ''}`;
   };
   paint();
-  Promise.all([account.providerReady('apple'), account.providerReady('google')]).then(([a, g]) => { apple = a; google = g; ready = true; paint(); });
+  // Which buttons to show. No answer about either provider is a server that can't be reached, not a web with no sign-in.
+  const look = async () => {
+    ready = false; down = false; paint();
+    const [a, g] = await Promise.all([account.providerReady('apple'), account.providerReady('google')]);
+    apple = !!a; google = !!g;
+    down = a == null && g == null;
+    ready = true; paint();
+  };
+  look();
   const onClick = async e => {
     const b = e.target.closest('button'); if (!b || b.disabled) return;
     sound?.click?.();
     if (b.classList.contains('notnow') && !forced) return onClose && onClose();
+    if (b.classList.contains('retry')) return look();
     if (b.classList.contains('toggle')) { returning = !returning; return paint(); }
     const p = b.dataset.p; if (!p || working) return;
     working = p; err = null; paint();
+    // The server first, before the page leaves for the provider: signed in there and back to a server that
+    // can't finish the sign-in is a dead end. Pressing the button again is the retry.
+    if (!(await account.reachable())) { working = null; err = UNREACHABLE; paint(); return; }
     try { const r = await account.signIn(p, returning); if (r?.error) throw r.error; }         // the page leaves for the provider
-    catch (x) { working = null; err = "Couldn't reach Songspot's servers. Check your connection and try again."; paint(); }
+    catch (x) { working = null; err = UNREACHABLE; paint(); }
   };
   inner.addEventListener('click', onClick);
   const off = account.onChange(() => paint());

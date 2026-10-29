@@ -241,6 +241,7 @@ every screen at 390 and 1440, `sheet.py` = side-by-side sheet, plus per-area Pla
 ## Friends and system — friends.js, friendsview.js, friendbell.js, shazamguard.js, offline.js, funnel.js, haptics.js
 - ✅ Friend and challenge model, "seen" label, ordering, online count; Songbot has its own 3D face
 - ✅ Heartbeat every 15 s plus a refresh on start; a hidden tab = the iPhone's background
+- ✅ A slow or dead server (28-29 Oct): every Supabase request has 10 s; a failed token refresh holds the next one back 15/30/60/120 s; the heartbeat, the profile push and the resync space out the same way; the stored session puts a returning player on the stage at once; the sign-in gate says "Can't reach Songspot right now" with Try again; ranked results the server didn't take wait in an outbox (`songspot.outbox`) and go again
 - ✅ Friend bell on the iOS wire (`realtime:bell-<id>`): it rings after add, respond, remove, challenge, cancel and answer, and the 1v1 host waits on it (≈0.7 s between two pages). New-request toast.
 - ✅ add() answers in the iOS wording (already, too many, 30-or-more sent)
 - ✅ Friends screen in colour panels:

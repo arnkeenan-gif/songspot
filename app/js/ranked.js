@@ -10,7 +10,7 @@ import { el, esc, alpha, pushView, popView, openSheet, sleep, cap, TIER_COLOR, T
 import { I, sf } from './icons.js';
 import { choiceGrid, updateChoiceGrid, deal as dealBoard, toChoice } from './choices.js';
 import { Haptics } from './haptics.js';
-import { supabase } from './supabase.js';
+import { supabase, outbox } from './supabase.js';
 import { confetti } from './confetti.js';
 import { spring, bezier, still } from './motion.js';
 import { Ladder } from './ladder.js';
@@ -866,12 +866,12 @@ export function mountRanked(ctx) {
     }
   }
 
-  /** Bank a finished match on the boards. Fire and forget: the result screen never waits on it. */
+  /** Bank a finished match on the boards. Fire and forget: the result screen never waits on it, and a row the server didn't take goes again later (the outbox). */
   async function post(points) {
     try {
       const u = await account.ensureUser();
-      const { error } = await supabase.from('ranked_results').insert({ user_id: u.id, points, score: game.myScore, won: game.iWon, display_name: ((account.name || '').trim() || 'Player').slice(0, 20), avatar: account.avatar || null });
-      if (error) console.warn('ranked_results', error.message);
+      const o = await outbox.insert('ranked_results', { user_id: u.id, points, score: game.myScore, won: game.iWon, display_name: ((account.name || '').trim() || 'Player').slice(0, 20), avatar: account.avatar || null });
+      if (o !== 'landed') console.warn('ranked_results', o);
     } catch (e) { console.warn('ranked_results', e); }
   }
 

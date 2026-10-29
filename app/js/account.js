@@ -2,7 +2,7 @@
 // waits on the network, and mirrored to the player's own row in Supabase —
 // the same row and the same Stats shape the iPhone app writes, so a profile
 // follows its owner between the phone and the web.
-import { auth, profiles, premium as grants, providerReady } from './supabase.js';
+import { auth, profiles, premium as grants, providerReady, Backoff } from './supabase.js';
 import { settings } from './ui.js';
 import { Ladder } from './ladder.js';
 import { NameFilter, GirlNames, parseChoice, choiceRaw, unchosen, myKey, has, SPOT_GIRL, variantOf } from './characters.js';
@@ -167,10 +167,16 @@ export class Account {
     const at = settings.get('profile.attempted', null); this.attempted = at ? withDefaults(at) : null;
     /** Changes here the server hasn't confirmed yet (unknown on the first run of this build: assume some). */
     this.unsynced = settings.get('profile.unsynced', true) !== false;
-    this.premium = false;
+    /** The server's last word on premium, so a returning player keeps it while the server is slow or down. */
+    const held = !DEMO && !!auth.cached();
+    this.premium = held && settings.get('profile.premium', false) === true;
+    this.premiumForever = held && settings.get('profile.premiumForever', false) === true;
     this.syncing = false;
+    /** The row could not be read at the last adopt: synced again shortly (15 s, 30, 60, then 120 apart). */
+    this.stale = false;
     this.listeners = new Set();
-    this._push = null;
+    this._push = null; this._resync = null;
+    this._pushWait = new Backoff(30000); this._syncWait = new Backoff(15000);
     this.demo = DEMO;
     if (DEMO) {
       this.user = { id: 'demo-profile', is_anonymous: false, app_metadata: { provider: 'demo' }, user_metadata: {} };
@@ -205,29 +211,38 @@ export class Account {
   onChange(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   emit() { this.listeners.forEach(f => { try { f(this); } catch (e) { console.error(e); } }); }
 
+  /**
+   * The player this browser holds is in at once, from the stored session (no round trip to the server, which
+   * may be slow or down); the sync runs alongside and the stage waits for it a moment at most. supabase-js
+   * refreshes the token by itself and says when the session is gone (revoked, signed out elsewhere).
+   */
   async boot() {
     if (this.demo) return;
-    let u = null;
-    try { u = await auth.user(); } catch (e) {}
-    if (u) await this.adopt(u);
+    const u = auth.cached();
+    const sync = u ? this.adopt(u) : Promise.resolve();
     auth.onChange(async s => {
       if (s?.user && (!this.user || this.user.id !== s.user.id || this.user.is_anonymous !== s.user.is_anonymous)) await this.adopt(s.user);
-      else if (!s?.user && this.user) { this.user = null; this.premium = false; this.emit(); }
+      else if (s?.user && this.stale && !this.syncing) await this.adopt(s.user);     // the token came back: read the row now
+      else if (!s?.user && this.user) { clearTimeout(this._resync); this.user = null; this.premium = false; this.premiumForever = false; this.persist(); this.emit(); }
     });
+    await Promise.race([sync, new Promise(r => setTimeout(r, 3000))]);
   }
   /**
    * Account.adoptSession: take the row that already exists for this player, or create it. Local and remote
    * stats are merged against the base; on a first sync, the copy with more play is kept. A failed read is not
-   * "no row yet": nothing is written then (push reads and merges before it ever writes).
+   * "no row yet": nothing is written then (push reads and merges before it ever writes), and the read is tried
+   * again in the background until it lands.
    */
   async adopt(user) {
+    clearTimeout(this._resync);
     this.user = user; this.syncing = true; this.emit();
+    let read = false;
     try {
       // What is here is another real player's (their session ran out and someone else signed in): start clean.
       const owner = settings.get('profile.owner', null);
       if (owner && !user.is_anonymous && owner !== user.id) { clearTimeout(this._push); this.clearLocal(); }
       if (!user.is_anonymous) await auth.handOverGuest(user.id);
-      let remote = null, read = false;
+      let remote = null;
       for (let attempt = 0; attempt < 3; attempt++) {
         try { remote = await profiles.fetch(user.id); read = true; break; }
         catch (e) { await new Promise(r => setTimeout(r, 1000 * (attempt + 1))); }
@@ -252,17 +267,31 @@ export class Account {
       if (!this.memberSince) this.memberSince = new Date();
       await Promise.race([GirlNames.ready, new Promise(r => setTimeout(r, 1500))]);
       this.dress();
-      this.premium = await grants.has().catch(() => false);
-      this.premiumForever = !!(this.premium && grants.forever);
+      await this.askPremium();
       this.persist();
       if (read) await this.push();
-    } finally { this.syncing = false; this.emit(); }
+    } finally {
+      this.syncing = false;
+      // Not read: the local copy stands, and the row is read again once the server answers.
+      this.stale = !read;
+      if (read) this._syncWait.reset();
+      else if (this.user === user) this._resync = setTimeout(() => { if (this.user === user && this.stale && !this.syncing) this.adopt(user); }, this._syncWait.next());
+      this.emit();
+    }
   }
-  async refreshPremium() { if (this.demo) return this.premium; if (!this.user) return false; this.premium = await grants.has().catch(() => false); this.premiumForever = !!(this.premium && grants.forever); this.emit(); return this.premium; }
+  /** The server's word on premium; no answer keeps the last one. */
+  async askPremium() {
+    const p = await grants.has().catch(() => null);
+    if (p == null) return;
+    this.premium = p; this.premiumForever = !!(p && grants.forever);
+  }
+  async refreshPremium() { if (this.demo) return this.premium; if (!this.user) return false; await this.askPremium(); this.persist(); this.emit(); return this.premium; }
   /** A user id for boards and checkout: the real account, or a guest one made now. */
   async ensureUser() { if (this.user) return this.user; const u = await auth.ensureGuest(); await this.adopt(u); return u; }
   signIn(provider = 'google', returning = false) { return auth.signInWith(provider, returning); }
   providerReady(p) { return providerReady(p); }
+  /** Can Songspot be reached right now (one small read)? */
+  reachable() { return this.demo ? Promise.resolve(true) : auth.reachable(); }
 
   /**
    * Before signing out: send what the server hasn't confirmed yet, waiting 8 s at most. False when some play
@@ -395,6 +424,7 @@ export class Account {
   clearLocal() {
     this.name = ''; this.avatar = null; this.stats = freshStats(); this.memberSince = null;
     this.synced = null; this.attempted = null; this.unsynced = false; this.autoAvatar = null;
+    this.premium = false; this.premiumForever = false; this.stale = false; clearTimeout(this._resync);
     settings.del('profile.owner');
     try { ['songspot.creator.code', 'songspot.creator.name'].forEach(k => localStorage.removeItem(k)); } catch (e) {}
     this.persist();
@@ -404,12 +434,13 @@ export class Account {
     settings.set('profile.name', this.name); settings.set('profile.avatar', this.avatar); settings.set('profile.stats', this.stats);
     settings.set('profile.since', this.memberSince ? this.memberSince.getTime() : null);
     settings.set('profile.synced', this.synced); settings.set('profile.attempted', this.attempted); settings.set('profile.unsynced', this.unsynced);
+    settings.set('profile.premium', !!this.premium); settings.set('profile.premiumForever', !!this.premiumForever);
   }
   /** A change here: kept at once, sent to the server shortly. */
   changed() { this.unsynced = true; this.persist(); this.schedulePush(); }
-  /** Writes are coalesced: a burst of rounds becomes one request. A failed one is tried again in 30 s. */
+  /** Writes are coalesced: a burst of rounds becomes one request. A failed one is tried again in 30 s, then 60, then 120. */
   schedulePush(delay = 2000) { if (this.demo) return; clearTimeout(this._push); this._push = setTimeout(() => this.push(), delay); }
-  retryLater() { this.schedulePush(30000); }
+  retryLater() { this.schedulePush(this._pushWait.next()); }
   /**
    * Read, merge, then write (Account.push). The server copy is fetched first and merged with this one, so play
    * on another device, or here while offline, is added rather than overwritten. If the read fails, nothing is
@@ -439,7 +470,7 @@ export class Account {
       const res = await profiles.save(uid, sentName, sentAvatar, sent);
       if (res && res.error) throw res.error;
     } catch (e) { this.retryLater(); return false; }
-    this.synced = sent; this.attempted = null;
+    this.synced = sent; this.attempted = null; this._pushWait.reset();
     if (!this.user.is_anonymous) settings.set('profile.owner', uid);
     // A round played while the save was out goes with the next push.
     if (sameStats(this.stats, sent) && this.name === sentName && this.avatar === sentAvatar) this.unsynced = false;

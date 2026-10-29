@@ -178,8 +178,8 @@ function buildFriends(host, ctx, { inTab = false, onClose = null } = {}) {
 
   const offFriends = Friends.onChange(() => render());
   const offAccount = account.onChange(() => { render(); if (account.signedIn) Friends.refresh().then(takePending); });
-  // The list again every 15 s while it is open, so the online dots stay true.
-  const tick = setInterval(() => { if (!document.hidden) Friends.refresh(); }, 15000);
+  // The list again every 15 s while it is open, so the online dots stay true — not while the heartbeat is getting no answer.
+  const tick = setInterval(() => { if (!document.hidden && Friends.calm) Friends.refresh(); }, 15000);
 
   render();
   Friends.refresh().then(takePending);

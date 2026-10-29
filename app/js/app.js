@@ -134,7 +134,7 @@ export function loadCSS(name) {
     refresh: () => { stage?.render(); tabs?.refresh(); },
   };
   window.__songspot = ctx;                                   // for poking at it from the console
-  account.onChange(() => { stage?.render(); tabs?.refresh(); ads.sync(); if (account.signedIn && settings.get('mustProfile', false)) settings.set('mustProfile', false); resumePremium(); loginDoor(); });
+  account.onChange(() => { stage?.render(); tabs?.refresh(); ads.sync(); if (account.signedIn && settings.get('mustProfile', false)) settings.set('mustProfile', false); resumePremium(); loginDoor(); guestPremiumDoor(); });
   // [money] A new player sees premium once, straight after signing in (StageView's LoginGateView done):
   // only for a sign-in during this visit, with nothing else waiting (a pending buy, a party or friend code, a screen open).
   const signedInAtBoot = account.signedIn;
@@ -162,6 +162,8 @@ export function loadCSS(name) {
   }
   /** Paid as a guest: the sign-in screen without a way out, until premium sits on a real profile. */
   const mustProfile = async () => { if (account.isGuest) (await lazy('login', 'openLogin', 'app'))(ctx, { forced: true }); };
+  // The sync no longer holds the stage (a slow server), so a guest's premium can turn up after the first draw.
+  const guestPremiumDoor = () => { if (account.isGuest && account.premium && !account.syncing && account.user) mustProfile(); };
   // Friends: the heartbeat (online + incoming challenges) and the challenge banner.
   // A 1v1 opens out of whatever is on screen: the menu closes, the stage goes quiet.
   loadCSS('friends');
